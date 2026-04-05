@@ -1,10 +1,16 @@
 import { z } from "zod";
+import { TENANT_MODULE_VALUES } from "@/lib/tenant-modules";
 
 const optionalTrimmedString = z
   .string()
   .trim()
   .optional()
   .transform((value) => value || undefined);
+
+const teamMemberPermissionSchema = z.object({
+  module: z.enum(TENANT_MODULE_VALUES),
+  isAllowed: z.boolean(),
+});
 
 /**
  * Schema compartilhado para criar e editar membros da equipe sem perder o vínculo histórico.
@@ -23,6 +29,14 @@ export const teamMemberBaseSchema = z.object({
   contractType: z.enum(["CLT", "PJ"]).optional(),
   registrationNumber: optionalTrimmedString,
   isActive: z.boolean().default(true),
+  modulePermissions: z
+    .array(teamMemberPermissionSchema)
+    .refine(
+      (permissions) =>
+        new Set(permissions.map((permission) => permission.module)).size ===
+        permissions.length,
+      "Cada módulo deve aparecer apenas uma vez."
+    ),
 });
 
 export const createTeamMemberSchema = teamMemberBaseSchema.extend({

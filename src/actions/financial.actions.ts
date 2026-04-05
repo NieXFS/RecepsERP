@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import {
   checkoutAppointment,
   payCommissions,
@@ -22,22 +22,18 @@ export async function checkoutAppointmentAction(
     installments?: number;
   }
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("AGENDA");
   return checkoutAppointment(session.tenantId, appointmentId, options);
 }
 
 /**
  * Server Action: marca comissões como pagas no acerto com o profissional.
- * Chamada pelo Admin ao fazer o acerto quinzenal/mensal.
+ * Exige acesso efetivo ao módulo de Comissões.
  */
 export async function payCommissionsAction(
   commissionIds: string[]
 ): Promise<ActionResult<{ paidCount: number }>> {
-  const session = await requireAuth();
-
-  if (session.role !== "ADMIN") {
-    return { success: false, error: "Apenas administradores podem realizar acertos de comissão." };
-  }
+  const session = await requireModuleAccess("COMISSOES");
 
   return payCommissions(session.tenantId, commissionIds);
 }
@@ -46,7 +42,7 @@ export async function payCommissionsAction(
  * Server Action: lista comissões pendentes de um profissional para visualização do acerto.
  */
 export async function getPendingCommissionsAction(professionalId: string) {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("COMISSOES");
   return getPendingCommissions(session.tenantId, professionalId);
 }
 
@@ -55,11 +51,7 @@ export async function getPendingCommissionsAction(professionalId: string) {
  * Cada profissional inclui soma PENDING e lista detalhada dos serviços.
  */
 export async function getCommissionsSummaryAction() {
-  const session = await requireAuth();
-
-  if (session.role !== "ADMIN") {
-    return [];
-  }
+  const session = await requireModuleAccess("COMISSOES");
 
   return getCommissionsSummaryByProfessional(session.tenantId);
 }
@@ -67,17 +59,13 @@ export async function getCommissionsSummaryAction() {
 /**
  * Server Action: realiza o acerto financeiro completo de um profissional.
  * Marca comissões PENDING → PAID e cria Transaction EXPENSE no caixa.
- * Apenas ADMIN pode executar esta ação.
+ * Exige acesso efetivo ao módulo de Comissões.
  */
 export async function settleCommissionsAction(
   professionalId: string,
   accountId?: string
 ): Promise<ActionResult<{ paidCount: number; expenseTransactionId: string }>> {
-  const session = await requireAuth();
-
-  if (session.role !== "ADMIN") {
-    return { success: false, error: "Apenas administradores podem realizar acertos de comissão." };
-  }
+  const session = await requireModuleAccess("COMISSOES");
 
   return settleCommissions(session.tenantId, professionalId, accountId);
 }

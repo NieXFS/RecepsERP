@@ -1,5 +1,4 @@
-import { getAuthUser } from "@/lib/session";
-import { redirect } from "next/navigation";
+import { getAuthUserForModule } from "@/lib/session";
 import { listProducts } from "@/services/inventory.service";
 import { InventoryPanel } from "@/components/inventory/inventory-panel";
 
@@ -9,12 +8,7 @@ import { InventoryPanel } from "@/components/inventory/inventory-panel";
  * é restrita a ADMIN no Client Component (botão escondido).
  */
 export default async function InventoryPage() {
-  const user = await getAuthUser();
-
-  // RBAC: apenas ADMIN e RECEPTIONIST
-  if (user.role !== "ADMIN" && user.role !== "RECEPTIONIST") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("ESTOQUE");
 
   const products = await listProducts(user.tenantId);
 

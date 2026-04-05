@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import {
   listServicesWithDetails,
   listProductsForSelect,
@@ -12,11 +11,7 @@ import { ServiceCatalogPanel } from "@/components/settings/service-catalog-panel
  * Centraliza o catálogo em uma rota em português sem depender do submenu de configurações.
  */
 export default async function ServicesPage() {
-  const user = await getAuthUser();
-
-  if (user.role !== "ADMIN" && user.role !== "RECEPTIONIST") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("SERVICOS");
 
   const [services, products, professionals] = await Promise.all([
     listServicesWithDetails(user.tenantId),

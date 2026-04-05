@@ -1,6 +1,7 @@
 "use server";
 
-import { requireRole } from "@/lib/session";
+import type { TenantModule } from "@/generated/prisma/enums";
+import { requireModuleAccess } from "@/lib/session";
 import {
   createTeamMemberSchema,
   updateTeamMemberSchema,
@@ -12,10 +13,15 @@ import {
 } from "@/services/team.service";
 import type { ActionResult } from "@/types";
 
+type TeamPermissionInput = {
+  module: TenantModule;
+  isAllowed: boolean;
+};
+
 /**
  * Server Action: cria novo membro da equipe com senha hasheada.
  * Se role PROFESSIONAL, cria User + Professional em $transaction.
- * Apenas ADMIN pode criar membros.
+ * Exige acesso efetivo ao módulo de Profissionais.
  */
 export async function createTeamMemberAction(data: {
   name: string;
@@ -28,8 +34,9 @@ export async function createTeamMemberAction(data: {
   contractType?: "CLT" | "PJ";
   registrationNumber?: string;
   isActive?: boolean;
+  modulePermissions: TeamPermissionInput[];
 }): Promise<ActionResult<{ userId: string }>> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("PROFISSIONAIS");
   const parsed = createTeamMemberSchema.safeParse({
     ...data,
     isActive: data.isActive ?? true,
@@ -58,9 +65,10 @@ export async function updateTeamMemberAction(
     contractType?: "CLT" | "PJ";
     registrationNumber?: string;
     isActive?: boolean;
+    modulePermissions: TeamPermissionInput[];
   }
 ): Promise<ActionResult<{ userId: string }>> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("PROFISSIONAIS");
   const parsed = updateTeamMemberSchema.safeParse({
     ...data,
     isActive: data.isActive ?? true,
@@ -80,6 +88,6 @@ export async function updateTeamMemberAction(
 export async function deactivateTeamMemberAction(
   userId: string
 ): Promise<ActionResult> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("PROFISSIONAIS");
   return deactivateTeamMember(user.tenantId, userId, user.id);
 }

@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DailyCalendar } from "@/components/agenda/daily-calendar";
 import {
@@ -18,7 +18,7 @@ export default async function AgendaPage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
-  const user = await getAuthUser();
+  const user = await getAuthUserForModule("AGENDA");
   const params = await searchParams;
   const tenantId = user.tenantId;
 

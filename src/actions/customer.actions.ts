@@ -1,18 +1,18 @@
 "use server";
 
-import { requireAuth, requireRole } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import { addClinicalNote, addCustomerMedia } from "@/services/customer.service";
 import type { ActionResult } from "@/types";
 
 /**
  * Server Action: adiciona nota de evolução clínica ao prontuário.
- * Apenas ADMIN e PROFESSIONAL podem criar notas clínicas.
+ * Exige acesso efetivo ao módulo de Prontuários.
  */
 export async function addClinicalNoteAction(
   customerId: string,
   notes: string
 ): Promise<ActionResult<{ recordId: string }>> {
-  const user = await requireRole("ADMIN", "PROFESSIONAL");
+  const user = await requireModuleAccess("PRONTUARIOS");
   return addClinicalNote(user.tenantId, customerId, notes);
 }
 
@@ -37,7 +37,7 @@ export async function uploadCustomerMediaAction(
     base64Data: string; // Em produção seria a URL do bucket
   }
 ): Promise<ActionResult<{ mediaId: string }>> {
-  const user = await requireAuth();
+  const user = await requireModuleAccess("CLIENTES");
 
   // Simula URL do bucket — em produção seria a URL real do S3/Cloudinary
   const simulatedUrl = `data:${data.fileType};base64,${data.base64Data}`;

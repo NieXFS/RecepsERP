@@ -1,8 +1,11 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import type { SessionUser } from "@/types";
-import type { GlobalRole, Role } from "@/generated/prisma/enums";
+import { db } from "@/lib/db";
+import { getModuleDefinition } from "@/lib/tenant-modules";
+import { getEffectiveModuleAccessSnapshot } from "@/services/user-permission.service";
+import type { SessionUser, SessionUserWithAccess } from "@/types";
+import type { GlobalRole, Role, TenantModule } from "@/generated/prisma/enums";
 
 /**
  * Extrai os campos customizados (id, tenantId, role) do objeto de sessão NextAuth.
@@ -31,12 +34,100 @@ async function extractSession(): Promise<SessionUser | null> {
   };
 }
 
+async function hydrateSessionUser(user: SessionUser): Promise<SessionUser | null> {
+  const dbUser = await db.user.findFirst({
+    where: {
+      id: user.id,
+      tenantId: user.tenantId,
+      isActive: true,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      name: true,
+      email: true,
+      role: true,
+      globalRole: true,
+    },
+  });
+
+  if (!dbUser) {
+    return null;
+  }
+
+  return {
+    id: dbUser.id,
+    tenantId: dbUser.tenantId,
+    name: dbUser.name,
+    email: dbUser.email,
+    role: dbUser.role,
+    globalRole: dbUser.globalRole ?? null,
+  };
+}
+
+async function getHydratedSession(): Promise<SessionUser | null> {
+  const sessionUser = await extractSession();
+  if (!sessionUser) {
+    return null;
+  }
+
+  return hydrateSessionUser(sessionUser);
+}
+
+async function loadSessionUserWithAccess(
+  user: SessionUser
+): Promise<SessionUserWithAccess | null> {
+  const dbUser = await db.user.findFirst({
+    where: {
+      id: user.id,
+      tenantId: user.tenantId,
+      isActive: true,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      name: true,
+      email: true,
+      role: true,
+      globalRole: true,
+      modulePermissions: {
+        select: {
+          module: true,
+          isAllowed: true,
+        },
+      },
+    },
+  });
+
+  if (!dbUser) {
+    return null;
+  }
+
+  const moduleSnapshot = getEffectiveModuleAccessSnapshot(
+    dbUser.role,
+    dbUser.modulePermissions
+  );
+
+  return {
+    id: dbUser.id,
+    tenantId: dbUser.tenantId,
+    name: dbUser.name,
+    email: dbUser.email,
+    role: dbUser.role,
+    globalRole: dbUser.globalRole ?? null,
+    moduleAccess: moduleSnapshot.access,
+    allowedModules: moduleSnapshot.allowedModules,
+  };
+}
+
 /**
  * Retorna o usuário autenticado. Lança erro se não estiver logado.
  * Uso principal: Server Actions, onde o redirect não funciona diretamente.
  */
 export async function requireAuth(): Promise<SessionUser> {
-  const user = await extractSession();
+  const user = await getHydratedSession();
   if (!user) {
     throw new Error("Não autorizado");
   }
@@ -48,7 +139,7 @@ export async function requireAuth(): Promise<SessionUser> {
  * Uso principal: Server Components (pages/layouts), onde redirect funciona.
  */
 export async function getAuthUser(): Promise<SessionUser> {
-  const user = await extractSession();
+  const user = await getHydratedSession();
   if (!user) {
     redirect("/login");
   }
@@ -95,5 +186,54 @@ export async function requireSuperAdmin(): Promise<SessionUser> {
  * Retorna a sessão se existir, ou null — use quando a autenticação é opcional.
  */
 export async function getOptionalSession(): Promise<SessionUser | null> {
-  return extractSession();
+  return getHydratedSession();
+}
+
+/**
+ * Retorna o usuário autenticado com o mapa efetivo de permissões por módulo.
+ * Útil para sidebar, guards de rota e telas que precisam decidir acesso por módulo.
+ */
+export async function getAuthUserWithAccess(): Promise<SessionUserWithAccess> {
+  const sessionUser = await getAuthUser();
+  const user = await loadSessionUserWithAccess(sessionUser);
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  return user;
+}
+
+/**
+ * Exige acesso ao módulo informado em Server Actions.
+ * Lança erro se o usuário não possuir a permissão efetiva.
+ */
+export async function requireModuleAccess(
+  module: TenantModule
+): Promise<SessionUserWithAccess> {
+  const sessionUser = await requireAuth();
+  const user = await loadSessionUserWithAccess(sessionUser);
+
+  if (!user || !user.moduleAccess[module]) {
+    throw new Error(`Acesso restrito ao módulo ${module}.`);
+  }
+
+  return user;
+}
+
+/**
+ * Garante acesso a um módulo em páginas/layouts do dashboard.
+ * Redireciona para /dashboard se o usuário não puder acessar a rota.
+ */
+export async function getAuthUserForModule(
+  module: TenantModule
+): Promise<SessionUserWithAccess> {
+  const user = await getAuthUserWithAccess();
+
+  if (!user.moduleAccess[module]) {
+    const fallbackModule = user.allowedModules[0];
+    redirect(fallbackModule ? getModuleDefinition(fallbackModule).href : "/login");
+  }
+
+  return user;
 }

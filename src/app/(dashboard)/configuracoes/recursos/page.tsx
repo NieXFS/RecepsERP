@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { listRooms, listEquipments } from "@/services/resources.service";
 import { ResourcesPanel } from "@/components/settings/resources-panel";
 
@@ -7,7 +7,7 @@ import { ResourcesPanel } from "@/components/settings/resources-panel";
  * CRUD rápido para cadastrar recursos utilizados na agenda.
  */
 export default async function ResourcesPage() {
-  const user = await getAuthUser();
+  const user = await getAuthUserForModule("CONFIGURACOES");
 
   const [rooms, equipments] = await Promise.all([
     listRooms(user.tenantId),

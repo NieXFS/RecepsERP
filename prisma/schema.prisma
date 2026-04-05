@@ -111,6 +111,7 @@ model User {
   // Relacionamentos
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   professional Professional? // Um User com role PROFESSIONAL pode ter um registro Professional
+  modulePermissions UserModulePermission[]
   accounts     Account[]
   sessions     Session[]
   reviewedAccessRequests AccessRequest[] @relation("AccessRequestReviewer")
@@ -119,6 +120,35 @@ model User {
   @@index([tenantId])
   @@index([email])
   @@map("users")
+}
+
+enum TenantModule {
+  DASHBOARD
+  AGENDA
+  CLIENTES
+  PROFISSIONAIS
+  SERVICOS
+  PACOTES
+  PRODUTOS
+  COMISSOES
+  ESTOQUE
+  PRONTUARIOS
+  CONFIGURACOES
+}
+
+model UserModulePermission {
+  id        String       @id @default(cuid())
+  userId    String
+  module    TenantModule
+  isAllowed Boolean
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@index([module])
+  @@map("user_module_permissions")
 }
 
 // ============================================================

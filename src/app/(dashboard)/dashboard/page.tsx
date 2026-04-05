@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { getDailyKPIs, getWaitingRoomAppointments } from "@/services/dashboard.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WaitingRoom } from "@/components/dashboard/waiting-room";
@@ -13,20 +13,17 @@ import {
 /**
  * Página principal do Dashboard (Server Component).
  * Exibe KPIs do dia e a tabela "Sala de Espera" com ações rápidas.
- *
- * RBAC: Recepcionistas NÃO veem os cards financeiros (Faturamento, Ticket Médio).
- *       Apenas a tabela de Sala de Espera é visível para elas.
+ * Os cards financeiros respeitam a permissão efetiva do módulo de Comissões.
  */
 export default async function DashboardPage() {
-  const user = await getAuthUser();
+  const user = await getAuthUserForModule("DASHBOARD");
 
   const [kpis, waitingAppointments] = await Promise.all([
     getDailyKPIs(user.tenantId),
     getWaitingRoomAppointments(user.tenantId),
   ]);
 
-  const isAdmin = user.role === "ADMIN";
-  const canSeeFinancials = isAdmin; // Apenas ADMIN vê dados financeiros
+  const canSeeFinancials = user.moduleAccess.COMISSOES;
 
   return (
     <div className="flex flex-col gap-6">

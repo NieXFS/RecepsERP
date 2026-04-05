@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getCommissionsSummaryByProfessional } from "@/services/financial.service";
 import { CommissionPanel } from "@/components/financial/commission-panel";
@@ -8,11 +7,7 @@ import { CommissionPanel } from "@/components/financial/commission-panel";
  * Página principal de comissões em rota curta e consistente com o dashboard.
  */
 export default async function CommissionsPage() {
-  const user = await getAuthUser();
-
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("COMISSOES");
 
   const [professionals, accounts] = await Promise.all([
     getCommissionsSummaryByProfessional(user.tenantId),

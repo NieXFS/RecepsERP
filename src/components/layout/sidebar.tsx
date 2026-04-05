@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import type { TenantModule } from "@/generated/prisma/enums";
 import {
   LayoutDashboard,
   Calendar,
@@ -20,53 +21,56 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 type NavItem = {
+  module: TenantModule;
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Roles que podem ver este item. Se omitido, todos veem. */
-  roles?: string[];
   /** Grupo visual para separadores */
   group: "main" | "management" | "config";
 };
 
 /**
- * Mapa de navegação com controle RBAC por item.
- * ADMIN vê tudo. RECEPTIONIST não vê Financeiro, Estoque nem Profissionais.
- * PROFESSIONAL vê apenas Agenda, seus Clientes e Prontuários.
+ * Mapa visual da sidebar.
+ * A visibilidade final de cada item depende do conjunto efetivo de módulos liberados.
  */
 const navItems: NavItem[] = [
   // --- Grupo principal ---
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "main" },
-  { href: "/agenda", label: "Agenda", icon: Calendar, group: "main" },
-  { href: "/clientes", label: "Clientes", icon: Users, group: "main" },
+  { module: "DASHBOARD", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "main" },
+  { module: "AGENDA", href: "/agenda", label: "Agenda", icon: Calendar, group: "main" },
+  { module: "CLIENTES", href: "/clientes", label: "Clientes", icon: Users, group: "main" },
 
-  // --- Grupo gestão (visibilidade restrita por RBAC) ---
-  { href: "/profissionais", label: "Profissionais", icon: UserCog, group: "management", roles: ["ADMIN"] },
-  { href: "/servicos", label: "Serviços", icon: Scissors, group: "management", roles: ["ADMIN", "RECEPTIONIST"] },
-  { href: "/pacotes", label: "Pacotes", icon: Package, group: "management", roles: ["ADMIN", "RECEPTIONIST"] },
-  { href: "/produtos", label: "Produtos", icon: ShoppingBag, group: "management", roles: ["ADMIN"] },
-  { href: "/comissoes", label: "Comissões", icon: DollarSign, group: "management", roles: ["ADMIN"] },
-  { href: "/estoque", label: "Estoque", icon: Warehouse, group: "management", roles: ["ADMIN", "RECEPTIONIST"] },
+  // --- Grupo gestão ---
+  { module: "PROFISSIONAIS", href: "/profissionais", label: "Profissionais", icon: UserCog, group: "management" },
+  { module: "SERVICOS", href: "/servicos", label: "Serviços", icon: Scissors, group: "management" },
+  { module: "PACOTES", href: "/pacotes", label: "Pacotes", icon: Package, group: "management" },
+  { module: "PRODUTOS", href: "/produtos", label: "Produtos", icon: ShoppingBag, group: "management" },
+  { module: "COMISSOES", href: "/comissoes", label: "Comissões", icon: DollarSign, group: "management" },
+  { module: "ESTOQUE", href: "/estoque", label: "Estoque", icon: Warehouse, group: "management" },
 
   // --- Grupo clínico/config ---
-  { href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config", roles: ["ADMIN", "PROFESSIONAL"] },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, group: "config", roles: ["ADMIN"] },
+  { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
+  { module: "CONFIGURACOES", href: "/configuracoes", label: "Configurações", icon: Settings, group: "config" },
 ];
 
 type SidebarProps = {
   userRole: string;
   userName: string;
   tenantName?: string;
+  allowedModules: TenantModule[];
 };
 
-/** Sidebar com navegação filtrada por RBAC — itens invisíveis não são renderizados */
-export function Sidebar({ userRole, userName, tenantName }: SidebarProps) {
+/** Sidebar com navegação filtrada por permissões efetivas de módulo. */
+export function Sidebar({
+  userRole,
+  userName,
+  tenantName,
+  allowedModules,
+}: SidebarProps) {
   const pathname = usePathname();
+  const visibleModuleSet = new Set(allowedModules);
 
-  // Filtra itens que o usuário pode ver baseado na role
-  const visibleItems = navItems.filter(
-    (item) => !item.roles || item.roles.includes(userRole)
-  );
+  // Filtra itens com base nas permissões efetivas por módulo
+  const visibleItems = navItems.filter((item) => visibleModuleSet.has(item.module));
 
   // Agrupa os itens visíveis
   const mainItems = visibleItems.filter((i) => i.group === "main");

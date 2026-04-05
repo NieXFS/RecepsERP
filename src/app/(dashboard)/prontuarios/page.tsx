@@ -1,9 +1,8 @@
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { redirect } from "next/navigation";
 import { ClipboardList, FileStack, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { db } from "@/lib/db";
 
 /**
@@ -11,11 +10,7 @@ import { db } from "@/lib/db";
  * Hoje o detalhamento clínico já vive dentro da área de clientes; esta rota centraliza a entrada do módulo.
  */
 export default async function ClinicalRecordsPage() {
-  const user = await getAuthUser();
-
-  if (user.role !== "ADMIN" && user.role !== "PROFESSIONAL") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("PRONTUARIOS");
 
   const [formsCount, recordsCount, activeCustomersCount, recentForms] = await Promise.all([
     db.anamnesisForm.count({

@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import {
   listPackagesWithDetails,
   listServicesForPackageSelect,
@@ -11,11 +10,7 @@ import { PackagePanel } from "@/components/packages/package-panel";
  * Evita 404 e já organiza a visão do módulo para expansão futura.
  */
 export default async function PackagesPage() {
-  const user = await getAuthUser();
-
-  if (user.role !== "ADMIN" && user.role !== "RECEPTIONIST") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("PACOTES");
 
   const [packages, services] = await Promise.all([
     listPackagesWithDetails(user.tenantId),

@@ -5,6 +5,15 @@ import type {
   CreateTeamMemberInput,
   UpdateTeamMemberInput,
 } from "@/lib/validators/management";
+import {
+  CRITICAL_ADMIN_MODULES,
+  getDefaultModuleAccess,
+  TENANT_MODULE_DEFINITIONS,
+} from "@/lib/tenant-modules";
+import {
+  getEffectiveModuleAccessSnapshot,
+  replaceUserModulePermissions,
+} from "@/services/user-permission.service";
 
 /**
  * Lista todos os membros da equipe (Users) do tenant,
@@ -14,6 +23,12 @@ export async function listTeamMembers(tenantId: string) {
   const users = await db.user.findMany({
     where: { tenantId },
     include: {
+      modulePermissions: {
+        select: {
+          module: true,
+          isAllowed: true,
+        },
+      },
       professional: {
         select: {
           id: true,
@@ -28,25 +43,45 @@ export async function listTeamMembers(tenantId: string) {
     orderBy: { name: "asc" },
   });
 
-  return users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    phone: u.phone,
-    role: u.role,
-    isActive: u.isActive,
-    createdAt: u.createdAt.toISOString(),
-    professional: u.professional
-      ? {
-          id: u.professional.id,
-          specialty: u.professional.specialty,
-          contractType: u.professional.contractType,
-          commissionPercent: Number(u.professional.commissionPercent),
-          registrationNumber: u.professional.registrationNumber,
-          isActive: u.professional.isActive,
-        }
-      : null,
-  }));
+  return users.map((u) => {
+    const defaultAccess = getDefaultModuleAccess(u.role);
+    const overrideMap = new Map(
+      u.modulePermissions.map((permission) => [permission.module, permission.isAllowed])
+    );
+    const effectiveAccess = getEffectiveModuleAccessSnapshot(
+      u.role,
+      u.modulePermissions
+    ).access;
+
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      role: u.role,
+      isActive: u.isActive,
+      createdAt: u.createdAt.toISOString(),
+      professional: u.professional
+        ? {
+            id: u.professional.id,
+            specialty: u.professional.specialty,
+            contractType: u.professional.contractType,
+            commissionPercent: Number(u.professional.commissionPercent),
+            registrationNumber: u.professional.registrationNumber,
+            isActive: u.professional.isActive,
+          }
+        : null,
+      modulePermissions: TENANT_MODULE_DEFINITIONS.map((module) => ({
+        module: module.key,
+        label: module.label,
+        description: module.description,
+        group: module.group,
+        defaultAllowed: defaultAccess[module.key],
+        isAllowed: effectiveAccess[module.key],
+        isCustomized: overrideMap.has(module.key),
+      })),
+    };
+  });
 }
 
 /**
@@ -87,19 +122,26 @@ export async function createTeamMember(
         },
       });
 
+      await replaceUserModulePermissions(
+        tx,
+        user.id,
+        data.role,
+        data.modulePermissions
+      );
+
       // Se for PROFESSIONAL, cria o perfil associado
       if (data.role === "PROFESSIONAL") {
         await tx.professional.create({
           data: {
             tenantId,
             userId: user.id,
-              specialty: data.specialty ?? null,
-              commissionPercent: data.commissionPercent ?? 0,
-              contractType: data.contractType ?? "PJ",
-              registrationNumber: data.registrationNumber ?? null,
-              isActive: data.isActive,
-            },
-          });
+            specialty: data.specialty ?? null,
+            commissionPercent: data.commissionPercent ?? 0,
+            contractType: data.contractType ?? "PJ",
+            registrationNumber: data.registrationNumber ?? null,
+            isActive: data.isActive,
+          },
+        });
       }
 
       return { userId: user.id };
@@ -129,6 +171,12 @@ export async function updateTeamMember(
     db.user.findFirst({
       where: { id: userId, tenantId },
       include: {
+        modulePermissions: {
+          select: {
+            module: true,
+            isAllowed: true,
+          },
+        },
         professional: true,
       },
     }),
@@ -153,6 +201,56 @@ export async function updateTeamMember(
     return { success: false, error: "Você não pode desativar a si mesmo." };
   }
 
+  const nextAccess = getEffectiveModuleAccessSnapshot(
+    data.role,
+    data.modulePermissions
+  ).access;
+
+  const missingCriticalAdminModules = CRITICAL_ADMIN_MODULES.filter(
+    (module) => !nextAccess[module]
+  );
+
+  const activeAdminCount = await db.user.count({
+    where: {
+      tenantId,
+      role: "ADMIN",
+      isActive: true,
+      deletedAt: null,
+    },
+  });
+
+  const isOnlyActiveAdmin =
+    existingUser.role === "ADMIN" &&
+    existingUser.isActive &&
+    !existingUser.deletedAt &&
+    activeAdminCount === 1;
+
+  if (currentUserId === userId && data.role !== "ADMIN") {
+    return {
+      success: false,
+      error: "Você não pode remover o próprio papel de administrador por esta tela.",
+    };
+  }
+
+  if (currentUserId === userId && missingCriticalAdminModules.length > 0) {
+    return {
+      success: false,
+      error:
+        "Para evitar bloqueio do seu acesso, mantenha Dashboard, Profissionais e Configurações liberados para o próprio admin.",
+    };
+  }
+
+  if (
+    isOnlyActiveAdmin &&
+    (data.role !== "ADMIN" || !data.isActive || missingCriticalAdminModules.length > 0)
+  ) {
+    return {
+      success: false,
+      error:
+        "O único administrador ativo do tenant precisa continuar como admin, ativo e com acesso a Dashboard, Profissionais e Configurações.",
+    };
+  }
+
   try {
     await db.$transaction(async (tx) => {
       await tx.user.update({
@@ -166,6 +264,13 @@ export async function updateTeamMember(
           deletedAt: data.isActive ? null : existingUser.deletedAt ?? new Date(),
         },
       });
+
+      await replaceUserModulePermissions(
+        tx,
+        userId,
+        data.role,
+        data.modulePermissions
+      );
 
       const shouldProfessionalBeActive = data.role === "PROFESSIONAL" && data.isActive;
 
@@ -231,6 +336,24 @@ export async function deactivateTeamMember(
 
   if (!user) {
     return { success: false, error: "Usuário não encontrado." };
+  }
+
+  if (user.role === "ADMIN" && user.isActive && !user.deletedAt) {
+    const activeAdminCount = await db.user.count({
+      where: {
+        tenantId,
+        role: "ADMIN",
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+
+    if (activeAdminCount === 1) {
+      return {
+        success: false,
+        error: "O único administrador ativo do tenant não pode ser desativado.",
+      };
+    }
   }
 
   await db.user.update({

@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import {
   listServicesWithDetails,
   listProductsForSelect,
@@ -12,7 +12,7 @@ import { ServiceCatalogPanel } from "@/components/settings/service-catalog-panel
  * de products e professionals para os selects do modal.
  */
 export default async function ServiceCatalogPage() {
-  const user = await getAuthUser();
+  const user = await getAuthUserForModule("SERVICOS");
 
   const [services, products, professionals] = await Promise.all([
     listServicesWithDetails(user.tenantId),

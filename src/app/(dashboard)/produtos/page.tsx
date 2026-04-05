@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { listProductCatalog } from "@/services/inventory.service";
 import { ProductCatalogPanel } from "@/components/inventory/product-catalog-panel";
 
@@ -8,11 +7,7 @@ import { ProductCatalogPanel } from "@/components/inventory/product-catalog-pane
  * Oferece uma visão limpa do catálogo com ponte direta para o módulo de estoque.
  */
 export default async function ProductsPage() {
-  const user = await getAuthUser();
-
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("PRODUTOS");
 
   const products = await listProductCatalog(user.tenantId);
 

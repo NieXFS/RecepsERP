@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import { createAppointmentSchema, updateAppointmentStatusSchema } from "@/lib/validators/appointment";
 import { formatCivilDateToQuery, parseCivilDateFromQuery } from "@/lib/civil-date";
 import {
@@ -19,7 +19,7 @@ import type { ActionResult } from "@/types";
 export async function createAppointmentAction(
   formData: unknown
 ): Promise<ActionResult<{ appointmentId: string }>> {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("AGENDA");
 
   const parsed = createAppointmentSchema.safeParse(formData);
   if (!parsed.success) {
@@ -43,7 +43,7 @@ export async function listAppointmentsAction(params: {
   date?: string;
   status?: string;
 }) {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("AGENDA");
 
   return listAppointments(session.tenantId, {
     ...params,
@@ -55,7 +55,7 @@ export async function listAppointmentsAction(params: {
  * Server Action: busca um agendamento específico com todos os detalhes.
  */
 export async function getAppointmentAction(appointmentId: string) {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("AGENDA");
   return getAppointmentById(session.tenantId, appointmentId);
 }
 
@@ -66,7 +66,7 @@ export async function cancelAppointmentAction(
   appointmentId: string,
   cancellationNote?: string
 ): Promise<ActionResult> {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("AGENDA");
   return cancelAppointment(session.tenantId, appointmentId, cancellationNote);
 }
 
@@ -79,7 +79,7 @@ export async function cancelAppointmentAction(
 export async function updateAppointmentStatusAction(
   formData: unknown
 ): Promise<ActionResult> {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("AGENDA");
 
   const parsed = updateAppointmentStatusSchema.safeParse(formData);
   if (!parsed.success) {

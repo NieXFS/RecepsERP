@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import { productSchema } from "@/lib/validators/management";
 import {
   adjustInventory,
@@ -11,7 +11,7 @@ import type { ActionResult } from "@/types";
 
 /**
  * Server Action: ajuste manual de estoque (entrada por compra ou perda/vencimento).
- * Apenas ADMIN pode executar ajustes manuais para evitar alterações acidentais.
+ * Exige acesso ao módulo de Estoque.
  * Cria movimentação rastreável em InventoryMovement para auditoria.
  */
 export async function adjustInventoryAction(data: {
@@ -21,19 +21,19 @@ export async function adjustInventoryAction(data: {
   reason?: string;
   unitCost?: number;
 }): Promise<ActionResult<{ movementId: string; newStock: number }>> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("ESTOQUE");
 
   return adjustInventory(user.tenantId, data);
 }
 
 /**
  * Server Action: cria um novo produto do tenant autenticado.
- * Apenas ADMIN pode gerenciar o catálogo de produtos.
+ * Exige acesso efetivo ao módulo de Produtos.
  */
 export async function createProductAction(
   data: unknown
 ): Promise<ActionResult<{ productId: string }>> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("PRODUTOS");
   const parsed = productSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -50,7 +50,7 @@ export async function updateProductAction(
   productId: string,
   data: unknown
 ): Promise<ActionResult<{ productId: string }>> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("PRODUTOS");
   const parsed = productSchema.safeParse(data);
 
   if (!parsed.success) {

@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { listTeamMembers } from "@/services/team.service";
 import { TeamPanel } from "@/components/settings/team-panel";
 
@@ -8,11 +7,7 @@ import { TeamPanel } from "@/components/settings/team-panel";
  * Expõe a gestão da equipe em uma rota curta e consistente com o restante do dashboard.
  */
 export default async function ProfessionalsPage() {
-  const user = await getAuthUser();
-
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
+  const user = await getAuthUserForModule("PROFISSIONAIS");
 
   const members = await listTeamMembers(user.tenantId);
 

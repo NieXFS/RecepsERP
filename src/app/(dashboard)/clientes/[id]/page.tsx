@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import {
   getCustomerProfile,
   getCustomerAppointments,
@@ -14,15 +14,15 @@ import { ClientTabs } from "@/components/customer/client-tabs";
 /**
  * Página de perfil completo do cliente/paciente (Server Component).
  * Busca todos os dados em paralelo via Prisma e passa ao ClientTabs
- * como props serializadas. O RBAC é passado via userRole para que
- * o Client Component saiba o que esconder (ex: prontuário para RECEPTIONIST).
+ * como props serializadas. O acesso ao conteúdo clínico é resolvido
+ * no servidor antes de renderizar as abas do perfil.
  */
 export default async function CustomerProfilePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await getAuthUser();
+  const user = await getAuthUserForModule("CLIENTES");
   const { id: customerId } = await params;
   const tenantId = user.tenantId;
 
@@ -51,7 +51,7 @@ export default async function CustomerProfilePage({
       <ProfileHeader profile={profile} />
       <ClientTabs
         customerId={customerId}
-        userRole={user.role}
+        canSeeClinical={user.moduleAccess.PRONTUARIOS}
         appointments={appointments}
         clinicalRecords={clinicalRecords}
         media={serializedMedia}

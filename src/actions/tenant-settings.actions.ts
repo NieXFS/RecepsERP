@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { TenantAccentTheme } from "@/generated/prisma/enums";
-import { requireRole } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import { tenantAppearanceSchema } from "@/lib/validators/appearance";
 import { updateTenantAccentTheme } from "@/services/tenant-settings.service";
 import type { ActionResult } from "@/types";
@@ -14,7 +14,7 @@ import type { ActionResult } from "@/types";
 export async function updateTenantAccentThemeAction(
   accentTheme: string
 ): Promise<ActionResult<{ accentTheme: TenantAccentTheme }>> {
-  const user = await requireRole("ADMIN");
+  const user = await requireModuleAccess("CONFIGURACOES");
 
   const parsed = tenantAppearanceSchema.safeParse({ accentTheme });
   if (!parsed.success) {

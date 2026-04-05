@@ -1,4 +1,5 @@
-import type { GlobalRole, Role } from "@/generated/prisma/enums";
+import type { GlobalRole, Role, TenantModule } from "@/generated/prisma/enums";
+import type { ModuleAccessMap } from "@/lib/tenant-modules";
 
 /** Dados da sessão do usuário autenticado, disponível via NextAuth */
 export type SessionUser = {
@@ -8,6 +9,11 @@ export type SessionUser = {
   email: string;
   role: Role;
   globalRole: GlobalRole | null;
+};
+
+export type SessionUserWithAccess = SessionUser & {
+  moduleAccess: ModuleAccessMap;
+  allowedModules: TenantModule[];
 };
 
 /** Resultado padrão de Server Actions — unifica sucesso e erro */

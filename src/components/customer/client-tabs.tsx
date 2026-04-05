@@ -104,7 +104,7 @@ type TransactionItem = {
 
 type ClientTabsProps = {
   customerId: string;
-  userRole: string;
+  canSeeClinical: boolean;
   appointments: Appointment[];
   clinicalRecords: ClinicalRecord[];
   media: MediaItem[];
@@ -119,19 +119,17 @@ type ClientTabsProps = {
 /**
  * Componente de abas do perfil do cliente (Client Component).
  * 4 abas: Resumo, Prontuário Clínico, Galeria de Fotos, Financeiro & Pacotes.
- * RBAC: RECEPTIONIST não vê conteúdo do Prontuário Clínico.
+ * O acesso ao conteúdo clínico é decidido no servidor e recebido via canSeeClinical.
  */
 export function ClientTabs({
   customerId,
-  userRole,
+  canSeeClinical,
   appointments,
   clinicalRecords,
   media,
   packages,
   transactions,
 }: ClientTabsProps) {
-  const canSeeClinical = userRole === "ADMIN" || userRole === "PROFESSIONAL";
-
   return (
     <Tabs defaultValue="resumo" className="w-full">
       <TabsList className="grid w-full grid-cols-4">

@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/session";
+import { getAuthUserForModule } from "@/lib/session";
 import { listCustomers } from "@/services/customer.service";
 import { CustomerList } from "@/components/customer/customer-list";
 
@@ -7,7 +7,7 @@ import { CustomerList } from "@/components/customer/customer-list";
  * Busca todos os clientes do tenant e renderiza a lista com busca client-side.
  */
 export default async function CustomersPage() {
-  const user = await getAuthUser();
+  const user = await getAuthUserForModule("CLIENTES");
   const customers = await listCustomers(user.tenantId);
 
   return (

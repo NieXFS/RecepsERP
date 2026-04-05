@@ -1,20 +1,22 @@
-import { getAuthUser } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { getModuleDefinition } from "@/lib/tenant-modules";
+import { getAuthUserWithAccess } from "@/lib/session";
 import { SettingsNav } from "@/components/settings/settings-nav";
 
 /**
- * Layout aninhado das Configurações — restringe acesso a ADMIN
- * e renderiza a sub-navegação (tabs) acima do conteúdo das sub-rotas.
+ * Layout aninhado das Configurações.
+ * Renderiza a sub-navegação e respeita as permissões efetivas de módulo.
  */
 export default async function SettingsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getAuthUser();
+  const user = await getAuthUserWithAccess();
 
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
+  if (!user.moduleAccess.CONFIGURACOES) {
+    const fallbackModule = user.allowedModules[0];
+    redirect(fallbackModule ? getModuleDefinition(fallbackModule).href : "/login");
   }
 
   return (
@@ -25,7 +27,7 @@ export default async function SettingsLayout({
           Gerencie aparência, equipe, serviços e recursos do estabelecimento.
         </p>
       </div>
-      <SettingsNav />
+      <SettingsNav allowedModules={user.allowedModules} />
       {children}
     </div>
   );

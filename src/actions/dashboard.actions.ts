@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import { db } from "@/lib/db";
 import { checkoutAppointment } from "@/services/financial.service";
 import type { ActionResult } from "@/types";
@@ -14,7 +14,7 @@ export async function quickStatusChangeAction(
   appointmentId: string,
   newStatus: "CHECKED_IN" | "IN_PROGRESS" | "COMPLETED"
 ): Promise<ActionResult> {
-  const session = await requireAuth();
+  const session = await requireModuleAccess("DASHBOARD");
 
   const appointment = await db.appointment.findFirst({
     where: { id: appointmentId, tenantId: session.tenantId },

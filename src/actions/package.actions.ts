@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/session";
+import { requireModuleAccess } from "@/lib/session";
 import { packageSchema } from "@/lib/validators/management";
 import {
   createPackage,
@@ -15,7 +15,7 @@ import type { ActionResult } from "@/types";
 export async function createPackageAction(
   data: unknown
 ): Promise<ActionResult<{ packageId: string }>> {
-  const user = await requireRole("ADMIN", "RECEPTIONIST");
+  const user = await requireModuleAccess("PACOTES");
   const parsed = packageSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -32,7 +32,7 @@ export async function updatePackageAction(
   packageId: string,
   data: unknown
 ): Promise<ActionResult<{ packageId: string }>> {
-  const user = await requireRole("ADMIN", "RECEPTIONIST");
+  const user = await requireModuleAccess("PACOTES");
   const parsed = packageSchema.safeParse(data);
 
   if (!parsed.success) {
