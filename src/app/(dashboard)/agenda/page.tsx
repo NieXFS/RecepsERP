@@ -39,16 +39,21 @@ export default async function AgendaPage({
         orderBy: { user: { name: "asc" } },
       }),
 
-      // Agendamentos do dia (não cancelados/no-show)
+      // Agendamentos do dia. A agenda usa a lista completa para operação
+      // e deriva a grade principal removendo cancelados/faltas.
       db.appointment.findMany({
         where: {
           tenantId,
           startTime: { lt: dayRange.endExclusive },
           endTime: { gt: dayRange.start },
-          status: { notIn: ["CANCELLED", "NO_SHOW"] },
         },
         include: {
           customer: { select: { id: true, name: true, phone: true } },
+          professional: {
+            select: {
+              user: { select: { name: true } },
+            },
+          },
           services: { include: { service: { select: { id: true, name: true } } } },
           room: { select: { id: true, name: true } },
           equipments: { include: { equipment: { select: { id: true, name: true } } } },
@@ -97,6 +102,7 @@ export default async function AgendaPage({
   const serializedAppointments = appointments.map((a) => ({
     id: a.id,
     professionalId: a.professionalId,
+    professionalName: a.professional.user.name,
     customerId: a.customerId,
     customerName: a.customer.name,
     customerPhone: a.customer.phone,
@@ -112,6 +118,25 @@ export default async function AgendaPage({
     equipments: a.equipments.map((e) => e.equipment.name),
   }));
 
+  const serializedGridAppointments = serializedAppointments.filter(
+    (appointment) =>
+      appointment.status !== "CANCELLED" && appointment.status !== "NO_SHOW"
+  );
+
+  const operationalAppointments = serializedAppointments.map((appointment) => ({
+    id: appointment.id,
+    professionalId: appointment.professionalId,
+    professionalName: appointment.professionalName,
+    customerId: appointment.customerId,
+    customerName: appointment.customerName,
+    customerPhone: appointment.customerPhone,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    status: appointment.status,
+    totalPrice: appointment.totalPrice,
+    services: appointment.services.map((service) => service.name),
+  }));
+
   const serializedServices = services.map((s) => ({
     id: s.id,
     name: s.name,
@@ -124,7 +149,8 @@ export default async function AgendaPage({
       <DailyCalendar
         date={formatCivilDateToQuery(selectedDate)}
         professionals={serializedProfessionals}
-        appointments={serializedAppointments}
+        appointments={serializedGridAppointments}
+        operationalAppointments={operationalAppointments}
         services={serializedServices}
         customers={customers}
         rooms={rooms}

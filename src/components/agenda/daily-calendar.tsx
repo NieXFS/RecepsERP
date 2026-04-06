@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AppointmentCard } from "./appointment-card";
+import { AgendaOperationsPanel } from "./agenda-operations-panel";
 import { NewAppointmentDialog } from "./new-appointment-dialog";
 import {
   generateTimeSlots,
@@ -15,6 +16,7 @@ import {
   type CalendarService,
   type CalendarCustomer,
   type CalendarResource,
+  type OperationalAppointment,
 } from "./types";
 import {
   addDaysToCivilDate,
@@ -29,6 +31,7 @@ type DailyCalendarProps = {
   date: string;
   professionals: CalendarProfessional[];
   appointments: CalendarAppointment[];
+  operationalAppointments: OperationalAppointment[];
   services: CalendarService[];
   customers: CalendarCustomer[];
   rooms: CalendarResource[];
@@ -56,6 +59,7 @@ export function DailyCalendar({
   date,
   professionals,
   appointments,
+  operationalAppointments,
   services,
   customers,
   rooms,
@@ -286,6 +290,11 @@ export function DailyCalendar({
         customers={customers}
         rooms={rooms}
         equipment={equipment}
+      />
+
+      <AgendaOperationsPanel
+        dateLabel={dateFormatted}
+        appointments={operationalAppointments}
       />
     </>
   );

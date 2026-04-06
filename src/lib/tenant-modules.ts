@@ -80,9 +80,9 @@ export const TENANT_MODULE_DEFINITIONS: readonly TenantModuleDefinition[] = [
   },
   {
     key: "COMISSOES",
-    label: "Comissões",
-    description: "Painel financeiro de repasses e acertos.",
-    href: "/comissoes",
+    label: "Financeiro",
+    description: "Comissões, extrato por período e operação de caixa.",
+    href: "/financeiro",
     group: "management",
   },
   {

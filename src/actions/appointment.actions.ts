@@ -8,6 +8,7 @@ import {
   listAppointments,
   getAppointmentById,
   cancelAppointment,
+  updateAppointmentStatus,
 } from "@/services/appointment.service";
 import type { ActionResult } from "@/types";
 
@@ -71,14 +72,13 @@ export async function cancelAppointmentAction(
 }
 
 /**
- * Server Action: atualiza o status de um agendamento.
- * Quando o status for COMPLETED, dispara automaticamente o checkoutAppointment
- * que executa cobrança, comissões e baixa de estoque em transação ACID.
- * Para outros status, apenas atualiza o campo diretamente.
+ * Server Action: atualiza o status operacional de um agendamento.
+ * O service layer valida as transições permitidas e, quando necessário,
+ * dispara o checkout financeiro ao finalizar o atendimento.
  */
 export async function updateAppointmentStatusAction(
   formData: unknown
-): Promise<ActionResult> {
+): Promise<ActionResult<{ status: string }>> {
   const session = await requireModuleAccess("AGENDA");
 
   const parsed = updateAppointmentStatusSchema.safeParse(formData);
@@ -90,36 +90,10 @@ export async function updateAppointmentStatusAction(
   }
 
   const { appointmentId, status, cancellationNote } = parsed.data;
-
-  if (status === "CANCELLED") {
-    return cancelAppointment(session.tenantId, appointmentId, cancellationNote);
-  }
-
-  // COMPLETED dispara o fluxo completo de checkout (cobrança + comissão + estoque)
-  if (status === "COMPLETED") {
-    const { checkoutAppointment } = await import("@/services/financial.service");
-    const result = await checkoutAppointment(session.tenantId, appointmentId);
-    if (!result.success) {
-      return result;
-    }
-    return { success: true, data: undefined };
-  }
-
-  // Para status intermediários (CONFIRMED, CHECKED_IN, IN_PROGRESS), apenas atualiza
-  const { db } = await import("@/lib/db");
-
-  const appointment = await db.appointment.findFirst({
-    where: { id: appointmentId, tenantId: session.tenantId },
-  });
-
-  if (!appointment) {
-    return { success: false, error: "Agendamento não encontrado." };
-  }
-
-  await db.appointment.update({
-    where: { id: appointmentId },
-    data: { status },
-  });
-
-  return { success: true, data: undefined };
+  return updateAppointmentStatus(
+    session.tenantId,
+    appointmentId,
+    status,
+    cancellationNote
+  );
 }

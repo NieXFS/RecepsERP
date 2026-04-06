@@ -4,6 +4,11 @@ export type CivilDate = {
   day: number;
 };
 
+export type CivilMonth = {
+  year: number;
+  month: number;
+};
+
 const CIVIL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /**
@@ -58,6 +63,23 @@ export function getCivilDateFromDate(date: Date): CivilDate {
  */
 export function getTodayCivilDate(now = new Date()): CivilDate {
   return getCivilDateFromDate(now);
+}
+
+/**
+ * Extrai apenas ano e mês de um objeto Date local.
+ */
+export function getCivilMonthFromDate(date: Date): CivilMonth {
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+  };
+}
+
+/**
+ * Retorna o mês civil atual no timezone local do runtime.
+ */
+export function getTodayCivilMonth(now = new Date()): CivilMonth {
+  return getCivilMonthFromDate(now);
 }
 
 /**
@@ -125,6 +147,79 @@ export function getCivilDayRange(date: CivilDate) {
   });
 
   return { start, endExclusive };
+}
+
+/**
+ * Resolve mês/ano vindos da URL para um período civil estável.
+ * Se o valor for inválido ou ausente, usa o mês atual local.
+ */
+export function parseCivilMonthFromQuery(
+  monthValue?: string | string[],
+  yearValue?: string | string[]
+): CivilMonth {
+  const normalizedMonth = Array.isArray(monthValue) ? monthValue[0] : monthValue;
+  const normalizedYear = Array.isArray(yearValue) ? yearValue[0] : yearValue;
+
+  const today = getTodayCivilMonth();
+  const month = Number(normalizedMonth);
+  const year = Number(normalizedYear);
+
+  if (
+    Number.isInteger(month) &&
+    Number.isInteger(year) &&
+    month >= 1 &&
+    month <= 12 &&
+    year >= 2000 &&
+    year <= 2100
+  ) {
+    return { month, year };
+  }
+
+  return today;
+}
+
+/**
+ * Retorna o intervalo local [início do mês, próximo mês) para consultas do banco.
+ */
+export function getCivilMonthRange(month: CivilMonth) {
+  const start = new Date(month.year, month.month - 1, 1, 0, 0, 0, 0);
+  const endExclusive = new Date(month.year, month.month, 1, 0, 0, 0, 0);
+
+  return { start, endExclusive };
+}
+
+/**
+ * Soma ou subtrai meses sobre um período civil sem depender de parsing ISO.
+ */
+export function addMonthsToCivilMonth(period: CivilMonth, offset: number): CivilMonth {
+  const shifted = new Date(period.year, period.month - 1, 1, 12, 0, 0, 0);
+  shifted.setMonth(shifted.getMonth() + offset);
+
+  return getCivilMonthFromDate(shifted);
+}
+
+/**
+ * Retorna a quantidade de dias do mês civil informado.
+ */
+export function getDaysInCivilMonth(period: CivilMonth): number {
+  return new Date(period.year, period.month, 0).getDate();
+}
+
+/**
+ * Formata o rótulo do mês por extenso com base no timezone local.
+ */
+export function formatCivilMonthLabel(
+  period: CivilMonth,
+  locale = "pt-BR",
+  options: Intl.DateTimeFormatOptions = {
+    month: "long",
+    year: "numeric",
+  }
+) {
+  return new Date(period.year, period.month - 1, 1, 12, 0, 0, 0).toLocaleDateString(
+    locale,
+    options
+  );
 }
 
 /**

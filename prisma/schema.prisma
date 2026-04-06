@@ -47,6 +47,7 @@ model Tenant {
   rooms              Room[]
   equipment          Equipment[]
   financialAccounts  FinancialAccount[]
+  cashRegisterSessions CashRegisterSession[]
   transactions       Transaction[]
   commissions        Commission[]
   inventoryMovements InventoryMovement[]
@@ -112,6 +113,8 @@ model User {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   professional Professional? // Um User com role PROFESSIONAL pode ter um registro Professional
   modulePermissions UserModulePermission[]
+  openedCashRegisterSessions CashRegisterSession[] @relation("CashRegisterOpenedBy")
+  closedCashRegisterSessions CashRegisterSession[] @relation("CashRegisterClosedBy")
   accounts     Account[]
   sessions     Session[]
   reviewedAccessRequests AccessRequest[] @relation("AccessRequestReviewer")
@@ -530,9 +533,11 @@ model Equipment {
 enum AppointmentStatus {
   SCHEDULED  // Agendado
   CONFIRMED  // Confirmado (cliente confirmou)
-  CHECKED_IN // Check-in feito na recepção
+  CHECKED_IN // Legado: check-in feito na recepção
+  WAITING    // Cliente aguardando atendimento
   IN_PROGRESS // Em atendimento
   COMPLETED  // Finalizado
+  PAID       // Pago
   CANCELLED  // Cancelado
   NO_SHOW    // Cliente não compareceu
 }
@@ -622,10 +627,43 @@ model FinancialAccount {
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  cashRegisterSessions CashRegisterSession[]
 
   @@index([tenantId])
   @@unique([tenantId, name])
   @@map("financial_accounts")
+}
+
+enum CashRegisterStatus {
+  OPEN
+  CLOSED
+}
+
+model CashRegisterSession {
+  id             String             @id @default(cuid())
+  tenantId       String
+  accountId      String
+  openedByUserId String
+  closedByUserId String?
+  status         CashRegisterStatus @default(OPEN)
+  openingAmount  Decimal            @db.Decimal(10, 2)
+  closingAmount  Decimal?           @db.Decimal(10, 2)
+  openingNotes   String?            @db.Text
+  closingNotes   String?            @db.Text
+  openedAt       DateTime           @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  openedByUser User             @relation("CashRegisterOpenedBy", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  closedByUser User?            @relation("CashRegisterClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, openedAt])
+  @@index([accountId, openedAt])
+  @@map("cash_register_sessions")
 }
 
 enum TransactionType {

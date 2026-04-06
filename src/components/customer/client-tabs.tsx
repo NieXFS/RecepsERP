@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/dialog";
 import { addClinicalNoteAction, uploadCustomerMediaAction } from "@/actions/customer.actions";
 import {
+  APPOINTMENT_REALIZED_STATUSES,
+  APPOINTMENT_STATUS_BADGE_VARIANTS,
+  getAppointmentStatusLabel,
+  normalizeAppointmentStatus,
+} from "@/lib/appointments/status";
+import {
   FileText,
   Image as ImageIcon,
   DollarSign,
@@ -161,7 +167,11 @@ export function ClientTabs({
         {canSeeClinical ? (
           <TabProntuario
             customerId={customerId}
-            appointments={appointments.filter((a) => a.status === "COMPLETED")}
+            appointments={appointments.filter((a) =>
+              APPOINTMENT_REALIZED_STATUSES.includes(
+                normalizeAppointmentStatus(a.status)
+              )
+            )}
             clinicalRecords={clinicalRecords}
           />
         ) : (
@@ -228,9 +238,13 @@ function TabResumo({ appointments }: { appointments: Appointment[] }) {
                 <div key={apt.id} className="relative pl-10">
                   {/* Dot da timeline */}
                   <div className={`absolute left-[10px] top-1.5 h-3 w-3 rounded-full border-2 border-background ${
-                    apt.status === "COMPLETED" ? "bg-emerald-500" :
-                    apt.status === "CANCELLED" ? "bg-red-400" :
-                    "bg-primary"
+                    APPOINTMENT_REALIZED_STATUSES.includes(normalizeAppointmentStatus(apt.status))
+                      ? "bg-emerald-500"
+                      : normalizeAppointmentStatus(apt.status) === "CANCELLED"
+                        ? "bg-red-400"
+                        : normalizeAppointmentStatus(apt.status) === "NO_SHOW"
+                          ? "bg-orange-400"
+                          : "bg-primary"
                   }`} />
 
                   <div className="rounded-lg border p-4 hover:bg-muted/30 transition-colors">
@@ -803,15 +817,13 @@ function TabFinanceiro({
 // ============================================================
 
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    SCHEDULED: { label: "Agendado", variant: "outline" },
-    CONFIRMED: { label: "Confirmado", variant: "secondary" },
-    CHECKED_IN: { label: "Check-in", variant: "secondary" },
-    IN_PROGRESS: { label: "Em Atendimento", variant: "default" },
-    COMPLETED: { label: "Finalizado", variant: "default" },
-    CANCELLED: { label: "Cancelado", variant: "destructive" },
-    NO_SHOW: { label: "Não compareceu", variant: "destructive" },
-  };
-  const c = config[status] ?? { label: status, variant: "outline" as const };
-  return <Badge variant={c.variant} className="text-[10px]">{c.label}</Badge>;
+  const variant = APPOINTMENT_STATUS_BADGE_VARIANTS[
+    (status === "CHECKED_IN" ? "WAITING" : status) as keyof typeof APPOINTMENT_STATUS_BADGE_VARIANTS
+  ] ?? "outline";
+
+  return (
+    <Badge variant={variant} className="text-[10px]">
+      {getAppointmentStatusLabel(status)}
+    </Badge>
+  );
 }

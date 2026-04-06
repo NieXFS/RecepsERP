@@ -12,7 +12,7 @@ import {
   Scissors,
   Package,
   ShoppingBag,
-  DollarSign,
+  Landmark,
   Warehouse,
   FileText,
   Settings,
@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
   { module: "SERVICOS", href: "/servicos", label: "Serviços", icon: Scissors, group: "management" },
   { module: "PACOTES", href: "/pacotes", label: "Pacotes", icon: Package, group: "management" },
   { module: "PRODUTOS", href: "/produtos", label: "Produtos", icon: ShoppingBag, group: "management" },
-  { module: "COMISSOES", href: "/comissoes", label: "Comissões", icon: DollarSign, group: "management" },
+  { module: "COMISSOES", href: "/financeiro", label: "Financeiro", icon: Landmark, group: "management" },
   { module: "ESTOQUE", href: "/estoque", label: "Estoque", icon: Warehouse, group: "management" },
 
   // --- Grupo clínico/config ---

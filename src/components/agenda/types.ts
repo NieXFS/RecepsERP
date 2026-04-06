@@ -10,6 +10,7 @@ export type CalendarProfessional = {
 export type CalendarAppointment = {
   id: string;
   professionalId: string;
+  professionalName: string;
   customerId: string;
   customerName: string;
   customerPhone: string | null;
@@ -20,6 +21,21 @@ export type CalendarAppointment = {
   totalPrice: number;
   services: { name: string; price: number }[];
   equipments: string[];
+};
+
+/** Agendamento serializado para o painel operacional do dia. */
+export type OperationalAppointment = {
+  id: string;
+  professionalId: string;
+  professionalName: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string | null;
+  startTime: string;
+  endTime: string;
+  status: string;
+  totalPrice: number;
+  services: string[];
 };
 
 /** Serviço disponível para seleção no formulário */

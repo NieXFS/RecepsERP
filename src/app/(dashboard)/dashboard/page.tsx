@@ -1,29 +1,37 @@
 import { getAuthUserForModule } from "@/lib/session";
-import { getDailyKPIs, getWaitingRoomAppointments } from "@/services/dashboard.service";
+import { parseCivilMonthFromQuery } from "@/lib/civil-date";
+import {
+  getDailyKPIs,
+  getDailyRevenueForTenant,
+  getMonthlyStatsForTenant,
+} from "@/services/dashboard.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { WaitingRoom } from "@/components/dashboard/waiting-room";
+import { MonthlySummarySection } from "@/components/dashboard/monthly-summary-section";
 import {
   DollarSign,
   TrendingUp,
   Calendar,
   UserPlus,
-  Lock,
 } from "lucide-react";
 
 /**
  * Página principal do Dashboard (Server Component).
- * Exibe KPIs do dia e a tabela "Sala de Espera" com ações rápidas.
- * Os cards financeiros respeitam a permissão efetiva do módulo de Comissões.
+ * Exibe KPIs do dia e um resumo financeiro mensal com gráfico evolutivo.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ month?: string | string[]; year?: string | string[] }>;
+}) {
   const user = await getAuthUserForModule("DASHBOARD");
+  const query = searchParams ? await searchParams : undefined;
+  const selectedMonth = parseCivilMonthFromQuery(query?.month, query?.year);
 
-  const [kpis, waitingAppointments] = await Promise.all([
+  const [kpis, monthlyStats, dailyRevenue] = await Promise.all([
     getDailyKPIs(user.tenantId),
-    getWaitingRoomAppointments(user.tenantId),
+    getMonthlyStatsForTenant(user.tenantId, selectedMonth),
+    getDailyRevenueForTenant(user.tenantId, selectedMonth),
   ]);
-
-  const canSeeFinancials = user.moduleAccess.COMISSOES;
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,16 +59,9 @@ export default async function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {canSeeFinancials ? (
-              <p className="text-2xl font-bold">
-                R$ {kpis.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-            ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Lock className="h-4 w-4" />
-                <span className="text-sm">Acesso Restrito</span>
-              </div>
-            )}
+            <p className="text-2xl font-bold">
+              R$ {kpis.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
           </CardContent>
         </Card>
 
@@ -73,21 +74,14 @@ export default async function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {canSeeFinancials ? (
-              <>
-                <p className="text-2xl font-bold">
-                  R$ {kpis.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {kpis.completedAppointments} atendimento(s) finalizado(s)
-                </p>
-              </>
-            ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Lock className="h-4 w-4" />
-                <span className="text-sm">Acesso Restrito</span>
-              </div>
-            )}
+            <>
+              <p className="text-2xl font-bold">
+                R$ {kpis.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {kpis.completedAppointments} atendimento(s) finalizado(s)
+              </p>
+            </>
           </CardContent>
         </Card>
 
@@ -124,8 +118,11 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* ---- SALA DE ESPERA ---- */}
-      <WaitingRoom appointments={waitingAppointments} />
+      <MonthlySummarySection
+        period={selectedMonth}
+        stats={monthlyStats}
+        series={dailyRevenue}
+      />
     </div>
   );
 }

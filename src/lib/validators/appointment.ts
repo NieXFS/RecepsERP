@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { APPOINTMENT_WORKFLOW_STATUSES } from "@/lib/appointments/status";
 
 /** Schema de validação para criação de agendamento */
 export const createAppointmentSchema = z.object({
@@ -17,14 +18,9 @@ export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 /** Schema para atualização de status do agendamento */
 export const updateAppointmentStatusSchema = z.object({
   appointmentId: z.string().min(1),
-  status: z.enum([
-    "SCHEDULED",
-    "CONFIRMED",
-    "CHECKED_IN",
-    "IN_PROGRESS",
-    "COMPLETED",
-    "CANCELLED",
-    "NO_SHOW",
+  status: z.union([
+    z.enum(APPOINTMENT_WORKFLOW_STATUSES),
+    z.literal("CHECKED_IN"),
   ]),
   cancellationNote: z.string().optional(),
 });

@@ -2,25 +2,13 @@
 
 import { cn } from "@/lib/utils";
 import { Clock, User } from "lucide-react";
+import {
+  APPOINTMENT_STATUS_CARD_STYLES,
+  getAppointmentStatusLabel,
+  normalizeAppointmentStatus,
+} from "@/lib/appointments/status";
 import type { CalendarAppointment } from "./types";
 import { CALENDAR_CONFIG } from "./types";
-
-/** Cores por status — usa classes com dark: para funcionar em ambos os temas */
-const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-  SCHEDULED:   { bg: "bg-blue-50 dark:bg-blue-950/40",     border: "border-blue-300 dark:border-blue-700",     text: "text-blue-900 dark:text-blue-200",     badge: "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
-  CONFIRMED:   { bg: "bg-emerald-50 dark:bg-emerald-950/40", border: "border-emerald-300 dark:border-emerald-700", text: "text-emerald-900 dark:text-emerald-200", badge: "bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" },
-  CHECKED_IN:  { bg: "bg-amber-50 dark:bg-amber-950/40",   border: "border-amber-300 dark:border-amber-700",   text: "text-amber-900 dark:text-amber-200",   badge: "bg-amber-200 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
-  IN_PROGRESS: { bg: "bg-purple-50 dark:bg-purple-950/40", border: "border-purple-300 dark:border-purple-700", text: "text-purple-900 dark:text-purple-200", badge: "bg-purple-200 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
-  COMPLETED:   { bg: "bg-gray-50 dark:bg-gray-800/40",     border: "border-gray-300 dark:border-gray-600",     text: "text-gray-600 dark:text-gray-400",     badge: "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: "Agendado",
-  CONFIRMED: "Confirmado",
-  CHECKED_IN: "Check-in",
-  IN_PROGRESS: "Em Atendimento",
-  COMPLETED: "Finalizado",
-};
 
 type AppointmentCardProps = {
   appointment: CalendarAppointment;
@@ -45,8 +33,11 @@ export function AppointmentCard({ appointment, dayStart }: AppointmentCardProps)
   const topOffset = ((startMinutes - gridStartMinutes) / CALENDAR_CONFIG.SLOT_MINUTES) * CALENDAR_CONFIG.SLOT_HEIGHT_PX;
   const height = (durationMinutes / CALENDAR_CONFIG.SLOT_MINUTES) * CALENDAR_CONFIG.SLOT_HEIGHT_PX;
 
-  const style = STATUS_STYLES[appointment.status] ?? STATUS_STYLES.SCHEDULED;
-  const statusLabel = STATUS_LABELS[appointment.status] ?? appointment.status;
+  const normalizedStatus = normalizeAppointmentStatus(appointment.status);
+  const style =
+    APPOINTMENT_STATUS_CARD_STYLES[normalizedStatus] ??
+    APPOINTMENT_STATUS_CARD_STYLES.SCHEDULED;
+  const statusLabel = getAppointmentStatusLabel(appointment.status);
 
   const timeLabel = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")} – ${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
 

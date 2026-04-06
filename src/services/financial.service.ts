@@ -1,4 +1,19 @@
 import { db } from "@/lib/db";
+import {
+  normalizeAppointmentStatus,
+  type AppointmentStoredStatus,
+} from "@/lib/appointments/status";
+import {
+  formatCivilDateToQuery,
+  getCivilDateFromDate,
+  getCivilDayRange,
+  getTodayCivilDate,
+  type CivilDate,
+} from "@/lib/civil-date";
+import type {
+  CloseCashRegisterInput,
+  OpenCashRegisterInput,
+} from "@/lib/validators/financial";
 import type { ActionResult } from "@/types";
 
 type CheckoutOptions = {
@@ -6,6 +21,173 @@ type CheckoutOptions = {
   accountId?: string;
   installments?: number; // Quantidade de parcelas (ex: 3x no cartão)
 };
+
+type StatementTypeFilter = "ALL" | "INCOME" | "EXPENSE";
+type StatementStatusFilter = "ALL" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
+
+export type FinancialStatementEntry = {
+  id: string;
+  type: "INCOME" | "EXPENSE";
+  paymentStatus: "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
+  amount: number;
+  description: string | null;
+  paymentMethod: string;
+  accountName: string | null;
+  accountType: string | null;
+  effectiveDate: string;
+  createdAt: string;
+  paidAt: string | null;
+  dueDate: string | null;
+};
+
+export type FinancialStatementSummary = {
+  entradas: number;
+  saidas: number;
+  saldoPeriodo: number;
+  totalLancamentos: number;
+};
+
+export type FinancialStatementResult = {
+  summary: FinancialStatementSummary;
+  entries: FinancialStatementEntry[];
+};
+
+export type CashAccountOption = {
+  id: string;
+  name: string;
+  balance: number;
+};
+
+export type CashRegisterOverview = {
+  accounts: CashAccountOption[];
+  currentSession: {
+    id: string;
+    status: "OPEN" | "CLOSED";
+    accountId: string;
+    accountName: string;
+    openedAt: string;
+    openedByName: string;
+    openingAmount: number;
+    openingNotes: string | null;
+    totalEntries: number;
+    totalExpenses: number;
+    expectedBalance: number;
+  } | null;
+  recentSessions: Array<{
+    id: string;
+    accountName: string;
+    openedAt: string;
+    closedAt: string | null;
+    openedByName: string;
+    closedByName: string | null;
+    openingAmount: number;
+    closingAmount: number | null;
+    expectedBalance: number;
+    difference: number | null;
+    status: "OPEN" | "CLOSED";
+  }>;
+};
+
+export type FinancialOverview = {
+  period: {
+    label: string;
+    startDate: string;
+    endDate: string;
+  };
+  summary: FinancialStatementSummary;
+  commissions: {
+    generatedTotal: number;
+    pendingTotal: number;
+    pendingCount: number;
+    professionalsWithPending: number;
+  };
+  cash: {
+    status: "OPEN" | "CLOSED";
+    accountName: string | null;
+    openedByName: string | null;
+    openedAt: string | null;
+    openingAmount: number;
+    expectedBalance: number;
+    lastClosedAt: string | null;
+  };
+  statement: {
+    recentCount: number;
+    lastTransactionAt: string | null;
+  };
+  recentActivities: Array<{
+    id: string;
+    type: "TRANSACTION" | "CASH_OPEN" | "CASH_CLOSE";
+    title: string;
+    description: string;
+    amount: number | null;
+    occurredAt: string;
+  }>;
+};
+
+type FinancialActivityItem = FinancialOverview["recentActivities"][number];
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function formatMonthLabel(date: CivilDate) {
+  return new Date(date.year, date.month - 1, 1, 12, 0, 0, 0).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getPeriodBounds(startDate: CivilDate, endDate: CivilDate) {
+  const normalizedStart =
+    formatCivilDateToQuery(startDate) <= formatCivilDateToQuery(endDate)
+      ? startDate
+      : endDate;
+  const normalizedEnd =
+    formatCivilDateToQuery(startDate) <= formatCivilDateToQuery(endDate)
+      ? endDate
+      : startDate;
+
+  const start = getCivilDayRange(normalizedStart).start;
+  const endExclusive = getCivilDayRange(normalizedEnd).endExclusive;
+
+  return { start, endExclusive };
+}
+
+async function getCashSessionMovementTotals(
+  tenantId: string,
+  accountId: string,
+  openedAt: Date,
+  closedAt?: Date | null
+) {
+  const transactions = await db.transaction.findMany({
+    where: {
+      tenantId,
+      accountId,
+      paymentStatus: "PAID",
+      paidAt: {
+        gte: openedAt,
+        lt: closedAt ?? new Date(),
+      },
+    },
+    select: {
+      type: true,
+      amount: true,
+    },
+  });
+
+  const totalEntries = transactions
+    .filter((transaction) => transaction.type === "INCOME")
+    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+
+  const totalExpenses = transactions
+    .filter((transaction) => transaction.type === "EXPENSE")
+    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+
+  return {
+    totalEntries: roundCurrency(totalEntries),
+    totalExpenses: roundCurrency(totalExpenses),
+  };
+}
 
 /**
  * Finaliza um agendamento executando TODO o fluxo financeiro e operacional
@@ -69,11 +251,15 @@ export async function checkoutAppointment(
     return { success: false, error: "Agendamento não encontrado." };
   }
 
-  if (appointment.status === "COMPLETED") {
+  const normalizedStatus = normalizeAppointmentStatus(
+    appointment.status as AppointmentStoredStatus
+  );
+
+  if (normalizedStatus === "COMPLETED" || normalizedStatus === "PAID") {
     return { success: false, error: "Este agendamento já foi finalizado." };
   }
 
-  if (appointment.status === "CANCELLED" || appointment.status === "NO_SHOW") {
+  if (normalizedStatus === "CANCELLED" || normalizedStatus === "NO_SHOW") {
     return { success: false, error: "Não é possível finalizar um agendamento cancelado ou no-show." };
   }
 
@@ -504,4 +690,540 @@ export async function settleCommissions(
     const message = error instanceof Error ? error.message : "Erro ao realizar acerto de comissões.";
     return { success: false, error: message };
   }
+}
+
+/**
+ * Retorna o extrato financeiro do tenant em um intervalo de datas com resumo consolidado.
+ */
+export async function getFinancialStatement(
+  tenantId: string,
+  filters: {
+    startDate: CivilDate;
+    endDate: CivilDate;
+    type?: StatementTypeFilter;
+    status?: StatementStatusFilter;
+  }
+): Promise<FinancialStatementResult> {
+  const { start, endExclusive } = getPeriodBounds(filters.startDate, filters.endDate);
+
+  const where = {
+    tenantId,
+    ...(filters.type && filters.type !== "ALL" ? { type: filters.type } : {}),
+    ...(filters.status && filters.status !== "ALL" ? { paymentStatus: filters.status } : {}),
+    OR: [
+      {
+        paidAt: {
+          gte: start,
+          lt: endExclusive,
+        },
+      },
+      {
+        paidAt: null,
+        createdAt: {
+          gte: start,
+          lt: endExclusive,
+        },
+      },
+    ],
+  };
+
+  const transactions = await db.transaction.findMany({
+    where,
+    include: {
+      account: {
+        select: {
+          name: true,
+          type: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const entries = transactions
+    .map((transaction) => ({
+      id: transaction.id,
+      type: transaction.type,
+      paymentStatus: transaction.paymentStatus,
+      amount: Number(transaction.amount),
+      description: transaction.description,
+      paymentMethod: transaction.paymentMethod,
+      accountName: transaction.account?.name ?? null,
+      accountType: transaction.account?.type ?? null,
+      effectiveDate: (transaction.paidAt ?? transaction.createdAt).toISOString(),
+      createdAt: transaction.createdAt.toISOString(),
+      paidAt: transaction.paidAt?.toISOString() ?? null,
+      dueDate: transaction.dueDate?.toISOString() ?? null,
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime()
+    );
+
+  const entradas = entries
+    .filter((entry) => entry.type === "INCOME")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const saidas = entries
+    .filter((entry) => entry.type === "EXPENSE")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+
+  return {
+    summary: {
+      entradas: roundCurrency(entradas),
+      saidas: roundCurrency(saidas),
+      saldoPeriodo: roundCurrency(entradas - saidas),
+      totalLancamentos: entries.length,
+    },
+    entries: entries.map((entry) => ({
+      ...entry,
+      amount: roundCurrency(entry.amount),
+    })),
+  };
+}
+
+/**
+ * Retorna o estado atual do caixa operacional do tenant, incluindo a sessão aberta
+ * e o histórico recente de aberturas/fechamentos.
+ */
+export async function getCashRegisterOverview(
+  tenantId: string
+): Promise<CashRegisterOverview> {
+  const [accounts, currentSession, recentSessions] = await Promise.all([
+    db.financialAccount.findMany({
+      where: {
+        tenantId,
+        type: "CASH",
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        balance: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+    db.cashRegisterSession.findFirst({
+      where: {
+        tenantId,
+        status: "OPEN",
+      },
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        openedByUser: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        openedAt: "desc",
+      },
+    }),
+    db.cashRegisterSession.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        account: {
+          select: {
+            name: true,
+          },
+        },
+        openedByUser: {
+          select: {
+            name: true,
+          },
+        },
+        closedByUser: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        openedAt: "desc",
+      },
+      take: 8,
+    }),
+  ]);
+
+  const currentSessionWithTotals = currentSession
+    ? await (async () => {
+        const totals = await getCashSessionMovementTotals(
+          tenantId,
+          currentSession.accountId,
+          currentSession.openedAt,
+          null
+        );
+
+        return {
+          id: currentSession.id,
+          status: currentSession.status,
+          accountId: currentSession.account.id,
+          accountName: currentSession.account.name,
+          openedAt: currentSession.openedAt.toISOString(),
+          openedByName: currentSession.openedByUser.name,
+          openingAmount: Number(currentSession.openingAmount),
+          openingNotes: currentSession.openingNotes ?? null,
+          totalEntries: totals.totalEntries,
+          totalExpenses: totals.totalExpenses,
+          expectedBalance: roundCurrency(
+            Number(currentSession.openingAmount) + totals.totalEntries - totals.totalExpenses
+          ),
+        };
+      })()
+    : null;
+
+  const recentSessionsWithTotals = await Promise.all(
+    recentSessions.map(async (session) => {
+      const totals = await getCashSessionMovementTotals(
+        tenantId,
+        session.accountId,
+        session.openedAt,
+        session.closedAt
+      );
+
+      const expectedBalance = roundCurrency(
+        Number(session.openingAmount) + totals.totalEntries - totals.totalExpenses
+      );
+      const closingAmount = session.closingAmount != null ? Number(session.closingAmount) : null;
+
+      return {
+        id: session.id,
+        accountName: session.account.name,
+        openedAt: session.openedAt.toISOString(),
+        closedAt: session.closedAt?.toISOString() ?? null,
+        openedByName: session.openedByUser.name,
+        closedByName: session.closedByUser?.name ?? null,
+        openingAmount: Number(session.openingAmount),
+        closingAmount,
+        expectedBalance,
+        difference:
+          closingAmount != null ? roundCurrency(closingAmount - expectedBalance) : null,
+        status: session.status,
+      };
+    })
+  );
+
+  return {
+    accounts: accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      balance: Number(account.balance),
+    })),
+    currentSession: currentSessionWithTotals,
+    recentSessions: recentSessionsWithTotals,
+  };
+}
+
+/**
+ * Abre um novo caixa operacional para o tenant.
+ * Garante que exista apenas uma sessão aberta por vez.
+ */
+export async function openCashRegister(
+  tenantId: string,
+  userId: string,
+  input: OpenCashRegisterInput
+): Promise<ActionResult<{ sessionId: string }>> {
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const existingOpenSession = await tx.cashRegisterSession.findFirst({
+        where: {
+          tenantId,
+          status: "OPEN",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (existingOpenSession) {
+        throw new Error("Já existe um caixa aberto para este estabelecimento.");
+      }
+
+      const account = await tx.financialAccount.findFirst({
+        where: {
+          id: input.accountId,
+          tenantId,
+          isActive: true,
+          type: "CASH",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!account) {
+        throw new Error("Conta caixa inválida para abertura.");
+      }
+
+      const session = await tx.cashRegisterSession.create({
+        data: {
+          tenantId,
+          accountId: account.id,
+          openedByUserId: userId,
+          openingAmount: input.openingAmount,
+          openingNotes: input.openingNotes ?? null,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      return {
+        sessionId: session.id,
+      };
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao abrir o caixa.";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Fecha um caixa operacional aberto e registra o valor apurado no encerramento.
+ */
+export async function closeCashRegister(
+  tenantId: string,
+  userId: string,
+  input: CloseCashRegisterInput
+): Promise<ActionResult<{ sessionId: string }>> {
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const session = await tx.cashRegisterSession.findFirst({
+        where: {
+          id: input.sessionId,
+          tenantId,
+          status: "OPEN",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!session) {
+        throw new Error("Nenhum caixa aberto encontrado para fechamento.");
+      }
+
+      const updated = await tx.cashRegisterSession.update({
+        where: {
+          id: session.id,
+        },
+        data: {
+          status: "CLOSED",
+          closedByUserId: userId,
+          closingAmount: input.closingAmount,
+          closingNotes: input.closingNotes ?? null,
+          closedAt: new Date(),
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      return {
+        sessionId: updated.id,
+      };
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao fechar o caixa.";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Consolida a home do módulo Financeiro em um único payload.
+ * O recorte padrão é o mês civil atual.
+ */
+export async function getFinancialOverview(
+  tenantId: string,
+  period?: {
+    startDate?: CivilDate;
+    endDate?: CivilDate;
+  }
+): Promise<FinancialOverview> {
+  const today = getTodayCivilDate();
+  const startDate = period?.startDate ?? {
+    year: today.year,
+    month: today.month,
+    day: 1,
+  };
+  const endDate = period?.endDate ?? today;
+  const { start, endExclusive } = getPeriodBounds(startDate, endDate);
+
+  const [statement, cashOverview, commissions, recentTransactions, recentCashSessions] =
+    await Promise.all([
+      getFinancialStatement(tenantId, {
+        startDate,
+        endDate,
+      }),
+      getCashRegisterOverview(tenantId),
+      db.commission.findMany({
+        where: {
+          tenantId,
+          OR: [
+            {
+              createdAt: {
+                gte: start,
+                lt: endExclusive,
+              },
+            },
+            {
+              paidAt: {
+                gte: start,
+                lt: endExclusive,
+              },
+            },
+          ],
+        },
+        select: {
+          commissionValue: true,
+          status: true,
+          professionalId: true,
+        },
+      }),
+      db.transaction.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          account: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5,
+      }),
+      db.cashRegisterSession.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          account: {
+            select: {
+              name: true,
+            },
+          },
+          openedByUser: {
+            select: {
+              name: true,
+            },
+          },
+          closedByUser: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          openedAt: "desc",
+        },
+        take: 3,
+      }),
+    ]);
+
+  const generatedTotal = commissions.reduce(
+    (sum, commission) => sum + Number(commission.commissionValue),
+    0
+  );
+  const pendingCommissions = commissions.filter((commission) => commission.status === "PENDING");
+  const pendingTotal = pendingCommissions.reduce(
+    (sum, commission) => sum + Number(commission.commissionValue),
+    0
+  );
+  const professionalsWithPending = new Set(
+    pendingCommissions.map((commission) => commission.professionalId)
+  ).size;
+
+  const currentCash = cashOverview.currentSession;
+  const lastClosedCash = cashOverview.recentSessions.find((session) => session.status === "CLOSED");
+
+  const recentActivities = [
+    ...recentTransactions.map((transaction) => ({
+      id: `transaction-${transaction.id}`,
+      type: "TRANSACTION" as const,
+      title: transaction.type === "INCOME" ? "Entrada registrada" : "Saída registrada",
+      description:
+        transaction.description ??
+        `${transaction.type === "INCOME" ? "Receita" : "Despesa"} ${transaction.account?.name ? `na conta ${transaction.account.name}` : "sem conta vinculada"}`,
+      amount: Number(transaction.amount),
+      occurredAt: (transaction.paidAt ?? transaction.createdAt).toISOString(),
+    })),
+    ...recentCashSessions.flatMap((session) => {
+      const items: FinancialActivityItem[] = [
+        {
+          id: `cash-open-${session.id}`,
+          type: "CASH_OPEN" as const,
+          title: "Caixa aberto",
+          description: `${session.account.name} por ${session.openedByUser.name}`,
+          amount: Number(session.openingAmount),
+          occurredAt: session.openedAt.toISOString(),
+        },
+      ];
+
+      if (session.closedAt) {
+        items.push({
+          id: `cash-close-${session.id}`,
+          type: "CASH_CLOSE" as const,
+          title: "Caixa fechado",
+          description: `${session.account.name}${session.closedByUser?.name ? ` por ${session.closedByUser.name}` : ""}`,
+          amount: session.closingAmount != null ? Number(session.closingAmount) : null,
+          occurredAt: session.closedAt.toISOString(),
+        });
+      }
+
+      return items;
+    }),
+  ]
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    .slice(0, 8);
+
+  return {
+    period: {
+      label: formatMonthLabel(startDate),
+      startDate: formatCivilDateToQuery(startDate),
+      endDate: formatCivilDateToQuery(endDate),
+    },
+    summary: statement.summary,
+    commissions: {
+      generatedTotal: roundCurrency(generatedTotal),
+      pendingTotal: roundCurrency(pendingTotal),
+      pendingCount: pendingCommissions.length,
+      professionalsWithPending,
+    },
+    cash: {
+      status: currentCash ? "OPEN" : "CLOSED",
+      accountName: currentCash?.accountName ?? null,
+      openedByName: currentCash?.openedByName ?? null,
+      openedAt: currentCash?.openedAt ?? null,
+      openingAmount: currentCash?.openingAmount ?? 0,
+      expectedBalance: currentCash?.expectedBalance ?? 0,
+      lastClosedAt: lastClosedCash?.closedAt ?? null,
+    },
+    statement: {
+      recentCount: statement.summary.totalLancamentos,
+      lastTransactionAt:
+        recentTransactions[0] != null
+          ? (recentTransactions[0].paidAt ?? recentTransactions[0].createdAt).toISOString()
+          : null,
+    },
+    recentActivities,
+  };
 }

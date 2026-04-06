@@ -1,8 +1,7 @@
 "use server";
 
 import { requireModuleAccess } from "@/lib/session";
-import { db } from "@/lib/db";
-import { checkoutAppointment } from "@/services/financial.service";
+import { updateAppointmentStatus } from "@/services/appointment.service";
 import type { ActionResult } from "@/types";
 
 /**
@@ -12,30 +11,8 @@ import type { ActionResult } from "@/types";
  */
 export async function quickStatusChangeAction(
   appointmentId: string,
-  newStatus: "CHECKED_IN" | "IN_PROGRESS" | "COMPLETED"
-): Promise<ActionResult> {
+  newStatus: "WAITING" | "IN_PROGRESS" | "COMPLETED" | "PAID" | "CHECKED_IN"
+): Promise<ActionResult<{ status: string }>> {
   const session = await requireModuleAccess("DASHBOARD");
-
-  const appointment = await db.appointment.findFirst({
-    where: { id: appointmentId, tenantId: session.tenantId },
-  });
-
-  if (!appointment) {
-    return { success: false, error: "Agendamento não encontrado." };
-  }
-
-  // COMPLETED dispara o checkout financeiro completo (cobrança + comissão + estoque)
-  if (newStatus === "COMPLETED") {
-    const result = await checkoutAppointment(session.tenantId, appointmentId);
-    if (!result.success) return result;
-    return { success: true, data: undefined };
-  }
-
-  // Para outros status, apenas atualiza diretamente
-  await db.appointment.update({
-    where: { id: appointmentId },
-    data: { status: newStatus },
-  });
-
-  return { success: true, data: undefined };
+  return updateAppointmentStatus(session.tenantId, appointmentId, newStatus);
 }

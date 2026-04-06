@@ -4,6 +4,12 @@ import {
   getCivilDayRange,
   parseCivilDateFromQuery,
 } from "@/lib/civil-date";
+import {
+  canTransitionAppointmentStatus,
+  getAppointmentStatusLabel,
+  normalizeAppointmentStatus,
+  type AppointmentStoredStatus,
+} from "@/lib/appointments/status";
 import type { CreateAppointmentInput } from "@/lib/validators/appointment";
 import type { ActionResult } from "@/types";
 
@@ -299,7 +305,12 @@ export async function cancelAppointment(
     return { success: false, error: "Este agendamento já está cancelado." };
   }
 
-  if (appointment.status === "COMPLETED") {
+  if (
+    normalizeAppointmentStatus(appointment.status as AppointmentStoredStatus) ===
+    "COMPLETED" ||
+    normalizeAppointmentStatus(appointment.status as AppointmentStoredStatus) ===
+      "PAID"
+  ) {
     return { success: false, error: "Não é possível cancelar um agendamento já finalizado." };
   }
 
@@ -325,4 +336,92 @@ export async function cancelAppointment(
   });
 
   return { success: true, data: undefined };
+}
+
+/**
+ * Atualiza o status operacional de um agendamento validando as transições
+ * permitidas no fluxo da agenda. Mantém compatibilidade com CHECKED_IN,
+ * normalizando esse valor legado para WAITING.
+ */
+export async function updateAppointmentStatus(
+  tenantId: string,
+  appointmentId: string,
+  nextStatus: AppointmentStoredStatus,
+  cancellationNote?: string
+): Promise<ActionResult<{ status: string }>> {
+  const appointment = await db.appointment.findFirst({
+    where: { id: appointmentId, tenantId },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  if (!appointment) {
+    return { success: false, error: "Agendamento não encontrado." };
+  }
+
+  const currentStatus = normalizeAppointmentStatus(
+    appointment.status as AppointmentStoredStatus
+  );
+  const normalizedNextStatus = normalizeAppointmentStatus(nextStatus);
+
+  if (
+    currentStatus !== normalizedNextStatus &&
+    !canTransitionAppointmentStatus(currentStatus, normalizedNextStatus)
+  ) {
+    return {
+      success: false,
+      error: `Não é possível mudar de ${getAppointmentStatusLabel(
+        currentStatus
+      )} para ${getAppointmentStatusLabel(normalizedNextStatus)}.`,
+    };
+  }
+
+  if (normalizedNextStatus === "CANCELLED") {
+    const result = await cancelAppointment(tenantId, appointmentId, cancellationNote);
+    if (!result.success) {
+      return result;
+    }
+
+    return {
+      success: true,
+      data: { status: normalizedNextStatus },
+    };
+  }
+
+  if (normalizedNextStatus === "COMPLETED") {
+    const { checkoutAppointment } = await import("@/services/financial.service");
+    const result = await checkoutAppointment(tenantId, appointmentId);
+    if (!result.success) {
+      return result;
+    }
+
+    return {
+      success: true,
+      data: { status: normalizedNextStatus },
+    };
+  }
+
+  if (
+    currentStatus === normalizedNextStatus &&
+    appointment.status === normalizedNextStatus
+  ) {
+    return {
+      success: true,
+      data: { status: normalizedNextStatus },
+    };
+  }
+
+  await db.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      status: normalizedNextStatus,
+    },
+  });
+
+  return {
+    success: true,
+    data: { status: normalizedNextStatus },
+  };
 }
