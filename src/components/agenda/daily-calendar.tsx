@@ -256,7 +256,6 @@ export function DailyCalendar({
                       <AppointmentCard
                         key={apt.id}
                         appointment={apt}
-                        dayStart={currentDate}
                       />
                     ))}
 

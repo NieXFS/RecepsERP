@@ -12,6 +12,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -82,6 +83,10 @@ export function InventoryPanel({
   const [adjustCost, setAdjustCost] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const adjustTypeOptions = [
+    { value: "ENTRY", label: "Entrada (Compra / Reposição)" },
+    { value: "LOSS", label: "Perda (Vencimento / Quebra)" },
+  ] as const;
 
   const isAdmin = userRole === "ADMIN";
 
@@ -314,8 +319,8 @@ export function InventoryPanel({
                 value={adjustType}
                 onValueChange={(v) => setAdjustType((v as "ENTRY" | "LOSS") ?? "ENTRY")}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel value={adjustType} options={adjustTypeOptions} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ENTRY">

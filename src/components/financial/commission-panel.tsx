@@ -11,6 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -80,6 +81,10 @@ export function CommissionPanel({
 
   const totalGlobalPending = professionals.reduce((sum, p) => sum + p.totalPending, 0);
   const totalGlobalClinic = professionals.reduce((sum, p) => sum + p.totalClinic, 0);
+  const accountSelectOptions = accounts.map((account) => ({
+    value: account.id,
+    label: `${account.name} (${account.type === "CASH" ? "Caixa" : account.type === "BANK" ? "Banco" : account.type})`,
+  }));
 
   const professionalsWithCommissions = professionals.filter((p) => p.commissionCount > 0);
 
@@ -330,8 +335,12 @@ export function CommissionPanel({
               value={selectedAccountId}
               onValueChange={(v) => setSelectedAccountId(v ?? "")}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a conta..." />
+              <SelectTrigger className="w-full">
+                <SelectValueLabel
+                  value={selectedAccountId}
+                  options={accountSelectOptions}
+                  placeholder="Selecione a conta..."
+                />
               </SelectTrigger>
               <SelectContent>
                 {accounts.map((acc) => (

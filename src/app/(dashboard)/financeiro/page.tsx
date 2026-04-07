@@ -266,6 +266,11 @@ export default async function FinancialPage() {
               description="Pague repasses pendentes e registre a despesa no caixa."
             />
             <ShortcutCard
+              href="/financeiro/despesas"
+              title="Gerenciar despesas"
+              description="Cadastre custos fixos e variáveis integrados ao extrato do período."
+            />
+            <ShortcutCard
               href="/financeiro/extrato"
               title="Analisar extrato"
               description="Filtre lançamentos por data, tipo e status."

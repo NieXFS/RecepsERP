@@ -24,6 +24,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import {
   createPackageAction,
@@ -83,6 +84,14 @@ export function PackagePanel({
   const [validityDays, setValidityDays] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [services, setServices] = useState<FormService[]>([{ serviceId: "", quantity: "1" }]);
+  const serviceSelectOptions = serviceOptions.map((option) => ({
+    value: option.id,
+    label: option.name,
+  }));
+  const statusOptions = [
+    { value: "ACTIVE", label: "Ativo" },
+    { value: "INACTIVE", label: "Inativo" },
+  ] as const;
 
   const filteredPackages = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -376,8 +385,11 @@ export function PackagePanel({
                 value={isActive ? "ACTIVE" : "INACTIVE"}
                 onValueChange={(value) => setIsActive(value === "ACTIVE")}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel
+                    value={isActive ? "ACTIVE" : "INACTIVE"}
+                    options={statusOptions}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ACTIVE">Ativo</SelectItem>
@@ -403,8 +415,12 @@ export function PackagePanel({
                         value={service.serviceId}
                         onValueChange={(value) => updateServiceRow(index, "serviceId", value ?? "")}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um serviço" />
+                        <SelectTrigger className="w-full">
+                          <SelectValueLabel
+                            value={service.serviceId}
+                            options={serviceSelectOptions}
+                            placeholder="Selecione um serviço"
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {serviceOptions.map((option) => (

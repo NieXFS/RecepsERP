@@ -31,6 +31,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import {
   createProductAction,
@@ -97,6 +98,15 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
   const [stockQuantity, setStockQuantity] = useState("");
   const [minStock, setMinStock] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const productTypeOptions = [
+    { value: "CONSUMABLE", label: "Consumível" },
+    { value: "RESALE", label: "Revenda" },
+    { value: "BOTH", label: "Ambos" },
+  ] as const;
+  const statusOptions = [
+    { value: "ACTIVE", label: "Ativo" },
+    { value: "INACTIVE", label: "Inativo" },
+  ] as const;
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -185,16 +195,16 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
 
   const activeCount = products.filter((product) => product.isActive).length;
   const inactiveCount = products.filter((product) => !product.isActive).length;
-  const criticalCount = products.filter(
-    (product) => product.isActive && product.stockQuantity <= product.minStock
+  const sellableCount = products.filter(
+    (product) => product.isActive && product.salePrice > 0
   ).length;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard title="Produtos ativos" value={activeCount} description="Disponíveis para operação" />
-        <SummaryCard title="Produtos inativos" value={inactiveCount} description="Ocultos do fluxo operacional" />
-        <SummaryCard title="Estoque crítico" value={criticalCount} description="Itens no mínimo ou abaixo dele" />
+        <SummaryCard title="Produtos ativos" value={activeCount} description="Disponíveis para uso e venda" />
+        <SummaryCard title="Produtos inativos" value={inactiveCount} description="Ocultos do catálogo operacional" />
+        <SummaryCard title="Com preço de venda" value={sellableCount} description="Itens prontos para comercialização" />
       </div>
 
       <Card className="border-border/70 shadow-sm">
@@ -202,7 +212,7 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
           <div>
             <CardTitle>Catálogo de produtos</CardTitle>
             <CardDescription>
-              Cadastre itens novos, ajuste metadados e mantenha o catálogo do tenant utilizável.
+              Mantenha o cadastro mestre dos itens com foco em identificação, precificação e status comercial.
             </CardDescription>
           </div>
           <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
@@ -233,7 +243,7 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="py-2 pr-4 font-medium">Produto</th>
                     <th className="py-2 pr-4 font-medium">Tipo</th>
-                    <th className="py-2 pr-4 font-medium">Estoque</th>
+                    <th className="py-2 pr-4 font-medium">Cadastro</th>
                     <th className="py-2 pr-4 font-medium">Preços</th>
                     <th className="py-2 pr-4 font-medium">Status</th>
                     <th className="py-2 pr-4 font-medium text-right">Ação</th>
@@ -255,21 +265,15 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
                             {product.description ? (
                               <p className="text-xs text-muted-foreground">{product.description}</p>
                             ) : null}
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Estoque atual: {product.stockQuantity} {product.unit} · mínimo {product.minStock} {product.unit}
+                            </p>
                           </div>
                         </td>
                         <td className="py-3 pr-4 text-muted-foreground">{formatProductType(product.type)}</td>
-                        <td className="py-3 pr-4">
-                          <div className="flex items-center gap-2">
-                            <StockIcon className={`h-4 w-4 ${stockStatus.className}`} />
-                            <div>
-                              <p className="font-medium">
-                                {product.stockQuantity} {product.unit}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                mínimo {product.minStock} {product.unit}
-                              </p>
-                            </div>
-                          </div>
+                        <td className="py-3 pr-4 text-muted-foreground">
+                          <p>SKU: {product.sku || "—"}</p>
+                          <p>Unidade: {product.unit}</p>
                         </td>
                         <td className="py-3 pr-4 text-muted-foreground">
                           <p>Custo: {formatCurrency(product.costPrice)}</p>
@@ -280,7 +284,10 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
                             <Badge variant={product.isActive ? "outline" : "secondary"}>
                               {product.isActive ? "Ativo" : "Inativo"}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">{stockStatus.label}</span>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <StockIcon className={`h-3.5 w-3.5 ${stockStatus.className}`} />
+                              <span>{stockStatus.label}</span>
+                            </div>
                           </div>
                         </td>
                         <td className="py-3 text-right">
@@ -337,8 +344,8 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Tipo</label>
               <Select value={type} onValueChange={(value) => setType((value as typeof type) ?? "CONSUMABLE")}>
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel value={type} options={productTypeOptions} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="CONSUMABLE">Consumível</SelectItem>
@@ -354,8 +361,11 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
                 value={isActive ? "ACTIVE" : "INACTIVE"}
                 onValueChange={(value) => setIsActive(value === "ACTIVE")}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel
+                    value={isActive ? "ACTIVE" : "INACTIVE"}
+                    options={statusOptions}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ACTIVE">Ativo</SelectItem>
@@ -388,28 +398,39 @@ export function ProductCatalogPanel({ products }: { products: ProductRow[] }) {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Estoque atual</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.001"
-                value={stockQuantity}
-                onChange={(event) => setStockQuantity(event.target.value)}
-                placeholder="0"
-              />
-            </div>
+            <div className="space-y-3 rounded-xl border bg-muted/20 p-4 md:col-span-2">
+              <div>
+                <p className="text-sm font-medium">Parâmetros de estoque</p>
+                <p className="text-xs text-muted-foreground">
+                  Defina os valores iniciais do item. O acompanhamento operacional detalhado fica na subárea Estoque.
+                </p>
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Estoque mínimo</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.001"
-                value={minStock}
-                onChange={(event) => setMinStock(event.target.value)}
-                placeholder="0"
-              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Estoque atual</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    value={stockQuantity}
+                    onChange={(event) => setStockQuantity(event.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Estoque mínimo</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    value={minStock}
+                    onChange={(event) => setMinStock(event.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

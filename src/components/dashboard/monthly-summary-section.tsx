@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ReceiptText,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { addMonthsToCivilMonth, formatCivilMonthLabel, getTodayCivilMonth, type CivilMonth } from "@/lib/civil-date";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,7 +83,7 @@ export function MonthlySummarySection({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -107,12 +114,27 @@ export function MonthlySummarySection({
           </CardContent>
         </Card>
 
-        <Card className={stats.lucroMes >= 0 ? "border-emerald-500/40" : "border-red-500/40"}>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Lucro do Mês
+              Despesas do Mês
             </CardTitle>
-            {stats.lucroMes >= 0 ? (
+            <ReceiptText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{formatCurrency(stats.totalDespesas)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Despesas operacionais pagas no extrato
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={stats.resultadoMes >= 0 ? "border-emerald-500/40" : "border-red-500/40"}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Resultado do Mês
+            </CardTitle>
+            {stats.resultadoMes >= 0 ? (
               <TrendingUp className="h-4 w-4 text-emerald-600" />
             ) : (
               <TrendingDown className="h-4 w-4 text-red-600" />
@@ -121,13 +143,13 @@ export function MonthlySummarySection({
           <CardContent>
             <p
               className={`text-2xl font-bold ${
-                stats.lucroMes >= 0 ? "text-emerald-600" : "text-red-600"
+                stats.resultadoMes >= 0 ? "text-emerald-600" : "text-red-600"
               }`}
             >
-              {formatCurrency(stats.lucroMes)}
+              {formatCurrency(stats.resultadoMes)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Faturamento − comissões
+              Faturamento − comissões − despesas pagas
             </p>
           </CardContent>
         </Card>
@@ -137,7 +159,7 @@ export function MonthlySummarySection({
         <CardHeader>
           <CardTitle>Evolução do Mês</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Acompanhe a curva diária de faturamento, comissões e ticket médio do período.
+            Acompanhe a curva diária de faturamento, comissões e despesas operacionais do período.
           </p>
           <p className="text-xs text-muted-foreground">
             Ticket médio do mês: {formatCurrency(stats.ticketMedio)}

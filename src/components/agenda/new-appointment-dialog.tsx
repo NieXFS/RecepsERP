@@ -19,6 +19,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createAppointmentAction } from "@/actions/appointment.actions";
@@ -87,6 +88,14 @@ export function NewAppointmentDialog({
       )
       .slice(0, 20);
   }, [customers, customerSearch]);
+  const roomSelectOptions = useMemo(
+    () =>
+      rooms.map((room) => ({
+        value: room.id,
+        label: room.name,
+      })),
+    [rooms]
+  );
 
   // Calcula duração total e preço estimado dos serviços selecionados
   const { totalDuration, totalPrice } = useMemo(() => {
@@ -290,8 +299,12 @@ export function NewAppointmentDialog({
             <div className="space-y-2">
               <Label>Sala</Label>
               <Select value={roomId} onValueChange={(v) => setRoomId(v ?? "")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar sala (opcional)" />
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel
+                    value={roomId}
+                    options={roomSelectOptions}
+                    placeholder="Selecionar sala (opcional)"
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {rooms.map((r) => (

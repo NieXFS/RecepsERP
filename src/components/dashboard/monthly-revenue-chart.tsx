@@ -18,7 +18,7 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
 });
 
 /**
- * Gráfico responsivo da evolução mensal com faturamento e comissões por dia.
+ * Gráfico responsivo da evolução mensal com faturamento, comissões e despesas por dia.
  */
 export function MonthlyRevenueChart({
   data,
@@ -77,6 +77,15 @@ export function MonthlyRevenueChart({
             dataKey="comissoes"
             name="Comissões"
             stroke="var(--color-chart-2)"
+            strokeWidth={2.5}
+            dot={false}
+            activeDot={{ r: 4 }}
+          />
+          <Line
+            type="monotone"
+            dataKey="despesas"
+            name="Despesas"
+            stroke="var(--color-chart-4)"
             strokeWidth={2.5}
             dot={false}
             activeDot={{ r: 4 }}

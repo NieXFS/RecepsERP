@@ -17,6 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -95,6 +96,17 @@ const permissionGroupLabels: Record<TeamPermission["group"], string> = {
   management: "Gestão",
   config: "Clínico e configurações",
 };
+
+const roleSelectOptions = [
+  { value: "ADMIN", label: "Administrador" },
+  { value: "RECEPTIONIST", label: "Recepcionista" },
+  { value: "PROFESSIONAL", label: "Profissional" },
+] as const;
+
+const statusSelectOptions = [
+  { value: "ACTIVE", label: "Ativo" },
+  { value: "INACTIVE", label: "Inativo" },
+] as const;
 
 function buildDefaultPermissions(role: TeamRole): TeamPermission[] {
   const defaults = getDefaultModuleAccess(role);
@@ -461,8 +473,8 @@ export function TeamPanel({
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Cargo *</label>
                   <Select value={role} onValueChange={(value) => handleRoleChange(value as TeamRole)}>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full">
+                      <SelectValueLabel value={role} options={roleSelectOptions} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ADMIN">Administrador</SelectItem>
@@ -478,8 +490,11 @@ export function TeamPanel({
                     value={isActive ? "ACTIVE" : "INACTIVE"}
                     onValueChange={(value) => setIsActive(value === "ACTIVE")}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="w-full">
+                      <SelectValueLabel
+                        value={isActive ? "ACTIVE" : "INACTIVE"}
+                        options={statusSelectOptions}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ACTIVE">

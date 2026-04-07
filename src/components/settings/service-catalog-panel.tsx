@@ -13,6 +13,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -109,6 +110,15 @@ export function ServiceCatalogPanel({
   const [price, setPrice] = useState("");
   const [formMaterials, setFormMaterials] = useState<FormMaterial[]>([]);
   const [formProfessionals, setFormProfessionals] = useState<FormProfessional[]>([]);
+
+  const productSelectOptions = products.map((product) => ({
+    value: product.id,
+    label: `${product.name} (${product.unit})`,
+  }));
+  const professionalSelectOptions = professionals.map((professional) => ({
+    value: professional.id,
+    label: `${professional.name} (padrão: ${professional.commissionPercent}%)`,
+  }));
 
   function resetForm() {
     setEditingId(null);
@@ -351,14 +361,15 @@ export function ServiceCatalogPanel({
 
       {/* Dialog: Criar/Editar Serviço */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>{editingId ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 py-2">
+          <div className="overflow-y-auto px-6 py-2">
+            <div className="space-y-6 pb-6">
             {/* Dados básicos */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Nome *</label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Limpeza de Pele" />
@@ -369,7 +380,7 @@ export function ServiceCatalogPanel({
                 <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição do serviço" />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Duração (min) *</label>
                   <Input
@@ -398,7 +409,7 @@ export function ServiceCatalogPanel({
             <Separator />
 
             {/* Ficha Técnica */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium flex items-center gap-1.5">
                   <FlaskConical className="h-4 w-4" />
@@ -417,15 +428,19 @@ export function ServiceCatalogPanel({
               )}
 
               {formMaterials.map((mat, idx) => (
-                <div key={idx} className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1">
+                <div key={idx} className="grid gap-3 rounded-xl border bg-muted/15 p-3 md:grid-cols-[minmax(0,1fr)_120px_auto] md:items-end">
+                  <div className="space-y-1">
                     {idx === 0 && <label className="text-xs text-muted-foreground">Produto</label>}
                     <Select
                       value={mat.productId}
                       onValueChange={(v) => updateMaterial(idx, "productId", v ?? "")}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar..." />
+                      <SelectTrigger className="w-full">
+                        <SelectValueLabel
+                          value={mat.productId}
+                          options={productSelectOptions}
+                          placeholder="Selecionar..."
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {products.map((p) => (
@@ -436,7 +451,7 @@ export function ServiceCatalogPanel({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="w-24 space-y-1">
+                  <div className="space-y-1">
                     {idx === 0 && <label className="text-xs text-muted-foreground">Qtd</label>}
                     <Input
                       type="number"
@@ -463,7 +478,7 @@ export function ServiceCatalogPanel({
             <Separator />
 
             {/* Profissionais Aptos */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium flex items-center gap-1.5">
                   <Users className="h-4 w-4" />
@@ -482,15 +497,19 @@ export function ServiceCatalogPanel({
               )}
 
               {formProfessionals.map((prof, idx) => (
-                <div key={idx} className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1">
+                <div key={idx} className="grid gap-3 rounded-xl border bg-muted/15 p-3 md:grid-cols-[minmax(0,1fr)_140px_auto] md:items-end">
+                  <div className="space-y-1">
                     {idx === 0 && <label className="text-xs text-muted-foreground">Profissional</label>}
                     <Select
                       value={prof.professionalId}
                       onValueChange={(v) => updateProfessional(idx, "professionalId", v ?? "")}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar..." />
+                      <SelectTrigger className="w-full">
+                        <SelectValueLabel
+                          value={prof.professionalId}
+                          options={professionalSelectOptions}
+                          placeholder="Selecionar..."
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {professionals.map((p) => (
@@ -501,7 +520,7 @@ export function ServiceCatalogPanel({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="w-28 space-y-1">
+                  <div className="space-y-1">
                     {idx === 0 && <label className="text-xs text-muted-foreground">Comissão %</label>}
                     <Input
                       type="number"
@@ -531,9 +550,10 @@ export function ServiceCatalogPanel({
                 </p>
               )}
             </div>
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mx-0 mb-0 rounded-none px-6 py-4">
             <Button variant="outline" onClick={() => setShowModal(false)} disabled={isPending}>
               Cancelar
             </Button>

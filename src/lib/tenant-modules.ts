@@ -74,7 +74,7 @@ export const TENANT_MODULE_DEFINITIONS: readonly TenantModuleDefinition[] = [
   {
     key: "PRODUTOS",
     label: "Produtos",
-    description: "Catálogo de produtos físicos e insumos.",
+    description: "Cadastro mestre de produtos físicos, insumos e parâmetros comerciais.",
     href: "/produtos",
     group: "management",
   },
@@ -88,8 +88,8 @@ export const TENANT_MODULE_DEFINITIONS: readonly TenantModuleDefinition[] = [
   {
     key: "ESTOQUE",
     label: "Estoque",
-    description: "Movimentações, saldo e controle de materiais.",
-    href: "/estoque",
+    description: "Operação de saldo, ajustes e controle de materiais vinculados aos produtos.",
+    href: "/produtos/estoque",
     group: "management",
   },
   {

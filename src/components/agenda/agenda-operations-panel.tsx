@@ -177,7 +177,10 @@ function StatusLane({
       <CardHeader className="space-y-2 pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base">{APPOINTMENT_STATUS_LABELS[status]}</CardTitle>
-          <Badge variant={APPOINTMENT_STATUS_BADGE_VARIANTS[status]}>
+          <Badge
+            variant="outline"
+            className={getLaneCounterBadgeClass(appointments.length)}
+          >
             {appointments.length}
           </Badge>
         </div>
@@ -201,6 +204,14 @@ function StatusLane({
       </CardContent>
     </Card>
   );
+}
+
+function getLaneCounterBadgeClass(count: number) {
+  if (count === 0) {
+    return "border-border bg-muted/50 text-muted-foreground";
+  }
+
+  return "border-primary bg-primary text-primary-foreground";
 }
 
 function OperationalAppointmentCard({

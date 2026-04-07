@@ -28,6 +28,28 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   )
 }
 
+function SelectValueLabel({
+  value,
+  options,
+  placeholder,
+  className,
+  ...props
+}: Omit<SelectPrimitive.Value.Props, "children"> & {
+  value?: string | null
+  options: ReadonlyArray<{
+    value: string
+    label: React.ReactNode
+  }>
+}) {
+  const selectedOption = options.find((option) => option.value === value)
+
+  return (
+    <SelectValue className={className} placeholder={placeholder} {...props}>
+      {selectedOption?.label}
+    </SelectValue>
+  )
+}
+
 function SelectTrigger({
   className,
   size = "default",
@@ -198,4 +220,5 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 }

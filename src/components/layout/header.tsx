@@ -1,29 +1,28 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 
 type HeaderProps = {
+  tenantName?: string;
   userName: string;
   userEmail: string;
   userRole: string;
 };
 
-/** Barra superior do dashboard — dados do usuário, toggle de tema e logout */
-export function Header({ userName, userEmail, userRole }: HeaderProps) {
+/** Barra superior do dashboard — destaca o tenant atual e mantém o usuário como contexto secundário. */
+export function Header({ tenantName, userName, userEmail, userRole }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
-      <div className="text-sm text-muted-foreground">
-        Olá, <span className="font-medium text-foreground">{userName}</span>
+      <div className="min-w-0">
+        <p className="truncate text-base font-semibold text-foreground sm:text-lg">
+          {tenantName ?? "Estabelecimento"}
+        </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Badge variant="secondary" className="text-xs">
-          {roleLabel(userRole)}
-        </Badge>
+      <div className="flex items-center gap-3 pl-4">
         <span className="text-xs text-muted-foreground hidden sm:inline">
           {userEmail}
         </span>

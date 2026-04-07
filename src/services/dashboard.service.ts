@@ -17,7 +17,8 @@ import {
 export type MonthlyDashboardStats = {
   faturamentoMes: number;
   totalComissoes: number;
-  lucroMes: number;
+  totalDespesas: number;
+  resultadoMes: number;
   totalAtendimentos: number;
   ticketMedio: number;
 };
@@ -27,6 +28,7 @@ export type DailyRevenuePoint = {
   label: string;
   faturamento: number;
   comissoes: number;
+  despesas: number;
 };
 
 function roundCurrency(value: number) {
@@ -142,8 +144,10 @@ export async function getWaitingRoomAppointments(tenantId: string) {
 }
 
 /**
- * Consolida as métricas mensais reais do tenant com base em atendimentos concluídos
- * e comissões geradas para esses atendimentos no período selecionado.
+ * Consolida as métricas mensais do tenant com base no faturamento realizado,
+ * comissões do período e despesas operacionais efetivamente pagas.
+ * As despesas usam a mesma origem de dados do Extrato: transactions EXPENSE
+ * vinculadas a expenseId, evitando divergência com o módulo Financeiro.
  */
 export async function getMonthlyStatsForTenant(
   tenantId: string,
@@ -151,7 +155,7 @@ export async function getMonthlyStatsForTenant(
 ): Promise<MonthlyDashboardStats> {
   const { start, endExclusive } = getCivilMonthRange(period);
 
-  const [appointmentsAggregate, commissions] = await Promise.all([
+  const [appointmentsAggregate, commissions, expenseTransactionsAggregate] = await Promise.all([
     db.appointment.aggregate({
       where: {
         tenantId,
@@ -186,6 +190,23 @@ export async function getMonthlyStatsForTenant(
         commissionValue: true,
       },
     }),
+    db.transaction.aggregate({
+      where: {
+        tenantId,
+        type: "EXPENSE",
+        paymentStatus: "PAID",
+        expenseId: {
+          not: null,
+        },
+        paidAt: {
+          gte: start,
+          lt: endExclusive,
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
   ]);
 
   const faturamentoMes = Number(appointmentsAggregate._sum.totalPrice ?? 0);
@@ -194,13 +215,15 @@ export async function getMonthlyStatsForTenant(
     (sum, commission) => sum + Number(commission.commissionValue),
     0
   );
-  const lucroMes = faturamentoMes - totalComissoes;
+  const totalDespesas = Number(expenseTransactionsAggregate._sum.amount ?? 0);
+  const resultadoMes = faturamentoMes - totalComissoes - totalDespesas;
   const ticketMedio = totalAtendimentos > 0 ? faturamentoMes / totalAtendimentos : 0;
 
   return {
     faturamentoMes: roundCurrency(faturamentoMes),
     totalComissoes: roundCurrency(totalComissoes),
-    lucroMes: roundCurrency(lucroMes),
+    totalDespesas: roundCurrency(totalDespesas),
+    resultadoMes: roundCurrency(resultadoMes),
     totalAtendimentos,
     ticketMedio: roundCurrency(ticketMedio),
   };
@@ -209,6 +232,7 @@ export async function getMonthlyStatsForTenant(
 /**
  * Retorna a série diária do mês para o gráfico evolutivo.
  * Todos os dias do mês são retornados, inclusive os que não possuem movimento.
+ * Despesas operacionais usam a mesma base do extrato financeiro.
  */
 export async function getDailyRevenueForTenant(
   tenantId: string,
@@ -216,7 +240,7 @@ export async function getDailyRevenueForTenant(
 ): Promise<DailyRevenuePoint[]> {
   const { start, endExclusive } = getCivilMonthRange(period);
 
-  const [appointments, commissions] = await Promise.all([
+  const [appointments, commissions, expenseTransactions] = await Promise.all([
     db.appointment.findMany({
       where: {
         tenantId,
@@ -254,6 +278,24 @@ export async function getDailyRevenueForTenant(
         },
       },
     }),
+    db.transaction.findMany({
+      where: {
+        tenantId,
+        type: "EXPENSE",
+        paymentStatus: "PAID",
+        expenseId: {
+          not: null,
+        },
+        paidAt: {
+          gte: start,
+          lt: endExclusive,
+        },
+      },
+      select: {
+        paidAt: true,
+        amount: true,
+      },
+    }),
   ]);
 
   const points = new Map<string, DailyRevenuePoint>();
@@ -270,6 +312,7 @@ export async function getDailyRevenueForTenant(
       label: `${String(day).padStart(2, "0")}/${String(period.month).padStart(2, "0")}`,
       faturamento: 0,
       comissoes: 0,
+      despesas: 0,
     });
   }
 
@@ -289,6 +332,20 @@ export async function getDailyRevenueForTenant(
     if (current) {
       current.comissoes = roundCurrency(
         current.comissoes + Number(commission.commissionValue)
+      );
+    }
+  }
+
+  for (const transaction of expenseTransactions) {
+    if (!transaction.paidAt) {
+      continue;
+    }
+
+    const key = formatCivilDateToQuery(getCivilDateFromDate(transaction.paidAt));
+    const current = points.get(key);
+    if (current) {
+      current.despesas = roundCurrency(
+        current.despesas + Number(transaction.amount)
       );
     }
   }

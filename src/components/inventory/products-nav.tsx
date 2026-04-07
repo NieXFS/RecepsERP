@@ -2,56 +2,46 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChartColumn,
-  CircleDollarSign,
-  ReceiptText,
-  Tags,
-  WalletCards,
-} from "lucide-react";
+import type { TenantModule } from "@/generated/prisma/enums";
+import { Boxes, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type ProductsNavProps = {
+  allowedModules: TenantModule[];
+};
 
 const tabs = [
   {
-    href: "/financeiro",
+    href: "/produtos",
     label: "Geral",
-    icon: ChartColumn,
+    icon: Boxes,
+    module: "PRODUTOS" as const,
   },
   {
-    href: "/financeiro/comissoes",
-    label: "Comissões",
-    icon: WalletCards,
-  },
-  {
-    href: "/financeiro/despesas",
-    label: "Despesas",
-    icon: Tags,
-  },
-  {
-    href: "/financeiro/extrato",
-    label: "Extrato por datas",
-    icon: ReceiptText,
-  },
-  {
-    href: "/financeiro/caixa",
-    label: "Caixa",
-    icon: CircleDollarSign,
+    href: "/produtos/estoque",
+    label: "Estoque",
+    icon: Warehouse,
+    module: "ESTOQUE" as const,
   },
 ];
 
 /**
- * Subnavegação do módulo Financeiro.
+ * Subnavegação do módulo Produtos.
+ * Mantém o agrupamento entre cadastro mestre e operação de estoque.
  */
-export function FinancialNav() {
+export function ProductsNav({ allowedModules }: ProductsNavProps) {
   const pathname = usePathname();
+  const allowedSet = new Set(allowedModules);
+
+  const visibleTabs = tabs.filter((tab) => allowedSet.has(tab.module));
 
   return (
     <nav className="flex gap-1 border-b">
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const Icon = tab.icon;
         const isActive =
-          tab.href === "/financeiro"
-            ? pathname === "/financeiro"
+          tab.href === "/produtos"
+            ? pathname === "/produtos"
             : pathname === tab.href || pathname?.startsWith(tab.href + "/");
 
         return (

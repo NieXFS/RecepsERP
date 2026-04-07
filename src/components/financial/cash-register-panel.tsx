@@ -16,6 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectValueLabel,
 } from "@/components/ui/select";
 
 type CashAccount = {
@@ -106,6 +107,14 @@ export function CashRegisterPanel({
   const selectedAccount = useMemo(
     () => accounts.find((account) => account.id === selectedAccountId) ?? null,
     [accounts, selectedAccountId]
+  );
+  const accountSelectOptions = useMemo(
+    () =>
+      accounts.map((account) => ({
+        value: account.id,
+        label: account.name,
+      })),
+    [accounts]
   );
 
   function handleOpenCashRegister() {
@@ -240,8 +249,12 @@ export function CashRegisterPanel({
                       value={selectedAccountId}
                       onValueChange={(value) => setSelectedAccountId(value ?? "")}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a conta" />
+                      <SelectTrigger className="w-full">
+                        <SelectValueLabel
+                          value={selectedAccountId}
+                          options={accountSelectOptions}
+                          placeholder="Selecione a conta"
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {accounts.map((account) => (

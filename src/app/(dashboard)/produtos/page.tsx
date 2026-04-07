@@ -1,4 +1,5 @@
-import { getAuthUserForModule } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { getAuthUserWithAccess } from "@/lib/session";
 import { listProductCatalog } from "@/services/inventory.service";
 import { ProductCatalogPanel } from "@/components/inventory/product-catalog-panel";
 
@@ -7,16 +8,24 @@ import { ProductCatalogPanel } from "@/components/inventory/product-catalog-pane
  * Oferece uma visão limpa do catálogo com ponte direta para o módulo de estoque.
  */
 export default async function ProductsPage() {
-  const user = await getAuthUserForModule("PRODUTOS");
+  const user = await getAuthUserWithAccess();
+
+  if (!user.moduleAccess.PRODUTOS) {
+    if (user.moduleAccess.ESTOQUE) {
+      redirect("/produtos/estoque");
+    }
+
+    redirect("/dashboard");
+  }
 
   const products = await listProductCatalog(user.tenantId);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
+        <h2 className="text-xl font-semibold tracking-tight">Geral</h2>
         <p className="text-muted-foreground">
-          Cadastre e edite produtos do tenant sem depender da tela de estoque para manutenção básica.
+          Gerencie o cadastro mestre dos itens, preços, unidade e status sem confundir essa tela com a operação diária do estoque.
         </p>
       </div>
 

@@ -5,7 +5,7 @@ import { FinancialNav } from "@/components/financial/financial-nav";
 
 /**
  * Layout do módulo Financeiro.
- * Mantém a navegação interna de visão geral, comissões, extrato e caixa sob o mesmo contexto.
+ * Mantém a navegação interna de visão geral, comissões, despesas, extrato e caixa.
  */
 export default async function FinancialLayout({
   children,
@@ -24,7 +24,7 @@ export default async function FinancialLayout({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Financeiro</h1>
         <p className="text-muted-foreground">
-          Gerencie repasses, extrato operacional e rotina de caixa do estabelecimento.
+          Gerencie repasses, despesas, extrato operacional e rotina de caixa do estabelecimento.
         </p>
       </div>
       <FinancialNav />

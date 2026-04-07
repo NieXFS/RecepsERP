@@ -13,18 +13,20 @@ import {
   Package,
   ShoppingBag,
   Landmark,
-  Warehouse,
   FileText,
   Settings,
   type LucideIcon,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 type NavItem = {
   module: TenantModule;
+  visibleForModules?: readonly TenantModule[];
   href: string;
   label: string;
   icon: LucideIcon;
+  activePrefixes?: readonly string[];
   /** Grupo visual para separadores */
   group: "main" | "management" | "config";
 };
@@ -43,9 +45,16 @@ const navItems: NavItem[] = [
   { module: "PROFISSIONAIS", href: "/profissionais", label: "Profissionais", icon: UserCog, group: "management" },
   { module: "SERVICOS", href: "/servicos", label: "Serviços", icon: Scissors, group: "management" },
   { module: "PACOTES", href: "/pacotes", label: "Pacotes", icon: Package, group: "management" },
-  { module: "PRODUTOS", href: "/produtos", label: "Produtos", icon: ShoppingBag, group: "management" },
+  {
+    module: "PRODUTOS",
+    visibleForModules: ["PRODUTOS", "ESTOQUE"],
+    href: "/produtos",
+    label: "Produtos",
+    icon: ShoppingBag,
+    activePrefixes: ["/produtos", "/produtos/estoque"],
+    group: "management",
+  },
   { module: "COMISSOES", href: "/financeiro", label: "Financeiro", icon: Landmark, group: "management" },
-  { module: "ESTOQUE", href: "/estoque", label: "Estoque", icon: Warehouse, group: "management" },
 
   // --- Grupo clínico/config ---
   { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
@@ -55,7 +64,6 @@ const navItems: NavItem[] = [
 type SidebarProps = {
   userRole: string;
   userName: string;
-  tenantName?: string;
   allowedModules: TenantModule[];
 };
 
@@ -63,14 +71,23 @@ type SidebarProps = {
 export function Sidebar({
   userRole,
   userName,
-  tenantName,
   allowedModules,
 }: SidebarProps) {
   const pathname = usePathname();
   const visibleModuleSet = new Set(allowedModules);
 
   // Filtra itens com base nas permissões efetivas por módulo
-  const visibleItems = navItems.filter((item) => visibleModuleSet.has(item.module));
+  const visibleItems = navItems
+    .filter((item) =>
+      (item.visibleForModules ?? [item.module]).some((module) => visibleModuleSet.has(module))
+    )
+    .map((item) => ({
+      ...item,
+      href:
+        item.module === "PRODUTOS" && !visibleModuleSet.has("PRODUTOS") && visibleModuleSet.has("ESTOQUE")
+          ? "/produtos/estoque"
+          : item.href,
+    }));
 
   // Agrupa os itens visíveis
   const mainItems = visibleItems.filter((i) => i.group === "main");
@@ -80,18 +97,8 @@ export function Sidebar({
   return (
     <aside className="flex h-full w-64 flex-col border-r bg-background">
       {/* Logo e nome do tenant */}
-      <div className="flex h-16 items-center gap-3 border-b px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-          R
-        </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold leading-tight">Receps ERP</span>
-          {tenantName && (
-            <span className="text-xs text-muted-foreground leading-tight truncate max-w-[140px]">
-              {tenantName}
-            </span>
-          )}
-        </div>
+      <div className="flex h-[64px] items-center justify-center border-b px-6">
+        <BrandLogo className="max-w-full" />
       </div>
 
       {/* Navegação */}
@@ -144,8 +151,10 @@ function NavGroup({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
     <div className="space-y-1">
       {items.map((item) => {
-        const isActive =
-          pathname === item.href || pathname?.startsWith(item.href + "/");
+        const activePrefixes = item.activePrefixes ?? [item.href];
+        const isActive = activePrefixes.some((prefix) =>
+          pathname === prefix || pathname?.startsWith(prefix + "/")
+        );
         const Icon = item.icon;
 
         return (

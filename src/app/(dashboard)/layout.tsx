@@ -35,11 +35,15 @@ export default async function DashboardLayout({
       <Sidebar
         userRole={user.role}
         userName={user.name}
-        tenantName={tenant?.name}
         allowedModules={user.allowedModules}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header userName={user.name} userEmail={user.email} userRole={user.role} />
+        <Header
+          tenantName={tenant?.name}
+          userName={user.name}
+          userEmail={user.email}
+          userRole={user.role}
+        />
         <main className="flex-1 overflow-y-auto bg-muted/30 p-6">
           {children}
         </main>
