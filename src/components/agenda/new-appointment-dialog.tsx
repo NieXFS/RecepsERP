@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createAppointmentAction } from "@/actions/appointment.actions";
+import { CustomerCreateForm, type CreatedCustomer } from "@/components/customer/customer-create-form";
+import { Card, CardContent } from "@/components/ui/card";
+import { UserPlus } from "lucide-react";
 import type {
   CalendarProfessional,
   CalendarService,
@@ -61,6 +64,8 @@ export function NewAppointmentDialog({
   equipment,
 }: NewAppointmentDialogProps) {
   const [isPending, startTransition] = useTransition();
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  const [customerOptions, setCustomerOptions] = useState<CalendarCustomer[]>(customers);
 
   // Estado do formulário
   const [customerId, setCustomerId] = useState("");
@@ -78,16 +83,16 @@ export function NewAppointmentDialog({
 
   // Filtra clientes pelo campo de busca
   const filteredCustomers = useMemo(() => {
-    if (!customerSearch.trim()) return customers.slice(0, 20);
+    if (!customerSearch.trim()) return customerOptions.slice(0, 20);
     const search = customerSearch.toLowerCase();
-    return customers
+    return customerOptions
       .filter(
         (c) =>
           c.name.toLowerCase().includes(search) ||
           (c.phone && c.phone.includes(search))
       )
       .slice(0, 20);
-  }, [customers, customerSearch]);
+  }, [customerOptions, customerSearch]);
   const roomSelectOptions = useMemo(
     () =>
       rooms.map((room) => ({
@@ -123,6 +128,10 @@ export function NewAppointmentDialog({
     ? `${String(endTime.getHours()).padStart(2, "0")}:${String(endTime.getMinutes()).padStart(2, "0")}`
     : "--:--";
 
+  useEffect(() => {
+    setCustomerOptions(customers);
+  }, [customers]);
+
   /** Reseta todos os campos do formulário */
   function resetForm() {
     setCustomerId("");
@@ -131,6 +140,24 @@ export function NewAppointmentDialog({
     setSelectedEquipmentIds([]);
     setNotes("");
     setCustomerSearch("");
+    setIsCreatingCustomer(false);
+  }
+
+  function handleCustomerCreated(customer: CreatedCustomer) {
+    setCustomerOptions((prev) => {
+      const withoutDuplicate = prev.filter((item) => item.id !== customer.id);
+      return [
+        {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+        },
+        ...withoutDuplicate,
+      ];
+    });
+    setCustomerId(customer.id);
+    setCustomerSearch(customer.name);
+    setIsCreatingCustomer(false);
   }
 
   /** Toggle de seleção de serviço (multiselect via checkboxes) */
@@ -206,11 +233,44 @@ export function NewAppointmentDialog({
             {/* ---- BUSCA DE CLIENTE ---- */}
             <div className="space-y-2">
               <Label>Cliente *</Label>
-              <Input
-                placeholder="Buscar por nome ou telefone..."
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
-              />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  placeholder="Buscar por nome ou telefone..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreatingCustomer((prev) => !prev)}
+                  className="sm:self-start"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Novo
+                </Button>
+              </div>
+
+              {isCreatingCustomer ? (
+                <Card className="border-dashed">
+                  <CardContent className="space-y-3 p-4">
+                    <div>
+                      <p className="text-sm font-medium">Cadastrar cliente rapidamente</p>
+                      <p className="text-xs text-muted-foreground">
+                        Crie o cliente agora e ele será selecionado automaticamente no agendamento.
+                      </p>
+                    </div>
+                    <CustomerCreateForm
+                      refreshOnSuccess={false}
+                      submitLabel="Criar e Selecionar"
+                      className="pt-1"
+                      onSuccess={handleCustomerCreated}
+                      onCancel={() => setIsCreatingCustomer(false)}
+                    />
+                  </CardContent>
+                </Card>
+              ) : null}
+
               {/* Lista de resultados filtrados */}
               {filteredCustomers.length > 0 && (
                 <div className="max-h-32 overflow-y-auto rounded-md border">

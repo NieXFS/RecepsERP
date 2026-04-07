@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { ActionResult } from "@/types";
+import type { CreateCustomerInput } from "@/lib/validators/customer";
 
 /**
  * Lista todos os clientes do tenant com busca por nome/telefone/email.
@@ -34,6 +35,73 @@ export async function listCustomers(
     visitCount: c.visitCount,
     createdAt: c.createdAt.toISOString(),
   }));
+}
+
+/**
+ * Cria um cliente manualmente no tenant autenticado.
+ * Valida duplicidade de documento dentro do próprio tenant e
+ * mantém telefone como campo obrigatório para futuras integrações.
+ */
+export async function createCustomer(
+  tenantId: string,
+  data: CreateCustomerInput
+): Promise<
+  ActionResult<{
+    customer: {
+      id: string;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      document: string | null;
+    };
+  }>
+> {
+  const normalizedName = data.name.trim();
+  const normalizedPhone = data.phone.trim();
+  const normalizedEmail = data.email?.trim() || null;
+  const normalizedDocument = data.document?.trim() || null;
+
+  if (normalizedDocument) {
+    const existingDocument = await db.customer.findFirst({
+      where: {
+        tenantId,
+        deletedAt: null,
+        document: normalizedDocument,
+      },
+      select: { id: true },
+    });
+
+    if (existingDocument) {
+      return {
+        success: false,
+        error: "Já existe um cliente com este CPF / documento neste estabelecimento.",
+      };
+    }
+  }
+
+  const customer = await db.customer.create({
+    data: {
+      tenantId,
+      name: normalizedName,
+      phone: normalizedPhone,
+      email: normalizedEmail,
+      document: normalizedDocument,
+      isActive: true,
+    },
+  });
+
+  return {
+    success: true,
+    data: {
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        document: customer.document,
+      },
+    },
+  };
 }
 
 /**

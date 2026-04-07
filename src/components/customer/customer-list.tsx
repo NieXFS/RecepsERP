@@ -5,7 +5,16 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Users, Phone, Mail, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, Users, Phone, Mail, ChevronRight, Plus } from "lucide-react";
+import { CustomerCreateForm } from "@/components/customer/customer-create-form";
 
 type CustomerRow = {
   id: string;
@@ -23,6 +32,7 @@ type CustomerRow = {
  */
 export function CustomerList({ customers }: { customers: CustomerRow[] }) {
   const [search, setSearch] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
@@ -35,15 +45,26 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Barra de busca */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome, telefone ou email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
+      {/* Barra de busca + ação primária */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, telefone ou email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => setIsDialogOpen(true)}
+          className="sm:self-stretch"
+        >
+          <Plus className="h-4 w-4" />
+          Novo Cliente
+        </Button>
       </div>
 
       {/* Contador */}
@@ -121,6 +142,26 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogDescription>
+              Cadastre manualmente um novo cliente ou paciente no estabelecimento.
+            </DialogDescription>
+          </DialogHeader>
+          <CustomerCreateForm
+            onCancel={() => setIsDialogOpen(false)}
+            onSuccess={() => setIsDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
