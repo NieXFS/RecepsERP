@@ -25,9 +25,9 @@ import type { ActionResult } from "@/types";
  */
 export async function checkoutAppointmentAction(
   appointmentId: string,
-  options?: {
+  options: {
     paymentMethod?: PaymentMethodValue;
-    accountId?: string;
+    accountId: string;
     installments?: number;
   }
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {

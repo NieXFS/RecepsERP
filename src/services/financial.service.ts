@@ -22,7 +22,7 @@ import type { ActionResult } from "@/types";
 
 type CheckoutOptions = {
   paymentMethod?: PaymentMethodValue;
-  accountId?: string;
+  accountId: string;
   installments?: number; // Quantidade de parcelas (ex: 3x no cartão)
   finalStatus?: "COMPLETED" | "PAID";
 };
@@ -232,7 +232,7 @@ async function getCashSessionMovementTotals(
 export async function checkoutAppointment(
   tenantId: string,
   appointmentId: string,
-  options: CheckoutOptions = {}
+  options: CheckoutOptions
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
   const {
     paymentMethod = "CASH",
@@ -265,6 +265,7 @@ export async function checkoutAppointment(
       transaction: {
         select: {
           id: true,
+          accountId: true,
           paymentMethod: true,
         },
       },
@@ -287,12 +288,43 @@ export async function checkoutAppointment(
     return { success: false, error: "Não é possível finalizar um agendamento cancelado ou no-show." };
   }
 
+  const destinationAccount = await db.financialAccount.findFirst({
+    where: {
+      id: accountId,
+      tenantId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!destinationAccount) {
+    return { success: false, error: "A conta de destino selecionada não está disponível." };
+  }
+
+  if (normalizedStatus === "COMPLETED" && !appointment.transaction) {
+    await db.appointment.update({
+      where: { id: appointmentId },
+      data: { status: finalStatus },
+    });
+
+    return {
+      success: true,
+      data: {
+        transactionIds: [],
+        commissionIds: [],
+      },
+    };
+  }
+
   if (appointment.transaction) {
     try {
       await db.$transaction(async (tx) => {
         await tx.transaction.update({
           where: { id: appointment.transaction!.id },
           data: {
+            accountId: destinationAccount.id,
             paymentMethod,
           },
         });
@@ -347,7 +379,7 @@ export async function checkoutAppointment(
               data: {
                 tenantId,
                 appointmentId: i === 1 ? appointmentId : null, // Apenas a 1ª parcela linka ao appointment (@unique)
-                accountId: accountId ?? null,
+                accountId: destinationAccount.id,
                 type: "INCOME",
                 paymentMethod,
                 paymentStatus: i === 1 ? "PAID" : "PENDING", // 1ª parcela paga na hora
@@ -367,7 +399,7 @@ export async function checkoutAppointment(
             data: {
               tenantId,
               appointmentId,
-              accountId: accountId ?? null,
+              accountId: destinationAccount.id,
               type: "INCOME",
               paymentMethod,
               paymentStatus: "PAID",
@@ -383,17 +415,15 @@ export async function checkoutAppointment(
         }
 
         // Atualiza o saldo da conta financeira (se informada)
-        if (accountId) {
-          // À vista: credita o total. Parcelado: credita apenas a 1ª parcela
-          const creditAmount = installments > 1
-            ? Math.round((totalAmount / installments) * 100) / 100
-            : totalAmount;
+        // À vista: credita o total. Parcelado: credita apenas a 1ª parcela
+        const creditAmount = installments > 1
+          ? Math.round((totalAmount / installments) * 100) / 100
+          : totalAmount;
 
-          await tx.financialAccount.update({
-            where: { id: accountId },
-            data: { balance: { increment: creditAmount } },
-          });
-        }
+        await tx.financialAccount.update({
+          where: { id: destinationAccount.id },
+          data: { balance: { increment: creditAmount } },
+        });
       }
 
       // ================================================================

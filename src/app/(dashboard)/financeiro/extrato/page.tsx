@@ -12,6 +12,7 @@ import {
   FINANCIAL_STATEMENT_STATUS_VALUES,
   FINANCIAL_STATEMENT_TYPE_VALUES,
 } from "@/lib/validators/financial";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { getFinancialStatement } from "@/services/financial.service";
 
 function formatCurrency(value: number) {
@@ -189,7 +190,7 @@ export default async function FinancialStatementPage({
                       <td className="py-3">
                         <div className="font-medium">{entry.description ?? "Sem descrição"}</div>
                         <div className="text-xs text-muted-foreground">
-                          {entry.paymentMethod}
+                          {PAYMENT_METHOD_LABELS[entry.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] ?? entry.paymentMethod}
                         </div>
                       </td>
                       <td className="py-3">

@@ -1,6 +1,7 @@
 import { getAuthUserForModule } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DailyCalendar } from "@/components/agenda/daily-calendar";
+import { getCashRegisterOverview } from "@/services/financial.service";
 import {
   formatCivilDateToQuery,
   getCivilDayRange,
@@ -27,7 +28,16 @@ export default async function AgendaPage({
   const dayRange = getCivilDayRange(selectedDate);
 
   // Busca em paralelo todos os dados necessários para renderizar a agenda
-  const [professionals, appointments, services, customers, rooms, equipment] =
+  const [
+    professionals,
+    appointments,
+    services,
+    customers,
+    rooms,
+    equipment,
+    financialAccounts,
+    cashOverview,
+  ] =
     await Promise.all([
       // Profissionais ativos do tenant
       db.professional.findMany({
@@ -89,6 +99,21 @@ export default async function AgendaPage({
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
+
+      db.financialAccount.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+        },
+        orderBy: [{ type: "asc" }, { name: "asc" }],
+      }),
+
+      getCashRegisterOverview(tenantId),
     ]);
 
   // Serializa os dados para o Client Component (Decimal → number, Date → string)
@@ -151,6 +176,9 @@ export default async function AgendaPage({
         professionals={serializedProfessionals}
         appointments={serializedGridAppointments}
         operationalAppointments={operationalAppointments}
+        hasOpenCashRegister={cashOverview.currentSession != null}
+        openCashRegisterAccountId={cashOverview.currentSession?.accountId ?? null}
+        financialAccounts={financialAccounts}
         services={serializedServices}
         customers={customers}
         rooms={rooms}

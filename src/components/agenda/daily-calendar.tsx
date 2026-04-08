@@ -12,6 +12,7 @@ import {
   CALENDAR_CONFIG,
   type CalendarProfessional,
   type CalendarAppointment,
+  type CalendarFinancialAccount,
   type CalendarService,
   type CalendarCustomer,
   type CalendarResource,
@@ -31,6 +32,9 @@ type DailyCalendarProps = {
   professionals: CalendarProfessional[];
   appointments: CalendarAppointment[];
   operationalAppointments: OperationalAppointment[];
+  hasOpenCashRegister: boolean;
+  openCashRegisterAccountId: string | null;
+  financialAccounts: CalendarFinancialAccount[];
   services: CalendarService[];
   customers: CalendarCustomer[];
   rooms: CalendarResource[];
@@ -59,6 +63,9 @@ export function DailyCalendar({
   professionals,
   appointments,
   operationalAppointments,
+  hasOpenCashRegister,
+  openCashRegisterAccountId,
+  financialAccounts,
   services,
   customers,
   rooms,
@@ -293,6 +300,9 @@ export function DailyCalendar({
       <AgendaOperationsPanel
         dateLabel={dateFormatted}
         appointments={operationalAppointments}
+        hasOpenCashRegister={hasOpenCashRegister}
+        openCashRegisterAccountId={openCashRegisterAccountId}
+        financialAccounts={financialAccounts}
       />
     </>
   );

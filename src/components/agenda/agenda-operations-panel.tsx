@@ -36,6 +36,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -48,11 +56,14 @@ import {
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethodValue,
 } from "@/lib/payment-methods";
-import type { OperationalAppointment } from "./types";
+import type { CalendarFinancialAccount, OperationalAppointment } from "./types";
 
 type AgendaOperationsPanelProps = {
   dateLabel: string;
   appointments: OperationalAppointment[];
+  hasOpenCashRegister: boolean;
+  openCashRegisterAccountId: string | null;
+  financialAccounts: CalendarFinancialAccount[];
 };
 
 type QuickAction = {
@@ -95,6 +106,9 @@ const STATUS_DESCRIPTIONS: Record<AppointmentWorkflowStatus, string> = {
 export function AgendaOperationsPanel({
   dateLabel,
   appointments,
+  hasOpenCashRegister,
+  openCashRegisterAccountId,
+  financialAccounts,
 }: AgendaOperationsPanelProps) {
   const groupedAppointments = useMemo(() => {
     const groups = new Map<AppointmentWorkflowStatus, OperationalAppointment[]>();
@@ -146,12 +160,18 @@ export function AgendaOperationsPanel({
         title="Fluxo operacional"
         statuses={PRIMARY_STATUSES}
         groupedAppointments={groupedAppointments}
+        hasOpenCashRegister={hasOpenCashRegister}
+        openCashRegisterAccountId={openCashRegisterAccountId}
+        financialAccounts={financialAccounts}
       />
 
       <LaneGrid
         title="Encerramentos do dia"
         statuses={SECONDARY_STATUSES}
         groupedAppointments={groupedAppointments}
+        hasOpenCashRegister={hasOpenCashRegister}
+        openCashRegisterAccountId={openCashRegisterAccountId}
+        financialAccounts={financialAccounts}
       />
     </section>
   );
@@ -161,10 +181,16 @@ function LaneGrid({
   title,
   statuses,
   groupedAppointments,
+  hasOpenCashRegister,
+  openCashRegisterAccountId,
+  financialAccounts,
 }: {
   title: string;
   statuses: AppointmentWorkflowStatus[];
   groupedAppointments: Map<AppointmentWorkflowStatus, OperationalAppointment[]>;
+  hasOpenCashRegister: boolean;
+  openCashRegisterAccountId: string | null;
+  financialAccounts: CalendarFinancialAccount[];
 }) {
   return (
     <div className="space-y-3">
@@ -179,6 +205,9 @@ function LaneGrid({
             key={status}
             status={status}
             appointments={groupedAppointments.get(status) ?? []}
+            hasOpenCashRegister={hasOpenCashRegister}
+            openCashRegisterAccountId={openCashRegisterAccountId}
+            financialAccounts={financialAccounts}
           />
         ))}
       </div>
@@ -189,9 +218,15 @@ function LaneGrid({
 function StatusLane({
   status,
   appointments,
+  hasOpenCashRegister,
+  openCashRegisterAccountId,
+  financialAccounts,
 }: {
   status: AppointmentWorkflowStatus;
   appointments: OperationalAppointment[];
+  hasOpenCashRegister: boolean;
+  openCashRegisterAccountId: string | null;
+  financialAccounts: CalendarFinancialAccount[];
 }) {
   return (
     <Card className="min-h-[220px]">
@@ -219,6 +254,9 @@ function StatusLane({
             <OperationalAppointmentCard
               key={appointment.id}
               appointment={appointment}
+              hasOpenCashRegister={hasOpenCashRegister}
+              openCashRegisterAccountId={openCashRegisterAccountId}
+              financialAccounts={financialAccounts}
             />
           ))
         )}
@@ -237,13 +275,21 @@ function getLaneCounterBadgeClass(count: number) {
 
 function OperationalAppointmentCard({
   appointment,
+  hasOpenCashRegister,
+  openCashRegisterAccountId,
+  financialAccounts,
 }: {
   appointment: OperationalAppointment;
+  hasOpenCashRegister: boolean;
+  openCashRegisterAccountId: string | null;
+  financialAccounts: CalendarFinancialAccount[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [cashClosedAlertOpen, setCashClosedAlertOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodValue | "">("");
+  const [destinationAccountId, setDestinationAccountId] = useState("");
   const normalizedStatus = normalizeAppointmentStatus(appointment.status);
   const availableActions = useMemo(
     () => buildQuickActions(normalizedStatus),
@@ -257,6 +303,25 @@ function OperationalAppointmentCard({
       })),
     []
   );
+  const accountOptions = useMemo(
+    () =>
+      financialAccounts.map((account) => ({
+        value: account.id,
+        label: account.name,
+      })),
+    [financialAccounts]
+  );
+
+  function getDefaultDestinationAccountId() {
+    if (
+      openCashRegisterAccountId &&
+      financialAccounts.some((account) => account.id === openCashRegisterAccountId)
+    ) {
+      return openCashRegisterAccountId;
+    }
+
+    return "";
+  }
 
   function handleTransition(nextStatus: AppointmentWorkflowStatus) {
     startTransition(async () => {
@@ -284,12 +349,23 @@ function OperationalAppointmentCard({
 
     if (!open) {
       setPaymentMethod("");
+      setDestinationAccountId("");
     }
+  }
+
+  function openPaymentDialogWithDefaults() {
+    setDestinationAccountId(getDefaultDestinationAccountId());
+    setPaymentDialogOpen(true);
   }
 
   function handleActionClick(nextStatus: AppointmentWorkflowStatus) {
     if (nextStatus === "PAID") {
-      setPaymentDialogOpen(true);
+      if (!hasOpenCashRegister) {
+        setCashClosedAlertOpen(true);
+        return;
+      }
+
+      openPaymentDialogWithDefaults();
       return;
     }
 
@@ -302,9 +378,15 @@ function OperationalAppointmentCard({
       return;
     }
 
+    if (!destinationAccountId) {
+      toast.error("Selecione a conta de destino para registrar o pagamento.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await checkoutAppointmentAction(appointment.id, {
         paymentMethod,
+        accountId: destinationAccountId,
       });
 
       if (!result.success) {
@@ -315,8 +397,19 @@ function OperationalAppointmentCard({
       toast.success("Pagamento confirmado e registrado no caixa.");
       setPaymentDialogOpen(false);
       setPaymentMethod("");
+      setDestinationAccountId("");
       router.refresh();
     });
+  }
+
+  function handleContinueWithoutOpenCash() {
+    setCashClosedAlertOpen(false);
+    openPaymentDialogWithDefaults();
+  }
+
+  function handleGoToCashRegister() {
+    setCashClosedAlertOpen(false);
+    router.push("/financeiro/caixa");
   }
 
   const start = new Date(appointment.startTime);
@@ -414,6 +507,29 @@ function OperationalAppointmentCard({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label>Conta de Destino *</Label>
+              <Select
+                value={destinationAccountId}
+                onValueChange={(value) => setDestinationAccountId(value ?? "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel
+                    value={destinationAccountId}
+                    options={accountOptions}
+                    placeholder="Selecionar conta de destino"
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {financialAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <DialogFooter className="pt-4">
@@ -430,6 +546,36 @@ function OperationalAppointmentCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={cashClosedAlertOpen}
+        onOpenChange={(open) => {
+          if (!isPending) {
+            setCashClosedAlertOpen(open);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atenção: Caixa Fechado</AlertDialogTitle>
+            <AlertDialogDescription>
+              O Caixa ainda não foi aberto para o dia de hoje. Quer continuar e registrar o pagamento mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleGoToCashRegister}
+              disabled={isPending}
+            >
+              Abrir Caixa
+            </Button>
+            <Button onClick={handleContinueWithoutOpenCash} disabled={isPending}>
+              Continuar mesmo assim
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

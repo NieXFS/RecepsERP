@@ -38,6 +38,13 @@ export type OperationalAppointment = {
   services: string[];
 };
 
+/** Conta financeira disponível para destino do pagamento no checkout. */
+export type CalendarFinancialAccount = {
+  id: string;
+  name: string;
+  type: string;
+};
+
 /** Serviço disponível para seleção no formulário */
 export type CalendarService = {
   id: string;
