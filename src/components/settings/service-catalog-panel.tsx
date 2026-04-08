@@ -12,7 +12,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
   SelectValueLabel,
 } from "@/components/ui/select";
 import {
@@ -366,190 +365,192 @@ export function ServiceCatalogPanel({
             <DialogTitle>{editingId ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
           </DialogHeader>
 
-          <div className="overflow-y-auto px-6 py-2">
-            <div className="space-y-6 pb-6">
-            {/* Dados básicos */}
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Nome *</label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Limpeza de Pele" />
-              </div>
+          <div className="px-6 py-2">
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-6">
+                {/* Dados básicos */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Nome *</label>
+                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Limpeza de Pele" />
+                  </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Descrição</label>
-                <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição do serviço" />
-              </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Descrição</label>
+                    <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição do serviço" />
+                  </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Duração (min) *</label>
-                  <Input
-                    type="number"
-                    min="5"
-                    step="5"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="60"
-                  />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Duração (min) *</label>
+                      <Input
+                        type="number"
+                        min="5"
+                        step="5"
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        placeholder="60"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Preço (R$) *</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="150.00"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Preço (R$) *</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="150.00"
-                  />
-                </div>
-              </div>
-            </div>
 
-            <Separator />
+                <Separator />
 
-            {/* Ficha Técnica */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium flex items-center gap-1.5">
-                  <FlaskConical className="h-4 w-4" />
-                  Ficha Técnica (Materiais)
-                </label>
-                <Button type="button" variant="outline" size="sm" onClick={addMaterial} className="gap-1 text-xs">
-                  <Plus className="h-3 w-3" />
-                  Adicionar
-                </Button>
-              </div>
+                {/* Ficha Técnica */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <FlaskConical className="h-4 w-4" />
+                      Ficha Técnica (Materiais)
+                    </label>
+                    <Button type="button" variant="outline" size="sm" onClick={addMaterial} className="gap-1 text-xs">
+                      <Plus className="h-3 w-3" />
+                      Adicionar
+                    </Button>
+                  </div>
 
-              {formMaterials.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Nenhum material vinculado. Adicione produtos consumidos neste serviço.
-                </p>
-              )}
+                  {formMaterials.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Nenhum material vinculado. Adicione produtos consumidos neste serviço.
+                    </p>
+                  )}
 
-              {formMaterials.map((mat, idx) => (
-                <div key={idx} className="grid gap-3 rounded-xl border bg-muted/15 p-3 md:grid-cols-[minmax(0,1fr)_120px_auto] md:items-end">
-                  <div className="space-y-1">
-                    {idx === 0 && <label className="text-xs text-muted-foreground">Produto</label>}
-                    <Select
-                      value={mat.productId}
-                      onValueChange={(v) => updateMaterial(idx, "productId", v ?? "")}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValueLabel
+                  {formMaterials.map((mat, idx) => (
+                    <div key={idx} className="grid gap-3 rounded-xl border bg-muted/15 p-3 md:grid-cols-[minmax(0,1fr)_120px_auto] md:items-end">
+                      <div className="space-y-1">
+                        {idx === 0 && <label className="text-xs text-muted-foreground">Produto</label>}
+                        <Select
                           value={mat.productId}
-                          options={productSelectOptions}
-                          placeholder="Selecionar..."
+                          onValueChange={(v) => updateMaterial(idx, "productId", v ?? "")}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValueLabel
+                              value={mat.productId}
+                              options={productSelectOptions}
+                              placeholder="Selecionar..."
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} ({p.unit})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        {idx === 0 && <label className="text-xs text-muted-foreground">Qtd</label>}
+                        <Input
+                          type="number"
+                          min="0.001"
+                          step="0.001"
+                          value={mat.quantity}
+                          onChange={(e) => updateMaterial(idx, "quantity", e.target.value)}
+                          placeholder="10"
                         />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name} ({p.unit})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    {idx === 0 && <label className="text-xs text-muted-foreground">Qtd</label>}
-                    <Input
-                      type="number"
-                      min="0.001"
-                      step="0.001"
-                      value={mat.quantity}
-                      onChange={(e) => updateMaterial(idx, "quantity", e.target.value)}
-                      placeholder="10"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeMaterial(idx)}
-                    className="text-muted-foreground hover:text-destructive shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMaterial(idx)}
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <Separator />
+                <Separator />
 
-            {/* Profissionais Aptos */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium flex items-center gap-1.5">
-                  <Users className="h-4 w-4" />
-                  Profissionais Aptos
-                </label>
-                <Button type="button" variant="outline" size="sm" onClick={addProfessional} className="gap-1 text-xs">
-                  <Plus className="h-3 w-3" />
-                  Adicionar
-                </Button>
-              </div>
+                {/* Profissionais Aptos */}
+                <div className="space-y-4 pb-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Users className="h-4 w-4" />
+                      Profissionais Aptos
+                    </label>
+                    <Button type="button" variant="outline" size="sm" onClick={addProfessional} className="gap-1 text-xs">
+                      <Plus className="h-3 w-3" />
+                      Adicionar
+                    </Button>
+                  </div>
 
-              {formProfessionals.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Nenhum profissional vinculado. Defina quem pode realizar este serviço.
-                </p>
-              )}
+                  {formProfessionals.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Nenhum profissional vinculado. Defina quem pode realizar este serviço.
+                    </p>
+                  )}
 
-              {formProfessionals.map((prof, idx) => (
-                <div key={idx} className="grid gap-3 rounded-xl border bg-muted/15 p-3 md:grid-cols-[minmax(0,1fr)_140px_auto] md:items-end">
-                  <div className="space-y-1">
-                    {idx === 0 && <label className="text-xs text-muted-foreground">Profissional</label>}
-                    <Select
-                      value={prof.professionalId}
-                      onValueChange={(v) => updateProfessional(idx, "professionalId", v ?? "")}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValueLabel
+                  {formProfessionals.map((prof, idx) => (
+                    <div key={idx} className="grid gap-3 rounded-xl border bg-muted/15 p-3 md:grid-cols-[minmax(0,1fr)_140px_auto] md:items-end">
+                      <div className="space-y-1">
+                        {idx === 0 && <label className="text-xs text-muted-foreground">Profissional</label>}
+                        <Select
                           value={prof.professionalId}
-                          options={professionalSelectOptions}
-                          placeholder="Selecionar..."
+                          onValueChange={(v) => updateProfessional(idx, "professionalId", v ?? "")}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValueLabel
+                              value={prof.professionalId}
+                              options={professionalSelectOptions}
+                              placeholder="Selecionar..."
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {professionals.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} (padrão: {p.commissionPercent}%)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        {idx === 0 && <label className="text-xs text-muted-foreground">Comissão %</label>}
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={prof.customCommission}
+                          onChange={(e) => updateProfessional(idx, "customCommission", e.target.value)}
+                          placeholder="Padrão"
                         />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {professionals.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name} (padrão: {p.commissionPercent}%)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    {idx === 0 && <label className="text-xs text-muted-foreground">Comissão %</label>}
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={prof.customCommission}
-                      onChange={(e) => updateProfessional(idx, "customCommission", e.target.value)}
-                      placeholder="Padrão"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeProfessional(idx)}
-                    className="text-muted-foreground hover:text-destructive shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeProfessional(idx)}
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
 
-              {formProfessionals.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Deixe "Comissão %" em branco para usar a taxa padrão do profissional.
-                </p>
-              )}
-            </div>
+                  {formProfessionals.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Deixe &quot;Comissão %&quot; em branco para usar a taxa padrão do profissional.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
