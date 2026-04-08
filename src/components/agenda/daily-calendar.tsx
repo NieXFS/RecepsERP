@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AppointmentCard } from "./appointment-card";
 import { AgendaOperationsPanel } from "./agenda-operations-panel";
 import { NewAppointmentDialog } from "./new-appointment-dialog";
@@ -169,17 +168,17 @@ export function DailyCalendar({
           Nenhum profissional cadastrado. Cadastre profissionais para usar a agenda.
         </div>
       ) : (
-        <ScrollArea className="flex-1 rounded-lg border bg-background">
-          <div className="min-w-[600px]">
+        <div className="relative flex-1 h-[60vh] min-h-[500px] overflow-x-auto overflow-y-auto rounded-lg border bg-background pb-4">
+          <div className="min-w-full w-max">
             {/* Cabeçalho de colunas: Profissionais */}
             <div
-              className="sticky top-0 z-20 grid border-b bg-background"
+              className="grid"
               style={{
-                gridTemplateColumns: `80px repeat(${professionals.length}, minmax(180px, 1fr))`,
+                gridTemplateColumns: `80px repeat(${professionals.length}, minmax(220px, 1fr))`,
               }}
             >
               {/* Célula vazia no canto (coluna de horários) */}
-              <div className="border-r px-2 py-3 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 left-0 z-30 w-[80px] min-w-[80px] bg-background border-r border-b px-2 py-3 text-xs font-medium text-muted-foreground">
                 Horário
               </div>
 
@@ -187,7 +186,7 @@ export function DailyCalendar({
               {professionals.map((prof) => (
                 <div
                   key={prof.id}
-                  className="border-r last:border-r-0 px-3 py-3 text-center"
+                  className="sticky top-0 z-20 min-w-[220px] bg-background border-b border-r last:border-r-0 px-3 py-3 text-center"
                 >
                   <p className="text-sm font-semibold truncate">{prof.name}</p>
                   {prof.specialty && (
@@ -204,11 +203,11 @@ export function DailyCalendar({
             <div
               className="grid"
               style={{
-                gridTemplateColumns: `80px repeat(${professionals.length}, minmax(180px, 1fr))`,
+                gridTemplateColumns: `80px repeat(${professionals.length}, minmax(220px, 1fr))`,
               }}
             >
               {/* Coluna de horários (eixo Y) */}
-              <div className="border-r relative" style={{ height: `${totalGridHeight}px` }}>
+              <div className="sticky left-0 z-20 w-[80px] min-w-[80px] bg-background border-r relative" style={{ height: `${totalGridHeight}px` }}>
                 {timeSlots.map((slot, i) => (
                   <div
                     key={slot.label}
@@ -230,7 +229,7 @@ export function DailyCalendar({
                 return (
                   <div
                     key={prof.id}
-                    className="border-r last:border-r-0 relative"
+                    className="relative min-w-[220px] border-r last:border-r-0"
                     style={{ height: `${totalGridHeight}px` }}
                   >
                     {/* Linhas horizontais de cada slot (fundo clicável) */}
@@ -262,7 +261,7 @@ export function DailyCalendar({
                     {/* Linha "agora" (apenas no dia atual) */}
                     {showNowLine && (
                       <div
-                        className="absolute left-0 right-0 z-30 pointer-events-none"
+                        className="absolute left-0 right-0 z-10 pointer-events-none"
                         style={{ top: `${nowLineTop}px` }}
                       >
                         <div className="flex items-center">
@@ -276,7 +275,7 @@ export function DailyCalendar({
               })}
             </div>
           </div>
-        </ScrollArea>
+        </div>
       )}
 
       {/* ---- MODAL DE NOVO AGENDAMENTO ---- */}
