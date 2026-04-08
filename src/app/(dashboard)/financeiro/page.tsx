@@ -210,6 +210,55 @@ export default async function FinancialPage() {
         </Card>
       </section>
 
+      <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ReceiptText className="h-4 w-4 text-primary" />
+              Fechamento de Caixa Hoje
+            </CardTitle>
+            <CardDescription>
+              Total de entradas pagas hoje, agrupadas por meio de pagamento.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-end justify-between rounded-lg border bg-muted/30 px-4 py-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Total faturado hoje
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {formatCurrency(overview.todayCashClosing.total)}
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Consolidado por meio de pagamento
+              </p>
+            </div>
+
+            {overview.todayCashClosing.methods.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma entrada paga registrada hoje até o momento.
+              </p>
+            ) : (
+              <div className="rounded-lg border">
+                {overview.todayCashClosing.methods.map((entry) => (
+                  <div
+                    key={entry.paymentMethod}
+                    className="flex items-center justify-between gap-3 border-b px-4 py-3 text-sm last:border-b-0"
+                  >
+                    <span className="font-medium text-foreground">{entry.label}</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(entry.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardHeader>

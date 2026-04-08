@@ -7,7 +7,7 @@ import type { ActionResult } from "@/types";
 /**
  * Server Action: ação rápida de mudança de status no dashboard.
  * Permite a recepcionista fazer check-in, iniciar atendimento,
- * ou finalizar (que dispara o checkout financeiro completo).
+ * ou finalizar a etapa operacional do atendimento.
  */
 export async function quickStatusChangeAction(
   appointmentId: string,

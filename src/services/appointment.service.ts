@@ -342,6 +342,7 @@ export async function cancelAppointment(
  * Atualiza o status operacional de um agendamento validando as transições
  * permitidas no fluxo da agenda. Mantém compatibilidade com CHECKED_IN,
  * normalizando esse valor legado para WAITING.
+ * O checkout financeiro é executado separadamente no momento da cobrança.
  */
 export async function updateAppointmentStatus(
   tenantId: string,
@@ -380,19 +381,6 @@ export async function updateAppointmentStatus(
 
   if (normalizedNextStatus === "CANCELLED") {
     const result = await cancelAppointment(tenantId, appointmentId, cancellationNote);
-    if (!result.success) {
-      return result;
-    }
-
-    return {
-      success: true,
-      data: { status: normalizedNextStatus },
-    };
-  }
-
-  if (normalizedNextStatus === "COMPLETED") {
-    const { checkoutAppointment } = await import("@/services/financial.service");
-    const result = await checkoutAppointment(tenantId, appointmentId);
     if (!result.success) {
       return result;
     }

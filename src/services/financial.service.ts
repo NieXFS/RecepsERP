@@ -5,11 +5,15 @@ import {
 } from "@/lib/appointments/status";
 import {
   formatCivilDateToQuery,
-  getCivilDateFromDate,
   getCivilDayRange,
   getTodayCivilDate,
   type CivilDate,
 } from "@/lib/civil-date";
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_OPTIONS,
+  type PaymentMethodValue,
+} from "@/lib/payment-methods";
 import type {
   CloseCashRegisterInput,
   OpenCashRegisterInput,
@@ -17,9 +21,10 @@ import type {
 import type { ActionResult } from "@/types";
 
 type CheckoutOptions = {
-  paymentMethod?: "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "BANK_TRANSFER" | "BOLETO" | "OTHER";
+  paymentMethod?: PaymentMethodValue;
   accountId?: string;
   installments?: number; // Quantidade de parcelas (ex: 3x no cartão)
+  finalStatus?: "COMPLETED" | "PAID";
 };
 
 type StatementTypeFilter = "ALL" | "INCOME" | "EXPENSE";
@@ -113,6 +118,14 @@ export type FinancialOverview = {
   statement: {
     recentCount: number;
     lastTransactionAt: string | null;
+  };
+  todayCashClosing: {
+    total: number;
+    methods: Array<{
+      paymentMethod: PaymentMethodValue;
+      label: string;
+      amount: number;
+    }>;
   };
   recentActivities: Array<{
     id: string;
@@ -221,7 +234,12 @@ export async function checkoutAppointment(
   appointmentId: string,
   options: CheckoutOptions = {}
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
-  const { paymentMethod = "CASH", accountId, installments = 1 } = options;
+  const {
+    paymentMethod = "CASH",
+    accountId,
+    installments = 1,
+    finalStatus = "COMPLETED",
+  } = options;
 
   // --- Busca o agendamento com todos os dados necessários para o checkout ---
   const appointment = await db.appointment.findFirst({
@@ -244,6 +262,12 @@ export async function checkoutAppointment(
         },
       },
       customer: true,
+      transaction: {
+        select: {
+          id: true,
+          paymentMethod: true,
+        },
+      },
     },
   });
 
@@ -255,12 +279,41 @@ export async function checkoutAppointment(
     appointment.status as AppointmentStoredStatus
   );
 
-  if (normalizedStatus === "COMPLETED" || normalizedStatus === "PAID") {
-    return { success: false, error: "Este agendamento já foi finalizado." };
+  if (normalizedStatus === "PAID") {
+    return { success: false, error: "Este agendamento já foi marcado como pago." };
   }
 
   if (normalizedStatus === "CANCELLED" || normalizedStatus === "NO_SHOW") {
     return { success: false, error: "Não é possível finalizar um agendamento cancelado ou no-show." };
+  }
+
+  if (appointment.transaction) {
+    try {
+      await db.$transaction(async (tx) => {
+        await tx.transaction.update({
+          where: { id: appointment.transaction!.id },
+          data: {
+            paymentMethod,
+          },
+        });
+
+        await tx.appointment.update({
+          where: { id: appointmentId },
+          data: { status: finalStatus },
+        });
+      });
+
+      return {
+        success: true,
+        data: {
+          transactionIds: [appointment.transaction.id],
+          commissionIds: [],
+        },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao concluir o checkout.";
+      return { success: false, error: message };
+    }
   }
 
   const isPackageSession = !!appointment.customerPackageId;
@@ -437,11 +490,11 @@ export async function checkoutAppointment(
       });
 
       // ================================================================
-      // ETAPA 5: FINALIZA O AGENDAMENTO — Status → COMPLETED
+      // ETAPA 5: FINALIZA O AGENDAMENTO — Status operacional final
       // ================================================================
       await tx.appointment.update({
         where: { id: appointmentId },
-        data: { status: "COMPLETED" },
+        data: { status: finalStatus },
       });
 
       return { transactionIds: createdTransactionIds, commissionIds: createdCommissionIds };
@@ -1063,8 +1116,16 @@ export async function getFinancialOverview(
   };
   const endDate = period?.endDate ?? today;
   const { start, endExclusive } = getPeriodBounds(startDate, endDate);
+  const { start: todayStart, endExclusive: todayEndExclusive } = getCivilDayRange(today);
 
-  const [statement, cashOverview, commissions, recentTransactions, recentCashSessions] =
+  const [
+    statement,
+    cashOverview,
+    commissions,
+    recentTransactions,
+    recentCashSessions,
+    todayCashClosingGroups,
+  ] =
     await Promise.all([
       getFinancialStatement(tenantId, {
         startDate,
@@ -1137,6 +1198,21 @@ export async function getFinancialOverview(
         },
         take: 3,
       }),
+      db.transaction.groupBy({
+        by: ["paymentMethod"],
+        where: {
+          tenantId,
+          type: "INCOME",
+          paymentStatus: "PAID",
+          paidAt: {
+            gte: todayStart,
+            lt: todayEndExclusive,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
     ]);
 
   const generatedTotal = commissions.reduce(
@@ -1154,6 +1230,17 @@ export async function getFinancialOverview(
 
   const currentCash = cashOverview.currentSession;
   const lastClosedCash = cashOverview.recentSessions.find((session) => session.status === "CLOSED");
+  const todayCashClosing = PAYMENT_METHOD_OPTIONS.map((option) => {
+    const match = todayCashClosingGroups.find(
+      (group) => group.paymentMethod === option.value
+    );
+
+    return {
+      paymentMethod: option.value,
+      label: PAYMENT_METHOD_LABELS[option.value],
+      amount: roundCurrency(Number(match?._sum.amount ?? 0)),
+    };
+  }).filter((entry) => entry.amount > 0);
 
   const recentActivities = [
     ...recentTransactions.map((transaction) => ({
@@ -1223,6 +1310,12 @@ export async function getFinancialOverview(
         recentTransactions[0] != null
           ? (recentTransactions[0].paidAt ?? recentTransactions[0].createdAt).toISOString()
           : null,
+    },
+    todayCashClosing: {
+      total: roundCurrency(
+        todayCashClosing.reduce((sum, entry) => sum + entry.amount, 0)
+      ),
+      methods: todayCashClosing,
     },
     recentActivities,
   };

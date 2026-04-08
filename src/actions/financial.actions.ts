@@ -1,6 +1,7 @@
 "use server";
 
 import { requireModuleAccess } from "@/lib/session";
+import type { PaymentMethodValue } from "@/lib/payment-methods";
 import {
   checkoutAppointment,
   closeCashRegister,
@@ -25,13 +26,16 @@ import type { ActionResult } from "@/types";
 export async function checkoutAppointmentAction(
   appointmentId: string,
   options?: {
-    paymentMethod?: "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "BANK_TRANSFER" | "BOLETO" | "OTHER";
+    paymentMethod?: PaymentMethodValue;
     accountId?: string;
     installments?: number;
   }
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
   const session = await requireModuleAccess("AGENDA");
-  return checkoutAppointment(session.tenantId, appointmentId, options);
+  return checkoutAppointment(session.tenantId, appointmentId, {
+    ...options,
+    finalStatus: "PAID",
+  });
 }
 
 /**

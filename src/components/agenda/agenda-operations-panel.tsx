@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { useMemo, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { updateAppointmentStatusAction } from "@/actions/appointment.actions";
+import { checkoutAppointmentAction } from "@/actions/financial.actions";
 import {
   APPOINTMENT_STATUS_BADGE_VARIANTS,
   APPOINTMENT_STATUS_LABELS,
@@ -27,6 +28,26 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValueLabel,
+} from "@/components/ui/select";
+import {
+  PAYMENT_METHOD_OPTIONS,
+  type PaymentMethodValue,
+} from "@/lib/payment-methods";
 import type { OperationalAppointment } from "./types";
 
 type AgendaOperationsPanelProps = {
@@ -221,10 +242,20 @@ function OperationalAppointmentCard({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodValue | "">("");
   const normalizedStatus = normalizeAppointmentStatus(appointment.status);
   const availableActions = useMemo(
     () => buildQuickActions(normalizedStatus),
     [normalizedStatus]
+  );
+  const paymentMethodOptions = useMemo(
+    () =>
+      PAYMENT_METHOD_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    []
   );
 
   function handleTransition(nextStatus: AppointmentWorkflowStatus) {
@@ -240,6 +271,50 @@ function OperationalAppointmentCard({
       }
 
       toast.success(getStatusTransitionToast(nextStatus));
+      router.refresh();
+    });
+  }
+
+  function handlePaymentDialogChange(open: boolean) {
+    if (isPending) {
+      return;
+    }
+
+    setPaymentDialogOpen(open);
+
+    if (!open) {
+      setPaymentMethod("");
+    }
+  }
+
+  function handleActionClick(nextStatus: AppointmentWorkflowStatus) {
+    if (nextStatus === "PAID") {
+      setPaymentDialogOpen(true);
+      return;
+    }
+
+    handleTransition(nextStatus);
+  }
+
+  function handleConfirmPayment() {
+    if (!paymentMethod) {
+      toast.error("Selecione o meio de pagamento para concluir o checkout.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await checkoutAppointmentAction(appointment.id, {
+        paymentMethod,
+      });
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success("Pagamento confirmado e registrado no caixa.");
+      setPaymentDialogOpen(false);
+      setPaymentMethod("");
       router.refresh();
     });
   }
@@ -285,7 +360,7 @@ function OperationalAppointmentCard({
                 size="xs"
                 variant={action.variant}
                 disabled={isPending}
-                onClick={() => handleTransition(action.nextStatus)}
+                onClick={() => handleActionClick(action.nextStatus)}
               >
                 <Icon className="h-3 w-3" />
                 {action.label}
@@ -294,6 +369,67 @@ function OperationalAppointmentCard({
           })}
         </div>
       )}
+
+      <Dialog open={paymentDialogOpen} onOpenChange={handlePaymentDialogChange}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar Pagamento</DialogTitle>
+            <DialogDescription>
+              Revise o valor do atendimento e informe o meio de pagamento antes de concluir o checkout.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/40 p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Valor total do agendamento
+              </p>
+              <p className="mt-1 text-2xl font-semibold">
+                R$ {appointment.totalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {appointment.customerName} · {timeLabel} · {appointment.professionalName}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Meio de Pagamento *</Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(value) => setPaymentMethod((value ?? "") as PaymentMethodValue | "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValueLabel
+                    value={paymentMethod}
+                    options={paymentMethodOptions}
+                    placeholder="Selecionar meio de pagamento"
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHOD_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button
+              variant="outline"
+              onClick={() => handlePaymentDialogChange(false)}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmPayment} disabled={isPending}>
+              {isPending ? "Confirmando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
