@@ -39,11 +39,18 @@ type ExpenseRecord = {
   status: "PENDING" | "PAID" | "OVERDUE" | "CANCELLED";
   recurrence: "MONTHLY" | "BIMONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "YEARLY" | "NONE";
   recurrenceGroupId: string | null;
+  deletedAt: Date | null;
   notes: string | null;
   categoryId: string;
+  accountId: string | null;
   category: {
     name: string;
   };
+  account: {
+    id: string;
+    name: string;
+    type: "CASH" | "BANK" | "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "OTHER";
+  } | null;
   transaction?: {
     id: string;
     accountId: string | null;
@@ -57,6 +64,9 @@ export type MonthlyExpense = {
   id: string;
   categoryId: string;
   category: string;
+  accountId: string | null;
+  accountName: string | null;
+  accountType: string | null;
   description: string;
   type: "FIXED" | "VARIABLE";
   amount: number;
@@ -65,6 +75,7 @@ export type MonthlyExpense = {
   status: "PENDING" | "PAID" | "OVERDUE" | "CANCELLED";
   displayStatus: "PENDING" | "PAID" | "OVERDUE" | "CANCELLED";
   recurrence: "MONTHLY" | "BIMONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "YEARLY" | "NONE";
+  recurrenceGroupId: string | null;
   notes: string | null;
 };
 
@@ -202,6 +213,7 @@ export async function syncRecurringExpensesForMonth(
   const recurringExpenses = await tx.expense.findMany({
     where: {
       tenantId,
+      deletedAt: null,
       type: "FIXED",
       recurrence: { not: "NONE" },
       dueDate: { lt: start },
@@ -263,6 +275,7 @@ export async function syncRecurringExpensesForMonth(
         data: {
           tenantId,
           categoryId: latestOccurrence.categoryId,
+          accountId: latestOccurrence.accountId,
           description: latestOccurrence.description,
           type: latestOccurrence.type,
           amount: latestOccurrence.amount,
@@ -298,6 +311,7 @@ export async function getMonthlyExpenses(
   const expenses = await db.expense.findMany({
     where: {
       tenantId,
+      deletedAt: null,
       dueDate: {
         gte: start,
         lt: endExclusive,
@@ -306,6 +320,13 @@ export async function getMonthlyExpenses(
     include: {
       category: {
         select: { name: true },
+      },
+      account: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+        },
       },
     },
     orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
@@ -369,6 +390,21 @@ export async function createExpense(
     return { success: false, error: "Categoria de despesa inválida." };
   }
 
+  if (input.accountId) {
+    const account = await db.financialAccount.findFirst({
+      where: {
+        id: input.accountId,
+        tenantId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (!account) {
+      return { success: false, error: "Conta financeira inválida para esta despesa." };
+    }
+  }
+
   const recurrenceGroupId =
     input.type === "FIXED" && input.recurrence !== "NONE"
       ? randomUUID()
@@ -378,6 +414,7 @@ export async function createExpense(
     data: {
       tenantId,
       categoryId: input.categoryId,
+      accountId: input.accountId ?? null,
       description: input.description.trim(),
       type: input.type,
       amount: input.amount,
@@ -412,7 +449,7 @@ export async function updateExpense(
   }
 
   const expense = await db.expense.findFirst({
-    where: { id: expenseId, tenantId },
+    where: { id: expenseId, tenantId, deletedAt: null },
     select: {
       id: true,
       status: true,
@@ -445,6 +482,21 @@ export async function updateExpense(
     }
   }
 
+  if (input.accountId) {
+    const account = await db.financialAccount.findFirst({
+      where: {
+        id: input.accountId,
+        tenantId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (!account) {
+      return { success: false, error: "Conta financeira inválida para esta despesa." };
+    }
+  }
+
   const nextType = input.type;
   const nextRecurrence =
     nextType === "VARIABLE"
@@ -455,6 +507,7 @@ export async function updateExpense(
     where: { id: expenseId },
     data: {
       categoryId: input.categoryId,
+      accountId: input.accountId !== undefined ? input.accountId : undefined,
       description: input.description?.trim(),
       type: nextType,
       amount: input.amount,
@@ -492,15 +545,21 @@ export async function updateExpense(
 export async function markExpenseAsPaid(
   tenantId: string,
   expenseId: string,
-  accountId?: string
+  accountId?: string | null
 ): Promise<ActionResult<{ expenseId: string; transactionId: string }>> {
   try {
     const result = await db.$transaction(async (tx) => {
       const expense = await tx.expense.findFirst({
-        where: { id: expenseId, tenantId },
+        where: { id: expenseId, tenantId, deletedAt: null },
         include: {
           category: {
             select: { name: true },
+          },
+          account: {
+            select: {
+              id: true,
+              type: true,
+            },
           },
           transaction: {
             select: {
@@ -527,7 +586,14 @@ export async function markExpenseAsPaid(
         throw new Error("Esta despesa já possui um lançamento financeiro vinculado.");
       }
 
-      const resolvedAccount = await resolveExpenseAccount(tx, tenantId, accountId);
+      const resolvedAccount =
+        accountId === null
+          ? null
+          : await resolveExpenseAccount(
+              tx,
+              tenantId,
+              accountId ?? expense.accountId ?? undefined
+            );
       const paidAt = new Date();
 
       const transaction = await tx.transaction.create({
@@ -600,7 +666,7 @@ export async function cancelExpensePayment(
   try {
     const result = await db.$transaction(async (tx) => {
       const expense = await tx.expense.findFirst({
-        where: { id: expenseId, tenantId },
+        where: { id: expenseId, tenantId, deletedAt: null },
         include: {
           transaction: {
             select: {
@@ -669,7 +735,7 @@ export async function cancelExpense(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
   const expense = await db.expense.findFirst({
-    where: { id: expenseId, tenantId },
+    where: { id: expenseId, tenantId, deletedAt: null },
     select: {
       id: true,
       status: true,
@@ -710,35 +776,128 @@ export async function cancelExpense(
  */
 export async function deleteExpense(
   tenantId: string,
-  expenseId: string
-): Promise<ActionResult<{ expenseId: string }>> {
-  const expense = await db.expense.findFirst({
-    where: { id: expenseId, tenantId },
-    select: {
-      id: true,
-      status: true,
-    },
-  });
-
-  if (!expense) {
-    return { success: false, error: "Despesa não encontrada." };
+  expenseId: string,
+  options?: {
+    deleteAllFuture?: boolean;
   }
+): Promise<ActionResult<{ expenseId: string; deletedCount: number }>> {
+  const deleteAllFuture = options?.deleteAllFuture ?? false;
 
-  if (expense.status === "PAID") {
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const expense = await tx.expense.findFirst({
+        where: { id: expenseId, tenantId, deletedAt: null },
+        select: {
+          id: true,
+          status: true,
+          dueDate: true,
+          recurrence: true,
+          recurrenceGroupId: true,
+        },
+      });
+
+      if (!expense) {
+        throw new Error("Despesa não encontrada.");
+      }
+
+      if (expense.status === "PAID") {
+        throw new Error("Não é permitido excluir despesas já pagas.");
+      }
+
+      const deletedAt = new Date();
+
+      if (deleteAllFuture && expense.recurrenceGroupId) {
+        if (expense.status !== "PENDING") {
+          throw new Error("A exclusão em cascata só pode ser aplicada em despesas pendentes.");
+        }
+
+        await tx.expense.updateMany({
+          where: {
+            tenantId,
+            recurrenceGroupId: expense.recurrenceGroupId,
+            deletedAt: null,
+            status: {
+              not: "PENDING",
+            },
+            dueDate: {
+              gte: expense.dueDate,
+            },
+          },
+          data: {
+            recurrence: "NONE",
+          },
+        });
+
+        const previousExpense = await tx.expense.findFirst({
+          where: {
+            tenantId,
+            recurrenceGroupId: expense.recurrenceGroupId,
+            deletedAt: null,
+            dueDate: {
+              lt: expense.dueDate,
+            },
+          },
+          orderBy: {
+            dueDate: "desc",
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (previousExpense) {
+          await tx.expense.update({
+            where: {
+              id: previousExpense.id,
+            },
+            data: {
+              recurrence: "NONE",
+            },
+          });
+        }
+
+        const deletedExpenses = await tx.expense.updateMany({
+          where: {
+            tenantId,
+            recurrenceGroupId: expense.recurrenceGroupId,
+            deletedAt: null,
+            status: "PENDING",
+            dueDate: {
+              gte: expense.dueDate,
+            },
+          },
+          data: {
+            deletedAt,
+          },
+        });
+
+        return {
+          expenseId: expense.id,
+          deletedCount: deletedExpenses.count,
+        };
+      }
+
+      await tx.expense.update({
+        where: { id: expense.id },
+        data: { deletedAt },
+      });
+
+      return {
+        expenseId: expense.id,
+        deletedCount: 1,
+      };
+    });
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
     return {
       success: false,
-      error: "Não é permitido excluir despesas já pagas.",
+      error: error instanceof Error ? error.message : "Erro ao excluir a despesa.",
     };
   }
-
-  await db.expense.delete({
-    where: { id: expense.id },
-  });
-
-  return {
-    success: true,
-    data: { expenseId: expense.id },
-  };
 }
 
 function buildExpenseTransactionDescription(
@@ -874,6 +1033,9 @@ function serializeExpense(expense: ExpenseRecord): MonthlyExpense {
     id: expense.id,
     categoryId: expense.categoryId,
     category: expense.category.name,
+    accountId: expense.accountId,
+    accountName: expense.account?.name ?? null,
+    accountType: expense.account?.type ?? null,
     description: expense.description,
     type: expense.type,
     amount: roundCurrency(Number(expense.amount)),
@@ -882,6 +1044,7 @@ function serializeExpense(expense: ExpenseRecord): MonthlyExpense {
     status: expense.status,
     displayStatus: getExpenseDisplayStatus(expense),
     recurrence: expense.recurrence,
+    recurrenceGroupId: expense.recurrenceGroupId,
     notes: expense.notes,
   };
 }

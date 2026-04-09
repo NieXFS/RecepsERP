@@ -30,6 +30,12 @@ const civilDateStringSchema = z
 
 const expenseBaseShape = {
   categoryId: z.string().min(1, "Selecione a categoria."),
+  accountId: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : value)),
   description: z.string().trim().min(3, "Descreva a despesa."),
   type: z.enum(EXPENSE_TYPE_VALUES),
   amount: z.coerce.number().positive("Informe um valor maior que zero."),

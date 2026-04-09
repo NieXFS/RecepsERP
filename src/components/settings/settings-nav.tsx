@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { TenantModule } from "@/generated/prisma/enums";
-import { Palette, Users, Scissors, Building2 } from "lucide-react";
+import type { Role, TenantModule } from "@/generated/prisma/enums";
+import { Palette, Users, Scissors, Building2, Landmark } from "lucide-react";
 
 const tabs = [
   {
@@ -31,6 +31,13 @@ const tabs = [
     icon: Building2,
     module: "CONFIGURACOES" as TenantModule,
   },
+  {
+    href: "/configuracoes/contas",
+    label: "Contas Bancárias",
+    icon: Landmark,
+    module: "CONFIGURACOES" as TenantModule,
+    adminOnly: true,
+  },
 ];
 
 /**
@@ -39,8 +46,10 @@ const tabs = [
  */
 export function SettingsNav({
   allowedModules,
+  role,
 }: {
   allowedModules: TenantModule[];
+  role: Role;
 }) {
   const pathname = usePathname();
   const visibleModules = new Set(allowedModules);
@@ -48,7 +57,7 @@ export function SettingsNav({
   return (
     <nav className="flex gap-1 border-b">
       {tabs
-        .filter((tab) => visibleModules.has(tab.module))
+        .filter((tab) => visibleModules.has(tab.module) && (!tab.adminOnly || role === "ADMIN"))
         .map((tab) => {
           const isActive = pathname?.startsWith(tab.href);
           const Icon = tab.icon;

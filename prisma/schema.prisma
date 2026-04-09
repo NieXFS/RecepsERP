@@ -630,6 +630,7 @@ model FinancialAccount {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   cashRegisterSessions CashRegisterSession[]
+  expenses Expense[]
 
   @@index([tenantId])
   @@unique([tenantId, name])
@@ -766,6 +767,7 @@ model Expense {
   id                String         @id @default(cuid())
   tenantId          String
   categoryId        String
+  accountId         String?
   description       String
   type              ExpenseType
   amount            Decimal        @db.Decimal(10, 2)
@@ -775,11 +777,13 @@ model Expense {
   recurrence        Recurrence     @default(NONE)
   recurrenceGroupId String?
   notes             String?        @db.Text
+  deletedAt         DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category    ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  account     FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   transaction Transaction?
 
   @@index([tenantId])
@@ -787,6 +791,7 @@ model Expense {
   @@index([tenantId, type, dueDate])
   @@index([tenantId, recurrence])
   @@index([tenantId, recurrenceGroupId])
+  @@index([tenantId, accountId])
   @@map("expenses")
 }
 

@@ -22,6 +22,15 @@ export const FINANCIAL_STATEMENT_STATUS_VALUES = [
   "REFUNDED",
 ] as const;
 
+export const FINANCIAL_ACCOUNT_TYPE_VALUES = [
+  "CASH",
+  "BANK",
+  "CREDIT_CARD",
+  "DEBIT_CARD",
+  "PIX",
+  "OTHER",
+] as const;
+
 export const openCashRegisterSchema = z.object({
   accountId: z.string().min(1, "Selecione a conta caixa."),
   openingAmount: z.coerce.number().min(0, "O valor inicial não pode ser negativo."),
@@ -47,6 +56,18 @@ export const manualCashTransactionSchema = z.object({
   ]),
 });
 
+export const createFinancialAccountSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome da conta."),
+  type: z.enum(FINANCIAL_ACCOUNT_TYPE_VALUES).default("BANK"),
+  initialBalance: z.coerce.number().min(0, "O saldo inicial não pode ser negativo."),
+});
+
+export const deactivateFinancialAccountSchema = z.object({
+  accountId: z.string().min(1, "Conta financeira inválida."),
+});
+
 export type OpenCashRegisterInput = z.infer<typeof openCashRegisterSchema>;
 export type CloseCashRegisterInput = z.infer<typeof closeCashRegisterSchema>;
 export type ManualCashTransactionInput = z.infer<typeof manualCashTransactionSchema>;
+export type CreateFinancialAccountInput = z.infer<typeof createFinancialAccountSchema>;
+export type DeactivateFinancialAccountInput = z.infer<typeof deactivateFinancialAccountSchema>;

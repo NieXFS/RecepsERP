@@ -98,7 +98,7 @@ export async function updateExpenseAction(
  */
 export async function markExpenseAsPaidAction(data: {
   expenseId: string;
-  accountId?: string;
+  accountId?: string | null;
 }): Promise<ActionResult<{ expenseId: string; transactionId: string }>> {
   const session = await requireModuleAccess("COMISSOES");
   return markExpenseAsPaid(session.tenantId, data.expenseId, data.accountId);
@@ -128,8 +128,11 @@ export async function cancelExpenseAction(
  * Server Action: remove uma despesa pendente/cancelada do tenant autenticado.
  */
 export async function deleteExpenseAction(
-  expenseId: string
-): Promise<ActionResult<{ expenseId: string }>> {
+  expenseId: string,
+  options?: {
+    deleteAllFuture?: boolean;
+  }
+): Promise<ActionResult<{ expenseId: string; deletedCount: number }>> {
   const session = await requireModuleAccess("COMISSOES");
-  return deleteExpense(session.tenantId, expenseId);
+  return deleteExpense(session.tenantId, expenseId, options);
 }

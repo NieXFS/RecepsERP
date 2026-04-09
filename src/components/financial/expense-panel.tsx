@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -42,6 +42,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -60,6 +68,7 @@ type ExpensePanelProps = {
 
 type ExpenseFormState = {
   categoryId: string;
+  accountId: string;
   description: string;
   type: "FIXED" | "VARIABLE";
   amount: string;
@@ -100,6 +109,10 @@ export function ExpensePanel({
     open: boolean;
     expense?: MonthlyExpense;
   }>({ open: false });
+  const [deleteDialogState, setDeleteDialogState] = useState<{
+    open: boolean;
+    expense?: MonthlyExpense;
+  }>({ open: false });
 
   const filteredExpenses = useMemo(() => {
     return summary.expenses.filter((expense) => {
@@ -122,6 +135,7 @@ export function ExpensePanel({
     startTransition(async () => {
       const payload = {
         categoryId: values.categoryId,
+        accountId: values.accountId || null,
         description: values.description,
         type: values.type,
         amount: Number(values.amount.replace(",", ".")),
@@ -132,7 +146,10 @@ export function ExpensePanel({
 
       const result = expenseId
         ? await updateExpenseAction(expenseId, payload)
-        : await createExpenseAction(payload);
+        : await createExpenseAction({
+            ...payload,
+            accountId: payload.accountId ?? undefined,
+          });
 
       if (!result.success) {
         toast.error(result.error);
@@ -160,7 +177,7 @@ export function ExpensePanel({
     });
   }
 
-  function handleMarkPaid(expenseId: string, accountId?: string) {
+  function handleMarkPaid(expenseId: string, accountId?: string | null) {
     startTransition(async () => {
       const result = await markExpenseAsPaidAction({ expenseId, accountId });
 
@@ -211,20 +228,21 @@ export function ExpensePanel({
     });
   }
 
-  function handleDeleteExpense(expenseId: string) {
-    if (!window.confirm("Excluir esta despesa? Esta ação não poderá ser desfeita.")) {
-      return;
-    }
-
+  function handleDeleteExpense(expenseId: string, deleteAllFuture = false) {
     startTransition(async () => {
-      const result = await deleteExpenseAction(expenseId);
+      const result = await deleteExpenseAction(expenseId, { deleteAllFuture });
 
       if (!result.success) {
         toast.error(result.error);
         return;
       }
 
-      toast.success("Despesa excluída.");
+      toast.success(
+        deleteAllFuture
+          ? `${result.data?.deletedCount ?? 0} despesa(s) foram excluídas em cascata.`
+          : "Despesa excluída."
+      );
+      setDeleteDialogState({ open: false });
       router.refresh();
     });
   }
@@ -355,6 +373,9 @@ export function ExpensePanel({
                           {expense.notes ? (
                             <div className="text-xs text-muted-foreground">{expense.notes}</div>
                           ) : null}
+                          <div className="text-xs text-muted-foreground">
+                            Conta: {expense.accountName ?? "Definir no pagamento"}
+                          </div>
                         </td>
                         <td className="py-3 pr-4">{expense.category}</td>
                         <td className="py-3 pr-4">
@@ -420,7 +441,7 @@ export function ExpensePanel({
                                 size="xs"
                                 variant="destructive"
                                 disabled={isPending}
-                                onClick={() => handleDeleteExpense(expense.id)}
+                                onClick={() => setDeleteDialogState({ open: true, expense })}
                               >
                                 <Trash2 className="h-3 w-3" />
                                 Excluir
@@ -439,15 +460,18 @@ export function ExpensePanel({
       </Card>
 
       <ExpenseFormDialog
+        key={`${expenseDialogState.expense?.id ?? "new"}-${expenseDialogState.open ? "open" : "closed"}`}
         open={expenseDialogState.open}
         expense={expenseDialogState.expense}
         categories={categories}
+        accounts={accounts}
         isPending={isPending}
         onClose={() => setExpenseDialogState({ open: false })}
         onSubmit={handleCreateOrUpdateExpense}
       />
 
       <ExpenseCategoryDialog
+        key={categoryDialogOpen ? "category-open" : "category-closed"}
         open={categoryDialogOpen}
         isPending={isPending}
         onClose={() => setCategoryDialogOpen(false)}
@@ -455,6 +479,7 @@ export function ExpensePanel({
       />
 
       <ExpensePaymentDialog
+        key={`${payDialogState.expense?.id ?? "payment"}-${payDialogState.open ? "open" : "closed"}`}
         open={payDialogState.open}
         expense={payDialogState.expense}
         accounts={accounts}
@@ -462,6 +487,72 @@ export function ExpensePanel({
         onClose={() => setPayDialogState({ open: false })}
         onConfirm={handleMarkPaid}
       />
+
+      <AlertDialog
+        open={deleteDialogState.open}
+        onOpenChange={(open) =>
+          setDeleteDialogState((current) => ({ ...current, open }))
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteDialogState.expense?.recurrenceGroupId
+                ? "Excluir Despesa Recorrente"
+                : "Excluir despesa"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDialogState.expense?.recurrenceGroupId
+                ? "Escolha se deseja excluir apenas esta despesa ou remover esta e as proximas pendentes da mesma recorrencia."
+                : "Tem certeza que deseja excluir esta despesa? Esta acao nao podera ser desfeita."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogState({ open: false })}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            {deleteDialogState.expense?.recurrenceGroupId ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    deleteDialogState.expense &&
+                    handleDeleteExpense(deleteDialogState.expense.id, false)
+                  }
+                  disabled={isPending}
+                >
+                  Excluir apenas esta
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() =>
+                    deleteDialogState.expense &&
+                    handleDeleteExpense(deleteDialogState.expense.id, true)
+                  }
+                  disabled={isPending}
+                >
+                  Excluir esta e as proximas
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  deleteDialogState.expense &&
+                  handleDeleteExpense(deleteDialogState.expense.id, false)
+                }
+                disabled={isPending}
+              >
+                Excluir
+              </Button>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -470,6 +561,7 @@ function ExpenseFormDialog({
   open,
   expense,
   categories,
+  accounts,
   isPending,
   onClose,
   onSubmit,
@@ -477,6 +569,7 @@ function ExpenseFormDialog({
   open: boolean;
   expense?: MonthlyExpense;
   categories: ExpenseCategoryListItem[];
+  accounts: AccountOption[];
   isPending: boolean;
   onClose: () => void;
   onSubmit: (values: ExpenseFormState, expenseId?: string) => void;
@@ -484,12 +577,6 @@ function ExpenseFormDialog({
   const [form, setForm] = useState<ExpenseFormState>(() =>
     buildExpenseFormState(categories[0]?.id ?? "", expense)
   );
-
-  useEffect(() => {
-    if (open) {
-      setForm(buildExpenseFormState(categories[0]?.id ?? "", expense));
-    }
-  }, [categories, expense, open]);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -540,16 +627,36 @@ function ExpenseFormDialog({
             </Field>
           </div>
 
-          <Field>
-            <span>Descrição</span>
-            <Input
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-              placeholder="Ex.: Aluguel do espaço - Abril/2026"
-            />
-          </Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field>
+              <span>Banco / conta</span>
+              <select
+                value={form.accountId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, accountId: event.target.value }))
+                }
+                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="">Escolher no pagamento</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({translateAccountType(account.type)})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field>
+              <span>Descrição</span>
+              <Input
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+                placeholder="Ex.: Aluguel do espaço - Abril/2026"
+              />
+            </Field>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field>
@@ -641,13 +748,6 @@ function ExpenseCategoryDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  useEffect(() => {
-    if (open) {
-      setName("");
-      setDescription("");
-    }
-  }, [open]);
-
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent>
@@ -707,15 +807,15 @@ function ExpensePaymentDialog({
   accounts: AccountOption[];
   isPending: boolean;
   onClose: () => void;
-  onConfirm: (expenseId: string, accountId?: string) => void;
+  onConfirm: (expenseId: string, accountId?: string | null) => void;
 }) {
-  const [selectedAccountId, setSelectedAccountId] = useState("__auto__");
-
-  useEffect(() => {
-    if (open) {
-      setSelectedAccountId("__auto__");
+  const [selectedAccountId, setSelectedAccountId] = useState(() => {
+    if (expense?.accountId && accounts.some((account) => account.id === expense.accountId)) {
+      return expense.accountId;
     }
-  }, [open]);
+
+    return "__auto__";
+  });
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -766,9 +866,11 @@ function ExpensePaymentDialog({
               expense &&
               onConfirm(
                 expense.id,
-                selectedAccountId === "__auto__" || selectedAccountId === "__none__"
+                selectedAccountId === "__auto__"
                   ? undefined
-                  : selectedAccountId
+                  : selectedAccountId === "__none__"
+                    ? null
+                    : selectedAccountId
               )
             }
           >
@@ -847,6 +949,7 @@ function buildExpenseFormState(
 ): ExpenseFormState {
   return {
     categoryId: expense?.categoryId ?? defaultCategoryId,
+    accountId: expense?.accountId ?? "",
     description: expense?.description ?? "",
     type: expense?.type ?? "FIXED",
     amount: expense ? String(expense.amount) : "",

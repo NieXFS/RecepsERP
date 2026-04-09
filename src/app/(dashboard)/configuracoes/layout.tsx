@@ -24,10 +24,10 @@ export default async function SettingsLayout({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
-          Gerencie aparência, equipe, serviços e recursos do estabelecimento.
+          Gerencie aparência, equipe, serviços, recursos e contas financeiras do estabelecimento.
         </p>
       </div>
-      <SettingsNav allowedModules={user.allowedModules} />
+      <SettingsNav allowedModules={user.allowedModules} role={user.role} />
       {children}
     </div>
   );
