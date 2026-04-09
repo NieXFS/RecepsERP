@@ -36,6 +36,7 @@ export default async function DashboardLayout({
         userRole={user.role}
         userName={user.name}
         allowedModules={user.allowedModules}
+        permissions={user.customPermissions}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header

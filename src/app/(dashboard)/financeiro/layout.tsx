@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
-import { getModuleDefinition } from "@/lib/tenant-modules";
 import { getAuthUserWithAccess } from "@/lib/session";
+import {
+  getDefaultAccessibleHref,
+  hasPermission,
+} from "@/lib/tenant-permissions";
 import { FinancialNav } from "@/components/financial/financial-nav";
 
 /**
@@ -14,9 +17,8 @@ export default async function FinancialLayout({
 }) {
   const user = await getAuthUserWithAccess();
 
-  if (!user.moduleAccess.COMISSOES) {
-    const fallbackModule = user.allowedModules[0];
-    redirect(fallbackModule ? getModuleDefinition(fallbackModule).href : "/login");
+  if (!hasPermission(user.customPermissions, "financeiro", "view")) {
+    redirect(getDefaultAccessibleHref(user.customPermissions, user.allowedModules));
   }
 
   return (
@@ -27,7 +29,7 @@ export default async function FinancialLayout({
           Gerencie repasses, despesas, extrato operacional e rotina de caixa do estabelecimento.
         </p>
       </div>
-      <FinancialNav />
+      <FinancialNav permissions={user.customPermissions} />
       {children}
     </div>
   );

@@ -9,7 +9,8 @@ import {
   TrendingUp,
   WalletCards,
 } from "lucide-react";
-import { getAuthUserForModule } from "@/lib/session";
+import { getAuthUserForPermission } from "@/lib/session";
+import { hasPermission } from "@/lib/tenant-permissions";
 import { getFinancialOverview } from "@/services/financial.service";
 import {
   Card,
@@ -62,7 +63,15 @@ function ActionLink({
  * Home do módulo Financeiro com visão executiva e atalhos operacionais.
  */
 export default async function FinancialPage() {
-  const user = await getAuthUserForModule("COMISSOES");
+  const user = await getAuthUserForPermission("financeiro.geral", "view");
+  const canViewCommissions = hasPermission(
+    user.customPermissions,
+    "financeiro.comissoes",
+    "view"
+  );
+  const canViewCaixa = hasPermission(user.customPermissions, "financeiro.caixa", "view");
+  const canViewExtrato = hasPermission(user.customPermissions, "financeiro.extrato", "view");
+  const canViewDespesas = hasPermission(user.customPermissions, "financeiro.despesas", "view");
   const overview = await getFinancialOverview(user.tenantId);
 
   return (
@@ -116,6 +125,7 @@ export default async function FinancialPage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-3">
+        {canViewCommissions ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -144,7 +154,9 @@ export default async function FinancialPage() {
             <ActionLink href="/financeiro/comissoes" label="Ir para Comissões" />
           </CardContent>
         </Card>
+        ) : null}
 
+        {canViewCaixa ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -180,7 +192,9 @@ export default async function FinancialPage() {
             <ActionLink href="/financeiro/caixa" label="Ir para Caixa" />
           </CardContent>
         </Card>
+        ) : null}
 
+        {canViewExtrato ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -208,6 +222,7 @@ export default async function FinancialPage() {
             <ActionLink href="/financeiro/extrato" label="Ir para Extrato" />
           </CardContent>
         </Card>
+        ) : null}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
@@ -309,26 +324,34 @@ export default async function FinancialPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <ShortcutCard
-              href="/financeiro/comissoes"
-              title="Fechar comissões"
-              description="Pague repasses pendentes e registre a despesa no caixa."
-            />
-            <ShortcutCard
-              href="/financeiro/despesas"
-              title="Gerenciar despesas"
-              description="Cadastre custos fixos e variáveis integrados ao extrato do período."
-            />
-            <ShortcutCard
-              href="/financeiro/extrato"
-              title="Analisar extrato"
-              description="Filtre lançamentos por data, tipo e status."
-            />
-            <ShortcutCard
-              href="/financeiro/caixa"
-              title="Operar caixa"
-              description="Abra, acompanhe e feche a sessão atual do caixa."
-            />
+            {canViewCommissions ? (
+              <ShortcutCard
+                href="/financeiro/comissoes"
+                title="Fechar comissões"
+                description="Pague repasses pendentes e registre a despesa no caixa."
+              />
+            ) : null}
+            {canViewDespesas ? (
+              <ShortcutCard
+                href="/financeiro/despesas"
+                title="Gerenciar despesas"
+                description="Cadastre custos fixos e variáveis integrados ao extrato do período."
+              />
+            ) : null}
+            {canViewExtrato ? (
+              <ShortcutCard
+                href="/financeiro/extrato"
+                title="Analisar extrato"
+                description="Filtre lançamentos por data, tipo e status."
+              />
+            ) : null}
+            {canViewCaixa ? (
+              <ShortcutCard
+                href="/financeiro/caixa"
+                title="Operar caixa"
+                description="Abra, acompanhe e feche a sessão atual do caixa."
+              />
+            ) : null}
           </CardContent>
         </Card>
       </section>

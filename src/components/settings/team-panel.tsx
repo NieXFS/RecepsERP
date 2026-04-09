@@ -1,15 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { TenantModule } from "@/generated/prisma/enums";
+import { TENANT_MODULE_DEFINITIONS } from "@/lib/tenant-modules";
 import {
-  getDefaultModuleAccess,
-  TENANT_MODULE_DEFINITIONS,
-} from "@/lib/tenant-modules";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+  FINANCIAL_SUBMODULE_DEFINITIONS,
+  getDefaultCustomPermissions,
+  MODULE_KEY_BY_TENANT_MODULE,
+  type FinanceSubmoduleKey,
+  type PermissionAction,
+  type PermissionModuleKey,
+  type PermissionScope,
+  type TenantCustomPermissions,
+} from "@/lib/tenant-permissions";
+import { createTeamMemberAction, deactivateTeamMemberAction, updateTeamMemberAction } from "@/actions/team.actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,15 +34,10 @@ import {
   SelectValue,
   SelectValueLabel,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
+  ChevronDown,
+  ChevronUp,
   Headset,
   Pencil,
   Plus,
@@ -36,23 +46,8 @@ import {
   UserCheck,
   UserX,
 } from "lucide-react";
-import {
-  createTeamMemberAction,
-  deactivateTeamMemberAction,
-  updateTeamMemberAction,
-} from "@/actions/team.actions";
 
 type TeamRole = "ADMIN" | "RECEPTIONIST" | "PROFESSIONAL";
-
-type TeamPermission = {
-  module: TenantModule;
-  label: string;
-  description: string;
-  group: "main" | "management" | "config";
-  defaultAllowed: boolean;
-  isAllowed: boolean;
-  isCustomized: boolean;
-};
 
 type TeamMember = {
   id: string;
@@ -70,7 +65,8 @@ type TeamMember = {
     registrationNumber: string | null;
     isActive: boolean;
   } | null;
-  modulePermissions: TeamPermission[];
+  customPermissions: TenantCustomPermissions;
+  allowedModules: TenantModule[];
 };
 
 const roleConfig: Record<string, { label: string; icon: typeof Shield; color: string }> = {
@@ -91,11 +87,11 @@ const roleConfig: Record<string, { label: string; icon: typeof Shield; color: st
   },
 };
 
-const permissionGroupLabels: Record<TeamPermission["group"], string> = {
+const permissionGroupLabels = {
   main: "Operação principal",
   management: "Gestão",
   config: "Clínico e configurações",
-};
+} as const;
 
 const roleSelectOptions = [
   { value: "ADMIN", label: "Administrador" },
@@ -108,32 +104,59 @@ const statusSelectOptions = [
   { value: "INACTIVE", label: "Inativo" },
 ] as const;
 
-function buildDefaultPermissions(role: TeamRole): TeamPermission[] {
-  const defaults = getDefaultModuleAccess(role);
-
-  return TENANT_MODULE_DEFINITIONS.map((module) => ({
-    module: module.key,
-    label: module.label,
-    description: module.description,
-    group: module.group,
-    defaultAllowed: defaults[module.key],
-    isAllowed: defaults[module.key],
-    isCustomized: false,
-  }));
+function clonePermissions(permissions: TenantCustomPermissions): TenantCustomPermissions {
+  return structuredClone(permissions);
 }
 
-function syncPermissionCustomization(permission: TeamPermission, isAllowed: boolean): TeamPermission {
-  return {
-    ...permission,
-    isAllowed,
-    isCustomized: isAllowed !== permission.defaultAllowed,
-  };
+function updateScope(scope: PermissionScope, action: PermissionAction, checked: boolean) {
+  if (action === "edit") {
+    scope.edit = checked;
+    if (checked) {
+      scope.view = true;
+    }
+    return;
+  }
+
+  scope.view = checked;
+  if (!checked) {
+    scope.edit = false;
+  }
+}
+
+function getPermissionScope(
+  permissions: TenantCustomPermissions,
+  moduleKey: PermissionModuleKey,
+  submoduleKey?: FinanceSubmoduleKey
+): PermissionScope {
+  if (moduleKey === "financeiro" && submoduleKey) {
+    return permissions.financeiro.sub[submoduleKey];
+  }
+
+  return permissions[moduleKey];
+}
+
+function isScopeCustomized(scope: PermissionScope, defaults: PermissionScope) {
+  return scope.view !== defaults.view || scope.edit !== defaults.edit;
+}
+
+function countAccessibleAreas(permissions: TenantCustomPermissions) {
+  const moduleCount = TENANT_MODULE_DEFINITIONS.reduce((count, module) => {
+    const moduleKey = MODULE_KEY_BY_TENANT_MODULE[module.key];
+    return count + (getPermissionScope(permissions, moduleKey).view ? 1 : 0);
+  }, 0);
+
+  const financeSubCount = FINANCIAL_SUBMODULE_DEFINITIONS.reduce(
+    (count, item) => count + (permissions.financeiro.sub[item.key].view ? 1 : 0),
+    0
+  );
+
+  return moduleCount + financeSubCount;
 }
 
 /**
  * Painel de equipe com criação, edição segura e desativação.
- * A edição reaproveita o mesmo registro de User/Professional para preservar históricos
- * e agora inclui refinamento de acesso por módulo no contexto do tenant.
+ * Mantém o vínculo histórico do usuário e agora edita permissões granulares
+ * com leitura/escrita por módulo e submódulo.
  */
 export function TeamPanel({
   members,
@@ -145,6 +168,9 @@ export function TeamPanel({
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+    financeiro: true,
+  });
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -157,9 +183,11 @@ export function TeamPanel({
   const [contractType, setContractType] = useState<"CLT" | "PJ">("PJ");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [modulePermissions, setModulePermissions] = useState<TeamPermission[]>(
-    buildDefaultPermissions("RECEPTIONIST")
+  const [customPermissions, setCustomPermissions] = useState<TenantCustomPermissions>(
+    getDefaultCustomPermissions("RECEPTIONIST")
   );
+
+  const defaultPermissions = useMemo(() => getDefaultCustomPermissions(role), [role]);
 
   function resetForm() {
     setEditingMember(null);
@@ -173,7 +201,8 @@ export function TeamPanel({
     setContractType("PJ");
     setRegistrationNumber("");
     setIsActive(true);
-    setModulePermissions(buildDefaultPermissions("RECEPTIONIST"));
+    setCustomPermissions(getDefaultCustomPermissions("RECEPTIONIST"));
+    setExpandedModules({ financeiro: true });
   }
 
   function openCreate() {
@@ -195,43 +224,54 @@ export function TeamPanel({
     setContractType((member.professional?.contractType as "CLT" | "PJ") ?? "PJ");
     setRegistrationNumber(member.professional?.registrationNumber ?? "");
     setIsActive(member.isActive);
-    setModulePermissions(member.modulePermissions);
+    setCustomPermissions(clonePermissions(member.customPermissions));
+    setExpandedModules({ financeiro: true });
     setShowModal(true);
   }
 
   function handleRoleChange(nextRole: TeamRole) {
     setRole(nextRole);
-    setModulePermissions((current) => {
-      const defaults = getDefaultModuleAccess(nextRole);
-
-      if (current.length === 0) {
-        return buildDefaultPermissions(nextRole);
-      }
-
-      return current.map((permission) =>
-        syncPermissionCustomization(
-          {
-            ...permission,
-            defaultAllowed: defaults[permission.module],
-          },
-          permission.isAllowed
-        )
-      );
-    });
+    setCustomPermissions(getDefaultCustomPermissions(nextRole));
   }
 
   function resetPermissionsToRoleDefaults() {
-    setModulePermissions(buildDefaultPermissions(role));
+    setCustomPermissions(getDefaultCustomPermissions(role));
   }
 
-  function toggleModulePermission(module: TenantModule) {
-    setModulePermissions((current) =>
-      current.map((permission) =>
-        permission.module === module
-          ? syncPermissionCustomization(permission, !permission.isAllowed)
-          : permission
-      )
-    );
+  function toggleModulePermission(
+    moduleKey: PermissionModuleKey,
+    action: PermissionAction,
+    checked: boolean
+  ) {
+    setCustomPermissions((current) => {
+      const next = clonePermissions(current);
+      updateScope(getPermissionScope(next, moduleKey), action, checked);
+
+      if (moduleKey === "financeiro") {
+        updateScope(next.financeiro.sub.geral, action, checked);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleFinancialSubPermission(
+    submoduleKey: FinanceSubmoduleKey,
+    action: PermissionAction,
+    checked: boolean
+  ) {
+    setCustomPermissions((current) => {
+      const next = clonePermissions(current);
+      updateScope(getPermissionScope(next, "financeiro", submoduleKey), action, checked);
+      return next;
+    });
+  }
+
+  function toggleModuleExpansion(moduleKey: PermissionModuleKey) {
+    setExpandedModules((current) => ({
+      ...current,
+      [moduleKey]: !current[moduleKey],
+    }));
   }
 
   function handleSubmit() {
@@ -260,10 +300,7 @@ export function TeamPanel({
         registrationNumber:
           role === "PROFESSIONAL" ? registrationNumber.trim() || undefined : undefined,
         isActive,
-        modulePermissions: modulePermissions.map((permission) => ({
-          module: permission.module,
-          isAllowed: permission.isAllowed,
-        })),
+        customPermissions,
       };
 
       const result = editingMember
@@ -290,7 +327,9 @@ export function TeamPanel({
   }
 
   function handleDeactivate(member: TeamMember) {
-    if (!confirm(`Deseja realmente desativar ${member.name}?`)) return;
+    if (!confirm(`Deseja realmente desativar ${member.name}?`)) {
+      return;
+    }
 
     startTransition(async () => {
       const result = await deactivateTeamMemberAction(member.id);
@@ -305,10 +344,13 @@ export function TeamPanel({
 
   const permissionGroups = Object.entries(permissionGroupLabels).map(
     ([groupKey, groupLabel]) => ({
-      groupKey: groupKey as TeamPermission["group"],
+      groupKey,
       groupLabel,
-      permissions: modulePermissions.filter(
-        (permission) => permission.group === groupKey
+      modules: TENANT_MODULE_DEFINITIONS.filter((module) => module.group === groupKey).map(
+        (module) => ({
+          ...module,
+          permissionKey: MODULE_KEY_BY_TENANT_MODULE[module.key],
+        })
       ),
     })
   );
@@ -329,9 +371,7 @@ export function TeamPanel({
         {members.map((member) => {
           const rc = roleConfig[member.role] ?? roleConfig.RECEPTIONIST;
           const RoleIcon = rc.icon;
-          const enabledModulesCount = member.modulePermissions.filter(
-            (permission) => permission.isAllowed
-          ).length;
+          const enabledAreasCount = countAccessibleAreas(member.customPermissions);
 
           return (
             <Card key={member.id}>
@@ -359,7 +399,7 @@ export function TeamPanel({
                       {member.isActive ? "Ativo" : "Inativo"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {enabledModulesCount} módulo{enabledModulesCount !== 1 ? "s" : ""}
+                      {enabledAreasCount} acesso{enabledAreasCount !== 1 ? "s" : ""}
                     </Badge>
                     {member.id === currentUserId ? (
                       <Badge variant="outline" className="text-xs">
@@ -411,7 +451,7 @@ export function TeamPanel({
       </div>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingMember ? "Editar membro da equipe" : "Novo membro da equipe"}
@@ -431,7 +471,7 @@ export function TeamPanel({
                 <label className="text-sm font-medium">Nome *</label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(event) => setName(event.target.value)}
                   placeholder="Nome completo"
                 />
               </div>
@@ -442,7 +482,7 @@ export function TeamPanel({
                   <Input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => setEmail(event.target.value)}
                     placeholder="email@clinica.com"
                   />
                 </div>
@@ -453,7 +493,7 @@ export function TeamPanel({
                     <Input
                       type="password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(event) => setPassword(event.target.value)}
                       placeholder="Mínimo 6 caracteres"
                     />
                   </div>
@@ -464,7 +504,7 @@ export function TeamPanel({
                 <label className="text-sm font-medium">Telefone</label>
                 <Input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(event) => setPhone(event.target.value)}
                   placeholder="(11) 99999-9999"
                 />
               </div>
@@ -524,7 +564,7 @@ export function TeamPanel({
                     <label className="text-sm font-medium">Especialidade</label>
                     <Input
                       value={specialty}
-                      onChange={(e) => setSpecialty(e.target.value)}
+                      onChange={(event) => setSpecialty(event.target.value)}
                       placeholder="Ex: Esteticista, Barbeiro, Dentista"
                     />
                   </div>
@@ -538,7 +578,7 @@ export function TeamPanel({
                         max="100"
                         step="0.01"
                         value={commissionPercent}
-                        onChange={(e) => setCommissionPercent(e.target.value)}
+                        onChange={(event) => setCommissionPercent(event.target.value)}
                         placeholder="Ex: 40"
                       />
                     </div>
@@ -566,7 +606,7 @@ export function TeamPanel({
                     <label className="text-sm font-medium">Registro profissional</label>
                     <Input
                       value={registrationNumber}
-                      onChange={(e) => setRegistrationNumber(e.target.value)}
+                      onChange={(event) => setRegistrationNumber(event.target.value)}
                       placeholder="CRO, CREFITO, CRM, etc."
                     />
                   </div>
@@ -579,8 +619,7 @@ export function TeamPanel({
                 <div>
                   <h3 className="text-sm font-semibold">Permissões de acesso</h3>
                   <p className="text-xs text-muted-foreground">
-                    O cargo define um padrão inicial, e você pode liberar ou restringir módulos
-                    específicos para este usuário.
+                    Defina separadamente o que a pessoa pode visualizar e o que pode editar ou criar.
                   </p>
                 </div>
                 <Button
@@ -602,57 +641,146 @@ export function TeamPanel({
               ) : null}
 
               <div className="space-y-5">
-                {permissionGroups.map(({ groupKey, groupLabel, permissions }) => (
+                {permissionGroups.map(({ groupKey, groupLabel, modules }) => (
                   <div key={groupKey} className="space-y-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        {groupLabel}
-                      </p>
-                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      {groupLabel}
+                    </p>
 
                     <div className="grid gap-3">
-                      {permissions.map((permission) => (
-                        <label
-                          key={permission.module}
-                          className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border bg-background px-4 py-3 transition-colors hover:border-primary/30"
-                        >
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-medium">{permission.label}</span>
-                              {permission.isCustomized ? (
-                                <Badge variant="outline" className="text-[10px]">
-                                  Personalizado
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  Padrão do cargo
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs leading-5 text-muted-foreground">
-                              {permission.description}
-                            </p>
-                          </div>
+                      {modules.map((module) => {
+                        const permissionKey = module.permissionKey;
+                        const scope = getPermissionScope(customPermissions, permissionKey);
+                        const defaultScope = getPermissionScope(defaultPermissions, permissionKey);
+                        const customized = isScopeCustomized(scope, defaultScope);
+                        const hasSubmodules = permissionKey === "financeiro";
+                        const isExpanded = expandedModules[permissionKey] ?? false;
 
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={
-                                permission.isAllowed
-                                  ? "text-xs font-medium text-emerald-600"
-                                  : "text-xs font-medium text-muted-foreground"
-                              }
-                            >
-                              {permission.isAllowed ? "Liberado" : "Bloqueado"}
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={permission.isAllowed}
-                              onChange={() => toggleModulePermission(permission.module)}
-                              className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                            />
+                        return (
+                          <div
+                            key={module.key}
+                            className="rounded-xl border bg-background px-4 py-3"
+                          >
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-medium">{module.label}</span>
+                                  {customized ? (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      Personalizado
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      Padrão do cargo
+                                    </Badge>
+                                  )}
+                                  {hasSubmodules ? (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() => toggleModuleExpansion(permissionKey)}
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronUp className="h-3.5 w-3.5" />
+                                      ) : (
+                                        <ChevronDown className="h-3.5 w-3.5" />
+                                      )}
+                                      Subáreas
+                                    </Button>
+                                  ) : null}
+                                </div>
+                                <p className="text-xs leading-5 text-muted-foreground">
+                                  {module.description}
+                                </p>
+                              </div>
+
+                              <PermissionCheckboxGroup
+                                viewChecked={scope.view}
+                                editChecked={scope.edit}
+                                disabled={isPending}
+                                onToggleView={(checked) =>
+                                  toggleModulePermission(permissionKey, "view", checked)
+                                }
+                                onToggleEdit={(checked) =>
+                                  toggleModulePermission(permissionKey, "edit", checked)
+                                }
+                              />
+                            </div>
+
+                            {hasSubmodules && isExpanded ? (
+                              <div className="mt-4 space-y-2 border-t pt-4">
+                                {FINANCIAL_SUBMODULE_DEFINITIONS.map((submodule) => {
+                                  const subScope = getPermissionScope(
+                                    customPermissions,
+                                    "financeiro",
+                                    submodule.key
+                                  );
+                                  const defaultSubScope = getPermissionScope(
+                                    defaultPermissions,
+                                    "financeiro",
+                                    submodule.key
+                                  );
+                                  const subCustomized = isScopeCustomized(
+                                    subScope,
+                                    defaultSubScope
+                                  );
+
+                                  return (
+                                    <div
+                                      key={submodule.key}
+                                      className="rounded-lg border bg-muted/10 px-3 py-3"
+                                    >
+                                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="space-y-1">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-sm font-medium">
+                                              {submodule.label}
+                                            </span>
+                                            {subCustomized ? (
+                                              <Badge variant="outline" className="text-[10px]">
+                                                Personalizado
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant="secondary" className="text-[10px]">
+                                                Padrão do cargo
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <p className="text-xs leading-5 text-muted-foreground">
+                                            {submodule.description}
+                                          </p>
+                                        </div>
+
+                                        <PermissionCheckboxGroup
+                                          viewChecked={subScope.view}
+                                          editChecked={subScope.edit}
+                                          disabled={isPending}
+                                          onToggleView={(checked) =>
+                                            toggleFinancialSubPermission(
+                                              submodule.key,
+                                              "view",
+                                              checked
+                                            )
+                                          }
+                                          onToggleEdit={(checked) =>
+                                            toggleFinancialSubPermission(
+                                              submodule.key,
+                                              "edit",
+                                              checked
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                           </div>
-                        </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -678,6 +806,45 @@ export function TeamPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PermissionCheckboxGroup({
+  viewChecked,
+  editChecked,
+  disabled,
+  onToggleView,
+  onToggleEdit,
+}: {
+  viewChecked: boolean;
+  editChecked: boolean;
+  disabled: boolean;
+  onToggleView: (checked: boolean) => void;
+  onToggleEdit: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-4 lg:justify-end">
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={viewChecked}
+          onChange={(event) => onToggleView(event.target.checked)}
+          disabled={disabled}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+        />
+        Visualizar
+      </label>
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={editChecked}
+          onChange={(event) => onToggleEdit(event.target.checked)}
+          disabled={disabled}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+        />
+        Editar/Criar
+      </label>
     </div>
   );
 }

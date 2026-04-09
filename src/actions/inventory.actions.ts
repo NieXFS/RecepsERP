@@ -21,7 +21,7 @@ export async function adjustInventoryAction(data: {
   reason?: string;
   unitCost?: number;
 }): Promise<ActionResult<{ movementId: string; newStock: number }>> {
-  const user = await requireModuleAccess("ESTOQUE");
+  const user = await requireModuleAccess("ESTOQUE", "edit");
 
   return adjustInventory(user.tenantId, data);
 }
@@ -33,7 +33,7 @@ export async function adjustInventoryAction(data: {
 export async function createProductAction(
   data: unknown
 ): Promise<ActionResult<{ productId: string }>> {
-  const user = await requireModuleAccess("PRODUTOS");
+  const user = await requireModuleAccess("PRODUTOS", "edit");
   const parsed = productSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -50,7 +50,7 @@ export async function updateProductAction(
   productId: string,
   data: unknown
 ): Promise<ActionResult<{ productId: string }>> {
-  const user = await requireModuleAccess("PRODUTOS");
+  const user = await requireModuleAccess("PRODUTOS", "edit");
   const parsed = productSchema.safeParse(data);
 
   if (!parsed.success) {

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireModuleAccess } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import {
   createExpenseCategorySchema,
   expenseSchema,
@@ -23,7 +23,7 @@ import type { ActionResult } from "@/types";
  * Server Action: lista as categorias disponíveis do tenant autenticado.
  */
 export async function getExpenseCategoriesAction() {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "view");
   return getExpenseCategories(session.tenantId);
 }
 
@@ -33,7 +33,7 @@ export async function getExpenseCategoriesAction() {
 export async function createExpenseCategoryAction(
   data: unknown
 ): Promise<ActionResult<{ categoryId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   const parsed = createExpenseCategorySchema.safeParse(data);
 
   if (!parsed.success) {
@@ -50,7 +50,7 @@ export async function createExpenseCategoryAction(
  * Server Action: retorna o resumo mensal das despesas do tenant.
  */
 export async function getMonthlyExpensesAction(month: number, year: number) {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "view");
   return getMonthlyExpenses(session.tenantId, { month, year });
 }
 
@@ -60,7 +60,7 @@ export async function getMonthlyExpensesAction(month: number, year: number) {
 export async function createExpenseAction(
   data: unknown
 ): Promise<ActionResult<{ expenseId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   const parsed = expenseSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -80,7 +80,7 @@ export async function updateExpenseAction(
   expenseId: string,
   data: unknown
 ): Promise<ActionResult<{ expenseId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   const parsed = updateExpenseSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -100,7 +100,7 @@ export async function markExpenseAsPaidAction(data: {
   expenseId: string;
   accountId?: string | null;
 }): Promise<ActionResult<{ expenseId: string; transactionId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   return markExpenseAsPaid(session.tenantId, data.expenseId, data.accountId);
 }
 
@@ -110,7 +110,7 @@ export async function markExpenseAsPaidAction(data: {
 export async function cancelExpensePaymentAction(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   return cancelExpensePayment(session.tenantId, expenseId);
 }
 
@@ -120,7 +120,7 @@ export async function cancelExpensePaymentAction(
 export async function cancelExpenseAction(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   return cancelExpense(session.tenantId, expenseId);
 }
 
@@ -133,6 +133,6 @@ export async function deleteExpenseAction(
     deleteAllFuture?: boolean;
   }
 ): Promise<ActionResult<{ expenseId: string; deletedCount: number }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.despesas", "edit");
   return deleteExpense(session.tenantId, expenseId, options);
 }

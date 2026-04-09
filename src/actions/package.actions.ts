@@ -15,7 +15,7 @@ import type { ActionResult } from "@/types";
 export async function createPackageAction(
   data: unknown
 ): Promise<ActionResult<{ packageId: string }>> {
-  const user = await requireModuleAccess("PACOTES");
+  const user = await requireModuleAccess("PACOTES", "edit");
   const parsed = packageSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -32,7 +32,7 @@ export async function updatePackageAction(
   packageId: string,
   data: unknown
 ): Promise<ActionResult<{ packageId: string }>> {
-  const user = await requireModuleAccess("PACOTES");
+  const user = await requireModuleAccess("PACOTES", "edit");
   const parsed = packageSchema.safeParse(data);
 
   if (!parsed.success) {

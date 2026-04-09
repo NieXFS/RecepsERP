@@ -2,8 +2,13 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getModuleDefinition } from "@/lib/tenant-modules";
-import { getEffectiveModuleAccessSnapshot } from "@/services/user-permission.service";
+import {
+  getDefaultAccessibleHref,
+  hasPermission,
+  type PermissionAction,
+  type PermissionPath,
+} from "@/lib/tenant-permissions";
+import { getEffectivePermissionSnapshot } from "@/services/user-permission.service";
 import type { SessionUser, SessionUserWithAccess } from "@/types";
 import type { GlobalRole, Role, TenantModule } from "@/generated/prisma/enums";
 
@@ -92,6 +97,7 @@ async function loadSessionUserWithAccess(
       email: true,
       role: true,
       globalRole: true,
+      customPermissions: true,
       modulePermissions: {
         select: {
           module: true,
@@ -105,8 +111,9 @@ async function loadSessionUserWithAccess(
     return null;
   }
 
-  const moduleSnapshot = getEffectiveModuleAccessSnapshot(
+  const permissionSnapshot = getEffectivePermissionSnapshot(
     dbUser.role,
+    dbUser.customPermissions,
     dbUser.modulePermissions
   );
 
@@ -117,8 +124,9 @@ async function loadSessionUserWithAccess(
     email: dbUser.email,
     role: dbUser.role,
     globalRole: dbUser.globalRole ?? null,
-    moduleAccess: moduleSnapshot.access,
-    allowedModules: moduleSnapshot.allowedModules,
+    customPermissions: permissionSnapshot.customPermissions,
+    moduleAccess: permissionSnapshot.moduleAccess,
+    allowedModules: permissionSnapshot.allowedModules,
   };
 }
 
@@ -209,12 +217,22 @@ export async function getAuthUserWithAccess(): Promise<SessionUserWithAccess> {
  * Lança erro se o usuário não possuir a permissão efetiva.
  */
 export async function requireModuleAccess(
-  module: TenantModule
+  module: TenantModule,
+  action: PermissionAction = "view"
 ): Promise<SessionUserWithAccess> {
   const sessionUser = await requireAuth();
   const user = await loadSessionUserWithAccess(sessionUser);
 
-  if (!user || !user.moduleAccess[module]) {
+  if (!user) {
+    throw new Error("Não autorizado.");
+  }
+
+  const allowed =
+    action === "view"
+      ? user.moduleAccess[module]
+      : hasPermission(user.customPermissions, getPermissionPathForModule(module), action);
+
+  if (!allowed) {
     throw new Error(`Acesso restrito ao módulo ${module}.`);
   }
 
@@ -231,9 +249,64 @@ export async function getAuthUserForModule(
   const user = await getAuthUserWithAccess();
 
   if (!user.moduleAccess[module]) {
-    const fallbackModule = user.allowedModules[0];
-    redirect(fallbackModule ? getModuleDefinition(fallbackModule).href : "/login");
+    redirect(getDefaultAccessibleHref(user.customPermissions, user.allowedModules));
   }
 
   return user;
+}
+
+export async function requirePermission(
+  path: PermissionPath,
+  action: PermissionAction = "view"
+): Promise<SessionUserWithAccess> {
+  const sessionUser = await requireAuth();
+  const user = await loadSessionUserWithAccess(sessionUser);
+
+  if (!user || !hasPermission(user.customPermissions, path, action)) {
+    throw new Error(`Acesso restrito à permissão ${path}:${action}.`);
+  }
+
+  return user;
+}
+
+export async function getAuthUserForPermission(
+  path: PermissionPath,
+  action: PermissionAction = "view"
+): Promise<SessionUserWithAccess> {
+  const user = await getAuthUserWithAccess();
+
+  if (!hasPermission(user.customPermissions, path, action)) {
+    redirect(getDefaultAccessibleHref(user.customPermissions, user.allowedModules));
+  }
+
+  return user;
+}
+
+function getPermissionPathForModule(module: TenantModule): PermissionPath {
+  switch (module) {
+    case "DASHBOARD":
+      return "dashboard";
+    case "AGENDA":
+      return "agenda";
+    case "CLIENTES":
+      return "clientes";
+    case "PROFISSIONAIS":
+      return "profissionais";
+    case "SERVICOS":
+      return "servicos";
+    case "PACOTES":
+      return "pacotes";
+    case "PRODUTOS":
+      return "produtos";
+    case "COMISSOES":
+      return "financeiro";
+    case "ESTOQUE":
+      return "estoque";
+    case "PRONTUARIOS":
+      return "prontuarios";
+    case "CONFIGURACOES":
+      return "configuracoes";
+    default:
+      return "dashboard";
+  }
 }

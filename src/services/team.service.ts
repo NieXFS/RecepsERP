@@ -1,19 +1,19 @@
-import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import type { ActionResult } from "@/types";
+import { db } from "@/lib/db";
+import { CRITICAL_ADMIN_MODULES } from "@/lib/tenant-modules";
+import {
+  getModuleAccessMap,
+  normalizeCustomPermissions,
+} from "@/lib/tenant-permissions";
 import type {
   CreateTeamMemberInput,
   UpdateTeamMemberInput,
 } from "@/lib/validators/management";
 import {
-  CRITICAL_ADMIN_MODULES,
-  getDefaultModuleAccess,
-  TENANT_MODULE_DEFINITIONS,
-} from "@/lib/tenant-modules";
-import {
-  getEffectiveModuleAccessSnapshot,
+  getEffectivePermissionSnapshot,
   replaceUserModulePermissions,
 } from "@/services/user-permission.service";
+import type { ActionResult } from "@/types";
 
 /**
  * Lista todos os membros da equipe (Users) do tenant,
@@ -43,43 +43,33 @@ export async function listTeamMembers(tenantId: string) {
     orderBy: { name: "asc" },
   });
 
-  return users.map((u) => {
-    const defaultAccess = getDefaultModuleAccess(u.role);
-    const overrideMap = new Map(
-      u.modulePermissions.map((permission) => [permission.module, permission.isAllowed])
+  return users.map((user) => {
+    const permissionSnapshot = getEffectivePermissionSnapshot(
+      user.role,
+      user.customPermissions,
+      user.modulePermissions
     );
-    const effectiveAccess = getEffectiveModuleAccessSnapshot(
-      u.role,
-      u.modulePermissions
-    ).access;
 
     return {
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      role: u.role,
-      isActive: u.isActive,
-      createdAt: u.createdAt.toISOString(),
-      professional: u.professional
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt.toISOString(),
+      professional: user.professional
         ? {
-            id: u.professional.id,
-            specialty: u.professional.specialty,
-            contractType: u.professional.contractType,
-            commissionPercent: Number(u.professional.commissionPercent),
-            registrationNumber: u.professional.registrationNumber,
-            isActive: u.professional.isActive,
+            id: user.professional.id,
+            specialty: user.professional.specialty,
+            contractType: user.professional.contractType,
+            commissionPercent: Number(user.professional.commissionPercent),
+            registrationNumber: user.professional.registrationNumber,
+            isActive: user.professional.isActive,
           }
         : null,
-      modulePermissions: TENANT_MODULE_DEFINITIONS.map((module) => ({
-        module: module.key,
-        label: module.label,
-        description: module.description,
-        group: module.group,
-        defaultAllowed: defaultAccess[module.key],
-        isAllowed: effectiveAccess[module.key],
-        isCustomized: overrideMap.has(module.key),
-      })),
+      customPermissions: permissionSnapshot.customPermissions,
+      allowedModules: permissionSnapshot.allowedModules,
     };
   });
 }
@@ -94,8 +84,8 @@ export async function createTeamMember(
   data: CreateTeamMemberInput
 ): Promise<ActionResult<{ userId: string }>> {
   const normalizedEmail = data.email.toLowerCase().trim();
+  const customPermissions = normalizeCustomPermissions(data.role, data.customPermissions);
 
-  // Verifica se email já existe
   const existing = await db.user.findFirst({
     where: { email: normalizedEmail },
   });
@@ -108,7 +98,6 @@ export async function createTeamMember(
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // Cria o User
       const user = await tx.user.create({
         data: {
           tenantId,
@@ -117,19 +106,14 @@ export async function createTeamMember(
           passwordHash,
           phone: data.phone ?? null,
           role: data.role,
+          customPermissions,
           isActive: data.isActive,
           deletedAt: data.isActive ? null : new Date(),
         },
       });
 
-      await replaceUserModulePermissions(
-        tx,
-        user.id,
-        data.role,
-        data.modulePermissions
-      );
+      await replaceUserModulePermissions(tx, user.id, data.role, customPermissions);
 
-      // Se for PROFESSIONAL, cria o perfil associado
       if (data.role === "PROFESSIONAL") {
         await tx.professional.create({
           data: {
@@ -166,6 +150,7 @@ export async function updateTeamMember(
   data: UpdateTeamMemberInput
 ): Promise<ActionResult<{ userId: string }>> {
   const normalizedEmail = data.email.toLowerCase().trim();
+  const customPermissions = normalizeCustomPermissions(data.role, data.customPermissions);
 
   const [existingUser, emailOwner] = await Promise.all([
     db.user.findFirst({
@@ -201,11 +186,7 @@ export async function updateTeamMember(
     return { success: false, error: "Você não pode desativar a si mesmo." };
   }
 
-  const nextAccess = getEffectiveModuleAccessSnapshot(
-    data.role,
-    data.modulePermissions
-  ).access;
-
+  const nextAccess = getModuleAccessMap(customPermissions);
   const missingCriticalAdminModules = CRITICAL_ADMIN_MODULES.filter(
     (module) => !nextAccess[module]
   );
@@ -260,17 +241,13 @@ export async function updateTeamMember(
           email: normalizedEmail,
           phone: data.phone ?? null,
           role: data.role,
+          customPermissions,
           isActive: data.isActive,
           deletedAt: data.isActive ? null : existingUser.deletedAt ?? new Date(),
         },
       });
 
-      await replaceUserModulePermissions(
-        tx,
-        userId,
-        data.role,
-        data.modulePermissions
-      );
+      await replaceUserModulePermissions(tx, userId, data.role, customPermissions);
 
       const shouldProfessionalBeActive = data.role === "PROFESSIONAL" && data.isActive;
 

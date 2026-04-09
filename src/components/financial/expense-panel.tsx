@@ -63,6 +63,7 @@ type ExpensePanelProps = {
   period: MonthlyExpenseSummary["period"];
   summary: MonthlyExpenseSummary;
   categories: ExpenseCategoryListItem[];
+  canEdit: boolean;
   accounts: AccountOption[];
 };
 
@@ -94,6 +95,7 @@ export function ExpensePanel({
   period,
   summary,
   categories,
+  canEdit,
   accounts,
 }: ExpensePanelProps) {
   const router = useRouter();
@@ -265,14 +267,18 @@ export function ExpensePanel({
               <Button variant="outline" size="icon-sm" onClick={() => navigateMonth(1)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
-                <Tags className="h-4 w-4" />
-                Nova categoria
-              </Button>
-              <Button onClick={() => setExpenseDialogState({ open: true })}>
-                <CirclePlus className="h-4 w-4" />
-                Nova despesa
-              </Button>
+              {canEdit ? (
+                <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+                  <Tags className="h-4 w-4" />
+                  Nova categoria
+                </Button>
+              ) : null}
+              {canEdit ? (
+                <Button onClick={() => setExpenseDialogState({ open: true })}>
+                  <CirclePlus className="h-4 w-4" />
+                  Nova despesa
+                </Button>
+              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -360,6 +366,32 @@ export function ExpensePanel({
                   {filteredExpenses.map((expense) => {
                     const statusMeta = getExpenseStatusMeta(expense.displayStatus);
                     const isLocked = expense.status === "PAID";
+                    const paymentActionButton = canEdit
+                      ? expense.status === "PAID"
+                        ? (
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              disabled={isPending}
+                              onClick={() => handleCancelPayment(expense.id)}
+                            >
+                              <Receipt className="h-3 w-3" />
+                              Cancelar pagamento
+                            </Button>
+                          )
+                        : (
+                            <Button
+                              size="xs"
+                              disabled={isPending || expense.status === "CANCELLED"}
+                              onClick={() =>
+                                setPayDialogState({ open: true, expense })
+                              }
+                            >
+                              <Wallet className="h-3 w-3" />
+                              Pagar
+                            </Button>
+                          )
+                      : null;
 
                     return (
                       <tr key={expense.id} className="border-b last:border-0">
@@ -392,40 +424,21 @@ export function ExpensePanel({
                         </td>
                         <td className="py-3">
                           <div className="flex flex-wrap justify-end gap-2">
-                            {expense.status === "PAID" ? (
+                            {paymentActionButton}
+                            {canEdit ? (
                               <Button
                                 size="xs"
                                 variant="outline"
-                                disabled={isPending}
-                                onClick={() => handleCancelPayment(expense.id)}
-                              >
-                                <Receipt className="h-3 w-3" />
-                                Cancelar pagamento
-                              </Button>
-                            ) : (
-                              <Button
-                                size="xs"
-                                disabled={isPending || expense.status === "CANCELLED"}
+                                disabled={isPending || isLocked}
                                 onClick={() =>
-                                  setPayDialogState({ open: true, expense })
+                                  setExpenseDialogState({ open: true, expense })
                                 }
                               >
-                                <Wallet className="h-3 w-3" />
-                                Pagar
+                                <Pencil className="h-3 w-3" />
+                                Editar
                               </Button>
-                            )}
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              disabled={isPending || isLocked}
-                              onClick={() =>
-                                setExpenseDialogState({ open: true, expense })
-                              }
-                            >
-                              <Pencil className="h-3 w-3" />
-                              Editar
-                            </Button>
-                            {expense.status !== "PAID" && expense.status !== "CANCELLED" ? (
+                            ) : null}
+                            {canEdit && expense.status !== "PAID" && expense.status !== "CANCELLED" ? (
                               <Button
                                 size="xs"
                                 variant="outline"
@@ -436,7 +449,7 @@ export function ExpensePanel({
                                 Cancelar
                               </Button>
                             ) : null}
-                            {expense.status === "PENDING" || expense.status === "CANCELLED" ? (
+                            {canEdit && (expense.status === "PENDING" || expense.status === "CANCELLED") ? (
                               <Button
                                 size="xs"
                                 variant="destructive"
@@ -459,100 +472,108 @@ export function ExpensePanel({
         </CardContent>
       </Card>
 
-      <ExpenseFormDialog
-        key={`${expenseDialogState.expense?.id ?? "new"}-${expenseDialogState.open ? "open" : "closed"}`}
-        open={expenseDialogState.open}
-        expense={expenseDialogState.expense}
-        categories={categories}
-        accounts={accounts}
-        isPending={isPending}
-        onClose={() => setExpenseDialogState({ open: false })}
-        onSubmit={handleCreateOrUpdateExpense}
-      />
+      {canEdit ? (
+        <ExpenseFormDialog
+          key={`${expenseDialogState.expense?.id ?? "new"}-${expenseDialogState.open ? "open" : "closed"}`}
+          open={expenseDialogState.open}
+          expense={expenseDialogState.expense}
+          categories={categories}
+          accounts={accounts}
+          isPending={isPending}
+          onClose={() => setExpenseDialogState({ open: false })}
+          onSubmit={handleCreateOrUpdateExpense}
+        />
+      ) : null}
 
-      <ExpenseCategoryDialog
-        key={categoryDialogOpen ? "category-open" : "category-closed"}
-        open={categoryDialogOpen}
-        isPending={isPending}
-        onClose={() => setCategoryDialogOpen(false)}
-        onSubmit={handleCreateCategory}
-      />
+      {canEdit ? (
+        <ExpenseCategoryDialog
+          key={categoryDialogOpen ? "category-open" : "category-closed"}
+          open={categoryDialogOpen}
+          isPending={isPending}
+          onClose={() => setCategoryDialogOpen(false)}
+          onSubmit={handleCreateCategory}
+        />
+      ) : null}
 
-      <ExpensePaymentDialog
-        key={`${payDialogState.expense?.id ?? "payment"}-${payDialogState.open ? "open" : "closed"}`}
-        open={payDialogState.open}
-        expense={payDialogState.expense}
-        accounts={accounts}
-        isPending={isPending}
-        onClose={() => setPayDialogState({ open: false })}
-        onConfirm={handleMarkPaid}
-      />
+      {canEdit ? (
+        <ExpensePaymentDialog
+          key={`${payDialogState.expense?.id ?? "payment"}-${payDialogState.open ? "open" : "closed"}`}
+          open={payDialogState.open}
+          expense={payDialogState.expense}
+          accounts={accounts}
+          isPending={isPending}
+          onClose={() => setPayDialogState({ open: false })}
+          onConfirm={handleMarkPaid}
+        />
+      ) : null}
 
-      <AlertDialog
-        open={deleteDialogState.open}
-        onOpenChange={(open) =>
-          setDeleteDialogState((current) => ({ ...current, open }))
-        }
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deleteDialogState.expense?.recurrenceGroupId
-                ? "Excluir Despesa Recorrente"
-                : "Excluir despesa"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteDialogState.expense?.recurrenceGroupId
-                ? "Escolha se deseja excluir apenas esta despesa ou remover esta e as proximas pendentes da mesma recorrencia."
-                : "Tem certeza que deseja excluir esta despesa? Esta acao nao podera ser desfeita."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogState({ open: false })}
-              disabled={isPending}
-            >
-              Cancelar
-            </Button>
-            {deleteDialogState.expense?.recurrenceGroupId ? (
-              <>
+      {canEdit ? (
+        <AlertDialog
+          open={deleteDialogState.open}
+          onOpenChange={(open) =>
+            setDeleteDialogState((current) => ({ ...current, open }))
+          }
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {deleteDialogState.expense?.recurrenceGroupId
+                  ? "Excluir Despesa Recorrente"
+                  : "Excluir despesa"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteDialogState.expense?.recurrenceGroupId
+                  ? "Escolha se deseja excluir apenas esta despesa ou remover esta e as proximas pendentes da mesma recorrencia."
+                  : "Tem certeza que deseja excluir esta despesa? Esta acao nao podera ser desfeita."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogState({ open: false })}
+                disabled={isPending}
+              >
+                Cancelar
+              </Button>
+              {deleteDialogState.expense?.recurrenceGroupId ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      deleteDialogState.expense &&
+                      handleDeleteExpense(deleteDialogState.expense.id, false)
+                    }
+                    disabled={isPending}
+                  >
+                    Excluir apenas esta
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() =>
+                      deleteDialogState.expense &&
+                      handleDeleteExpense(deleteDialogState.expense.id, true)
+                    }
+                    disabled={isPending}
+                  >
+                    Excluir esta e as proximas
+                  </Button>
+                </>
+              ) : (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   onClick={() =>
                     deleteDialogState.expense &&
                     handleDeleteExpense(deleteDialogState.expense.id, false)
                   }
                   disabled={isPending}
                 >
-                  Excluir apenas esta
+                  Excluir
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() =>
-                    deleteDialogState.expense &&
-                    handleDeleteExpense(deleteDialogState.expense.id, true)
-                  }
-                  disabled={isPending}
-                >
-                  Excluir esta e as proximas
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="destructive"
-                onClick={() =>
-                  deleteDialogState.expense &&
-                  handleDeleteExpense(deleteDialogState.expense.id, false)
-                }
-                disabled={isPending}
-              >
-                Excluir
-              </Button>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </div>
   );
 }

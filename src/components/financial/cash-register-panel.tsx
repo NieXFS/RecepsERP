@@ -97,11 +97,13 @@ function getInitials(name: string) {
  */
 export function CashRegisterPanel({
   accounts,
+  canEdit,
   currentSession,
   sessionMovements,
   recentSessions,
 }: {
   accounts: CashAccount[];
+  canEdit: boolean;
   currentSession: CashSession | null;
   sessionMovements: CashSessionMovement[];
   recentSessions: RecentCashSession[];
@@ -324,16 +326,23 @@ export function CashRegisterPanel({
                   />
                 </div>
 
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleOpenCashRegister}
-                    disabled={isPending || !selectedAccountId}
-                    className="gap-2"
-                  >
-                    <Landmark className="h-4 w-4" />
-                    {isPending ? "Abrindo…" : "Abrir caixa"}
-                  </Button>
-                </div>
+                {canEdit ? (
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleOpenCashRegister}
+                      disabled={isPending || !selectedAccountId}
+                      className="gap-2"
+                    >
+                      <Landmark className="h-4 w-4" />
+                      {isPending ? "Abrindo…" : "Abrir caixa"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                    Esta conta pode ser visualizada, mas apenas usuários com permissão de edição
+                    podem abrir novas sessões de caixa.
+                  </div>
+                )}
               </>
             )}
           </CardContent>
@@ -364,26 +373,28 @@ export function CashRegisterPanel({
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => openManualTransactionModal("EXPENSE")}
-                >
-                  <ArrowDownToLine className="h-4 w-4" />
-                  Sangria (Retirada)
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="gap-2 text-emerald-700 dark:text-emerald-300"
-                  onClick={() => openManualTransactionModal("INCOME")}
-                >
-                  <ArrowUpToLine className="h-4 w-4" />
-                  Suprimento (Entrada)
-                </Button>
-              </div>
+              {canEdit ? (
+                <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => openManualTransactionModal("EXPENSE")}
+                  >
+                    <ArrowDownToLine className="h-4 w-4" />
+                    Sangria (Retirada)
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2 text-emerald-700 dark:text-emerald-300"
+                    onClick={() => openManualTransactionModal("INCOME")}
+                  >
+                    <ArrowUpToLine className="h-4 w-4" />
+                    Suprimento (Entrada)
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -443,12 +454,14 @@ export function CashRegisterPanel({
               />
             </div>
 
-            <div className="flex justify-end">
-              <Button onClick={handleCloseCashRegister} disabled={isPending} className="gap-2">
-                <Wallet className="h-4 w-4" />
-                {isPending ? "Fechando…" : "Fechar caixa"}
-              </Button>
-            </div>
+            {canEdit ? (
+              <div className="flex justify-end">
+                <Button onClick={handleCloseCashRegister} disabled={isPending} className="gap-2">
+                  <Wallet className="h-4 w-4" />
+                  {isPending ? "Fechando…" : "Fechar caixa"}
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -463,26 +476,28 @@ export function CashRegisterPanel({
                   Movimentacoes do turno atual do caixa aberto, com entradas e saidas mais recentes primeiro.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => openManualTransactionModal("EXPENSE")}
-                >
-                  <ArrowDownToLine className="h-4 w-4" />
-                  Sangria
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="gap-2 text-emerald-700 dark:text-emerald-300"
-                  onClick={() => openManualTransactionModal("INCOME")}
-                >
-                  <ArrowUpToLine className="h-4 w-4" />
-                  Suprimento
-                </Button>
-              </div>
+              {canEdit ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => openManualTransactionModal("EXPENSE")}
+                  >
+                    <ArrowDownToLine className="h-4 w-4" />
+                    Sangria
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2 text-emerald-700 dark:text-emerald-300"
+                    onClick={() => openManualTransactionModal("INCOME")}
+                  >
+                    <ArrowUpToLine className="h-4 w-4" />
+                    Suprimento
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </CardHeader>
           <CardContent>
@@ -571,7 +586,7 @@ export function CashRegisterPanel({
         </CardContent>
       </Card>
 
-      {currentSession ? (
+      {currentSession && canEdit ? (
         <ManualTransactionModal
           open={isManualTransactionModalOpen}
           onOpenChange={setIsManualTransactionModalOpen}

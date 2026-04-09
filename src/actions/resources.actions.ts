@@ -13,7 +13,7 @@ import type { ActionResult } from "@/types";
 export async function createRoomAction(
   name: string
 ): Promise<ActionResult<{ roomId: string }>> {
-  const user = await requireModuleAccess("CONFIGURACOES");
+  const user = await requireModuleAccess("CONFIGURACOES", "edit");
   return createRoom(user.tenantId, name);
 }
 
@@ -21,7 +21,7 @@ export async function createRoomAction(
 export async function createEquipmentAction(
   name: string
 ): Promise<ActionResult<{ equipmentId: string }>> {
-  const user = await requireModuleAccess("CONFIGURACOES");
+  const user = await requireModuleAccess("CONFIGURACOES", "edit");
   return createEquipment(user.tenantId, name);
 }
 
@@ -29,7 +29,7 @@ export async function createEquipmentAction(
 export async function deactivateRoomAction(
   roomId: string
 ): Promise<ActionResult> {
-  const user = await requireModuleAccess("CONFIGURACOES");
+  const user = await requireModuleAccess("CONFIGURACOES", "edit");
   return deactivateRoom(user.tenantId, roomId);
 }
 
@@ -37,6 +37,6 @@ export async function deactivateRoomAction(
 export async function deactivateEquipmentAction(
   equipmentId: string
 ): Promise<ActionResult> {
-  const user = await requireModuleAccess("CONFIGURACOES");
+  const user = await requireModuleAccess("CONFIGURACOES", "edit");
   return deactivateEquipment(user.tenantId, equipmentId);
 }

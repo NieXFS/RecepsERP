@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { TENANT_MODULE_VALUES } from "@/lib/tenant-modules";
+import {
+  customPermissionsSchema,
+  normalizeCustomPermissions,
+} from "@/lib/tenant-permissions";
 
 const optionalTrimmedString = z
   .string()
@@ -7,15 +10,7 @@ const optionalTrimmedString = z
   .optional()
   .transform((value) => value || undefined);
 
-const teamMemberPermissionSchema = z.object({
-  module: z.enum(TENANT_MODULE_VALUES),
-  isAllowed: z.boolean(),
-});
-
-/**
- * Schema compartilhado para criar e editar membros da equipe sem perder o vínculo histórico.
- */
-export const teamMemberBaseSchema = z.object({
+const teamMemberBaseShape = {
   name: z.string().trim().min(2, "Informe o nome completo."),
   email: z.email("Informe um email válido.").transform((value) => value.toLowerCase().trim()),
   phone: optionalTrimmedString,
@@ -29,21 +24,32 @@ export const teamMemberBaseSchema = z.object({
   contractType: z.enum(["CLT", "PJ"]).optional(),
   registrationNumber: optionalTrimmedString,
   isActive: z.boolean().default(true),
-  modulePermissions: z
-    .array(teamMemberPermissionSchema)
-    .refine(
-      (permissions) =>
-        new Set(permissions.map((permission) => permission.module)).size ===
-        permissions.length,
-      "Cada módulo deve aparecer apenas uma vez."
-    ),
-});
+  customPermissions: customPermissionsSchema.optional(),
+} satisfies z.ZodRawShape;
 
-export const createTeamMemberSchema = teamMemberBaseSchema.extend({
+const teamMemberBaseObject = z.object(teamMemberBaseShape);
+const teamMemberCreateObject = z.object({
+  ...teamMemberBaseShape,
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres."),
 });
 
-export const updateTeamMemberSchema = teamMemberBaseSchema;
+/**
+ * Schema compartilhado para criar e editar membros da equipe sem perder o vínculo histórico.
+ */
+export const teamMemberBaseSchema = teamMemberBaseObject.transform((data) => ({
+  ...data,
+  customPermissions: normalizeCustomPermissions(data.role, data.customPermissions),
+}));
+
+export const createTeamMemberSchema = teamMemberCreateObject.transform((data) => ({
+  ...data,
+  customPermissions: normalizeCustomPermissions(data.role, data.customPermissions),
+}));
+
+export const updateTeamMemberSchema = teamMemberBaseObject.transform((data) => ({
+  ...data,
+  customPermissions: normalizeCustomPermissions(data.role, data.customPermissions),
+}));
 
 export type CreateTeamMemberInput = z.infer<typeof createTeamMemberSchema>;
 export type UpdateTeamMemberInput = z.infer<typeof updateTeamMemberSchema>;

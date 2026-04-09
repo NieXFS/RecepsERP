@@ -14,7 +14,7 @@ import type { ActionResult } from "@/types";
 export async function updateTenantAccentThemeAction(
   accentTheme: string
 ): Promise<ActionResult<{ accentTheme: TenantAccentTheme }>> {
-  const user = await requireModuleAccess("CONFIGURACOES");
+  const user = await requireModuleAccess("CONFIGURACOES", "edit");
 
   const parsed = tenantAppearanceSchema.safeParse({ accentTheme });
   if (!parsed.success) {

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { TenantModule } from "@/generated/prisma/enums";
+import type { TenantCustomPermissions } from "@/lib/tenant-permissions";
+import { getPreferredModuleHref } from "@/lib/tenant-permissions";
 import {
   LayoutDashboard,
   Calendar,
@@ -54,7 +56,14 @@ const navItems: NavItem[] = [
     activePrefixes: ["/produtos", "/produtos/estoque"],
     group: "management",
   },
-  { module: "COMISSOES", href: "/financeiro", label: "Financeiro", icon: Landmark, group: "management" },
+  {
+    module: "COMISSOES",
+    href: "/financeiro",
+    label: "Financeiro",
+    icon: Landmark,
+    activePrefixes: ["/financeiro"],
+    group: "management",
+  },
 
   // --- Grupo clínico/config ---
   { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
@@ -65,6 +74,7 @@ type SidebarProps = {
   userRole: string;
   userName: string;
   allowedModules: TenantModule[];
+  permissions: TenantCustomPermissions;
 };
 
 /** Sidebar com navegação filtrada por permissões efetivas de módulo. */
@@ -72,6 +82,7 @@ export function Sidebar({
   userRole,
   userName,
   allowedModules,
+  permissions,
 }: SidebarProps) {
   const pathname = usePathname();
   const visibleModuleSet = new Set(allowedModules);
@@ -83,10 +94,7 @@ export function Sidebar({
     )
     .map((item) => ({
       ...item,
-      href:
-        item.module === "PRODUTOS" && !visibleModuleSet.has("PRODUTOS") && visibleModuleSet.has("ESTOQUE")
-          ? "/produtos/estoque"
-          : item.href,
+      href: getPreferredModuleHref(item.module, permissions),
     }));
 
   // Agrupa os itens visíveis

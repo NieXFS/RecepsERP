@@ -1,7 +1,7 @@
 "use server";
 
-import type { TenantModule } from "@/generated/prisma/enums";
-import { requireModuleAccess } from "@/lib/session";
+import type { TenantCustomPermissions } from "@/lib/tenant-permissions";
+import { requirePermission } from "@/lib/session";
 import {
   createTeamMemberSchema,
   updateTeamMemberSchema,
@@ -12,11 +12,6 @@ import {
   updateTeamMember,
 } from "@/services/team.service";
 import type { ActionResult } from "@/types";
-
-type TeamPermissionInput = {
-  module: TenantModule;
-  isAllowed: boolean;
-};
 
 /**
  * Server Action: cria novo membro da equipe com senha hasheada.
@@ -34,9 +29,9 @@ export async function createTeamMemberAction(data: {
   contractType?: "CLT" | "PJ";
   registrationNumber?: string;
   isActive?: boolean;
-  modulePermissions: TeamPermissionInput[];
+  customPermissions?: TenantCustomPermissions;
 }): Promise<ActionResult<{ userId: string }>> {
-  const user = await requireModuleAccess("PROFISSIONAIS");
+  const user = await requirePermission("profissionais", "edit");
   const parsed = createTeamMemberSchema.safeParse({
     ...data,
     isActive: data.isActive ?? true,
@@ -65,10 +60,10 @@ export async function updateTeamMemberAction(
     contractType?: "CLT" | "PJ";
     registrationNumber?: string;
     isActive?: boolean;
-    modulePermissions: TeamPermissionInput[];
+    customPermissions?: TenantCustomPermissions;
   }
 ): Promise<ActionResult<{ userId: string }>> {
-  const user = await requireModuleAccess("PROFISSIONAIS");
+  const user = await requirePermission("profissionais", "edit");
   const parsed = updateTeamMemberSchema.safeParse({
     ...data,
     isActive: data.isActive ?? true,
@@ -88,6 +83,6 @@ export async function updateTeamMemberAction(
 export async function deactivateTeamMemberAction(
   userId: string
 ): Promise<ActionResult> {
-  const user = await requireModuleAccess("PROFISSIONAIS");
+  const user = await requirePermission("profissionais", "edit");
   return deactivateTeamMember(user.tenantId, userId, user.id);
 }

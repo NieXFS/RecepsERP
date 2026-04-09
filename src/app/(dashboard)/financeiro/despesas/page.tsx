@@ -1,4 +1,5 @@
-import { getAuthUserForModule } from "@/lib/session";
+import { getAuthUserForPermission } from "@/lib/session";
+import { hasPermission } from "@/lib/tenant-permissions";
 import { parseCivilMonthFromQuery } from "@/lib/civil-date";
 import { db } from "@/lib/db";
 import { getExpenseCategories, getMonthlyExpenses } from "@/services/expense.service";
@@ -12,7 +13,8 @@ export default async function FinancialExpensesPage({
 }: {
   searchParams?: Promise<{ month?: string | string[]; year?: string | string[] }>;
 }) {
-  const user = await getAuthUserForModule("COMISSOES");
+  const user = await getAuthUserForPermission("financeiro.despesas", "view");
+  const canEdit = hasPermission(user.customPermissions, "financeiro.despesas", "edit");
   const query = searchParams ? await searchParams : undefined;
   const selectedMonth = parseCivilMonthFromQuery(query?.month, query?.year);
 
@@ -39,6 +41,7 @@ export default async function FinancialExpensesPage({
         period={summary.period}
         summary={summary}
         categories={categories}
+        canEdit={canEdit}
         accounts={accounts.map((account) => ({
           id: account.id,
           name: account.name,

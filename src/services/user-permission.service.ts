@@ -1,44 +1,32 @@
 import type { Prisma } from "@/generated/prisma/client";
-import type { Role, TenantModule } from "@/generated/prisma/enums";
 import {
-  getDefaultModuleAccess,
-  listAllowedModules,
-  resolveEffectiveModuleAccess,
-} from "@/lib/tenant-modules";
+  getModulePermissionOverrides,
+  resolveEffectivePermissionSnapshot,
+  type TenantCustomPermissions,
+} from "@/lib/tenant-permissions";
 
 type PrismaTransaction = Prisma.TransactionClient;
 
-type ModulePermissionOverride = {
-  module: TenantModule;
-  isAllowed: boolean;
-};
+type RoleValue = Prisma.UserGetPayload<{ select: { role: true } }>["role"];
+
+type ModulePermissionOverride = Prisma.UserModulePermissionGetPayload<{
+  select: {
+    module: true;
+    isAllowed: true;
+  };
+}>;
 
 /**
- * Converte a lista efetiva de permissões enviada pelo formulário
- * em overrides persistidos contra o padrão do cargo.
- */
-export function getModulePermissionOverrides(
-  role: Role,
-  modulePermissions: readonly ModulePermissionOverride[]
-): ModulePermissionOverride[] {
-  const defaults = getDefaultModuleAccess(role);
-
-  return modulePermissions.filter(
-    (permission) => defaults[permission.module] !== permission.isAllowed
-  );
-}
-
-/**
- * Persiste as permissões customizadas do usuário.
- * Apenas as diferenças em relação ao cargo-base são salvas em banco.
+ * Persiste os overrides legados por módulo para manter compatibilidade
+ * com a modelagem anterior durante a transição para o JSON granular.
  */
 export async function replaceUserModulePermissions(
   tx: PrismaTransaction,
   userId: string,
-  role: Role,
-  modulePermissions: readonly ModulePermissionOverride[]
+  role: RoleValue,
+  customPermissions: TenantCustomPermissions
 ) {
-  const overrides = getModulePermissionOverrides(role, modulePermissions);
+  const overrides = getModulePermissionOverrides(role, customPermissions);
 
   await tx.userModulePermission.deleteMany({
     where: { userId },
@@ -56,16 +44,13 @@ export async function replaceUserModulePermissions(
 }
 
 /**
- * Resolve o mapa efetivo de permissões a partir do cargo-base e dos overrides.
+ * Resolve a fotografia efetiva de acesso do usuário. O JSON granular
+ * é a fonte de verdade; os overrides legados viram fallback quando ele ainda não existe.
  */
-export function getEffectiveModuleAccessSnapshot(
-  role: Role,
+export function getEffectivePermissionSnapshot(
+  role: RoleValue,
+  customPermissions: unknown,
   modulePermissions: readonly ModulePermissionOverride[]
 ) {
-  const access = resolveEffectiveModuleAccess(role, modulePermissions);
-
-  return {
-    access,
-    allowedModules: listAllowedModules(access),
-  };
+  return resolveEffectivePermissionSnapshot(role, customPermissions, modulePermissions);
 }

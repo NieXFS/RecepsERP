@@ -14,6 +14,7 @@ import {
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethodValue,
 } from "@/lib/payment-methods";
+import type { Role } from "@/generated/prisma/enums";
 import type {
   CloseCashRegisterInput,
   ManualCashTransactionInput,
@@ -30,6 +31,10 @@ type CheckoutOptions = {
 
 type StatementTypeFilter = "ALL" | "INCOME" | "EXPENSE";
 type StatementStatusFilter = "ALL" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
+type CommissionViewerScope = {
+  userId: string;
+  role: Role;
+};
 
 export type FinancialStatementEntry = {
   id: string;
@@ -763,12 +768,19 @@ export async function payCommissions(
  */
 export async function getPendingCommissions(
   tenantId: string,
-  professionalId: string
+  professionalId: string,
+  viewer?: CommissionViewerScope
 ) {
+  const scopedProfessionalId = await resolveScopedProfessionalId(
+    tenantId,
+    professionalId,
+    viewer
+  );
+
   const commissions = await db.commission.findMany({
     where: {
       tenantId,
-      professionalId,
+      professionalId: scopedProfessionalId,
       status: "PENDING",
     },
     include: {
@@ -800,9 +812,19 @@ export async function getPendingCommissions(
  * Usado na tela de Fechamento de Comissões para exibir o painel geral.
  * Para cada profissional, retorna a soma PENDING e a lista detalhada de serviços.
  */
-export async function getCommissionsSummaryByProfessional(tenantId: string) {
+export async function getCommissionsSummaryByProfessional(
+  tenantId: string,
+  viewer?: CommissionViewerScope
+) {
+  const professionalScope =
+    viewer?.role === "PROFESSIONAL"
+      ? {
+          userId: viewer.userId,
+        }
+      : {};
+
   const professionals = await db.professional.findMany({
-    where: { tenantId, isActive: true, deletedAt: null },
+    where: { tenantId, isActive: true, deletedAt: null, ...professionalScope },
     include: {
       user: { select: { name: true, email: true } },
       commissions: {
@@ -856,6 +878,37 @@ export async function getCommissionsSummaryByProfessional(tenantId: string) {
       })),
     };
   });
+}
+
+async function resolveScopedProfessionalId(
+  tenantId: string,
+  professionalId: string,
+  viewer?: CommissionViewerScope
+) {
+  if (!viewer || viewer.role !== "PROFESSIONAL") {
+    return professionalId;
+  }
+
+  const professional = await db.professional.findFirst({
+    where: {
+      tenantId,
+      userId: viewer.userId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!professional) {
+    throw new Error("Perfil profissional não encontrado para este usuário.");
+  }
+
+  if (professional.id !== professionalId) {
+    throw new Error("Profissionais só podem visualizar as próprias comissões.");
+  }
+
+  return professional.id;
 }
 
 /**

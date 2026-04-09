@@ -1,4 +1,4 @@
-import { getAuthUserForModule } from "@/lib/session";
+import { getAuthUserForPermission } from "@/lib/session";
 import {
   formatCivilDateToQuery,
   getTodayCivilDate,
@@ -66,7 +66,7 @@ export default async function FinancialStatementPage({
     status?: string | string[];
   }>;
 }) {
-  const user = await getAuthUserForModule("COMISSOES");
+  const user = await getAuthUserForPermission("financeiro.extrato", "view");
   const query = searchParams ? await searchParams : undefined;
   const defaults = getDefaultPeriod();
 

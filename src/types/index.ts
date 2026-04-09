@@ -1,5 +1,6 @@
 import type { GlobalRole, Role, TenantModule } from "@/generated/prisma/enums";
 import type { ModuleAccessMap } from "@/lib/tenant-modules";
+import type { TenantCustomPermissions } from "@/lib/tenant-permissions";
 
 /** Dados da sessão do usuário autenticado, disponível via NextAuth */
 export type SessionUser = {
@@ -12,6 +13,7 @@ export type SessionUser = {
 };
 
 export type SessionUserWithAccess = SessionUser & {
+  customPermissions: TenantCustomPermissions;
   moduleAccess: ModuleAccessMap;
   allowedModules: TenantModule[];
 };

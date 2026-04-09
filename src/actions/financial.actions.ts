@@ -1,6 +1,6 @@
 "use server";
 
-import { requireModuleAccess } from "@/lib/session";
+import { requireModuleAccess, requirePermission } from "@/lib/session";
 import type { PaymentMethodValue } from "@/lib/payment-methods";
 import {
   checkoutAppointment,
@@ -33,7 +33,7 @@ export async function checkoutAppointmentAction(
     installments?: number;
   }
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
-  const session = await requireModuleAccess("AGENDA");
+  const session = await requireModuleAccess("AGENDA", "edit");
   return checkoutAppointment(session.tenantId, appointmentId, {
     ...options,
     finalStatus: "PAID",
@@ -47,7 +47,7 @@ export async function checkoutAppointmentAction(
 export async function payCommissionsAction(
   commissionIds: string[]
 ): Promise<ActionResult<{ paidCount: number }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.comissoes", "edit");
 
   return payCommissions(session.tenantId, commissionIds);
 }
@@ -56,8 +56,11 @@ export async function payCommissionsAction(
  * Server Action: lista comissões pendentes de um profissional para visualização do acerto.
  */
 export async function getPendingCommissionsAction(professionalId: string) {
-  const session = await requireModuleAccess("COMISSOES");
-  return getPendingCommissions(session.tenantId, professionalId);
+  const session = await requirePermission("financeiro.comissoes", "view");
+  return getPendingCommissions(session.tenantId, professionalId, {
+    userId: session.id,
+    role: session.role,
+  });
 }
 
 /**
@@ -65,9 +68,12 @@ export async function getPendingCommissionsAction(professionalId: string) {
  * Cada profissional inclui soma PENDING e lista detalhada dos serviços.
  */
 export async function getCommissionsSummaryAction() {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.comissoes", "view");
 
-  return getCommissionsSummaryByProfessional(session.tenantId);
+  return getCommissionsSummaryByProfessional(session.tenantId, {
+    userId: session.id,
+    role: session.role,
+  });
 }
 
 /**
@@ -79,7 +85,7 @@ export async function settleCommissionsAction(
   professionalId: string,
   accountId?: string
 ): Promise<ActionResult<{ paidCount: number; expenseTransactionId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.comissoes", "edit");
 
   return settleCommissions(session.tenantId, professionalId, accountId);
 }
@@ -96,7 +102,7 @@ export async function getFinancialStatementAction(
     status?: "ALL" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
   }
 ) {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.extrato", "view");
 
   return getFinancialStatement(session.tenantId, {
     startDate,
@@ -110,7 +116,7 @@ export async function getFinancialStatementAction(
  * Server Action: retorna o estado operacional do caixa do tenant.
  */
 export async function getCashRegisterOverviewAction() {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.caixa", "view");
   return getCashRegisterOverview(session.tenantId);
 }
 
@@ -122,7 +128,7 @@ export async function openCashRegisterAction(data: {
   openingAmount: number;
   openingNotes?: string;
 }): Promise<ActionResult<{ sessionId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.caixa", "edit");
   const parsed = openCashRegisterSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -140,7 +146,7 @@ export async function closeCashRegisterAction(data: {
   closingAmount: number;
   closingNotes?: string;
 }): Promise<ActionResult<{ sessionId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.caixa", "edit");
   const parsed = closeCashRegisterSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -160,7 +166,7 @@ export async function createManualCashTransactionAction(data: {
   description: string;
   paymentMethod: PaymentMethodValue;
 }): Promise<ActionResult<{ transactionId: string }>> {
-  const session = await requireModuleAccess("COMISSOES");
+  const session = await requirePermission("financeiro.caixa", "edit");
   const parsed = manualCashTransactionSchema.safeParse(data);
 
   if (!parsed.success) {

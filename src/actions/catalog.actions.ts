@@ -20,7 +20,7 @@ type ServiceInput = {
 export async function createServiceAction(
   data: ServiceInput
 ): Promise<ActionResult<{ serviceId: string }>> {
-  const user = await requireModuleAccess("SERVICOS");
+  const user = await requireModuleAccess("SERVICOS", "edit");
   return createService(user.tenantId, data);
 }
 
@@ -31,7 +31,7 @@ export async function updateServiceAction(
   serviceId: string,
   data: ServiceInput
 ): Promise<ActionResult<{ serviceId: string }>> {
-  const user = await requireModuleAccess("SERVICOS");
+  const user = await requireModuleAccess("SERVICOS", "edit");
   return updateService(user.tenantId, serviceId, data);
 }
 
@@ -42,6 +42,6 @@ export async function updateServiceAction(
 export async function deactivateServiceAction(
   serviceId: string
 ): Promise<ActionResult> {
-  const user = await requireModuleAccess("SERVICOS");
+  const user = await requireModuleAccess("SERVICOS", "edit");
   return deactivateService(user.tenantId, serviceId);
 }

@@ -10,7 +10,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
   SelectValueLabel,
 } from "@/components/ui/select";
 import {
@@ -69,9 +68,11 @@ type Account = {
 export function CommissionPanel({
   professionals,
   accounts,
+  canEdit,
 }: {
   professionals: ProfessionalSummary[];
   accounts: Account[];
+  canEdit: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [settleTarget, setSettleTarget] = useState<ProfessionalSummary | null>(null);
@@ -296,15 +297,17 @@ export function CommissionPanel({
                       </div>
 
                       {/* Botão de acerto */}
-                      <div className="mt-4 flex justify-end">
-                        <Button
-                          onClick={() => openSettleDialog(prof)}
-                          className="gap-2"
-                        >
-                          <DollarSign className="h-4 w-4" />
-                          Realizar Acerto — {fmt(prof.totalPending)}
-                        </Button>
-                      </div>
+                      {canEdit ? (
+                        <div className="mt-4 flex justify-end">
+                          <Button
+                            onClick={() => openSettleDialog(prof)}
+                            className="gap-2"
+                          >
+                            <DollarSign className="h-4 w-4" />
+                            Realizar Acerto — {fmt(prof.totalPending)}
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </CardContent>
@@ -315,7 +318,10 @@ export function CommissionPanel({
       )}
 
       {/* Dialog de confirmação do acerto */}
-      <Dialog open={!!settleTarget} onOpenChange={(open) => !open && setSettleTarget(null)}>
+      <Dialog
+        open={canEdit && !!settleTarget}
+        onOpenChange={(open) => !open && setSettleTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar Acerto de Comissões</DialogTitle>

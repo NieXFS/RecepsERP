@@ -1,4 +1,5 @@
-import { getAuthUserForModule } from "@/lib/session";
+import { getAuthUserForPermission } from "@/lib/session";
+import { hasPermission } from "@/lib/tenant-permissions";
 import {
   getCashRegisterOverview,
   getOpenSessionTransactions,
@@ -9,7 +10,8 @@ import { CashRegisterPanel } from "@/components/financial/cash-register-panel";
  * Submódulo operacional de caixa com abertura, fechamento e histórico.
  */
 export default async function CashRegisterPage() {
-  const user = await getAuthUserForModule("COMISSOES");
+  const user = await getAuthUserForPermission("financeiro.caixa", "view");
+  const canEdit = hasPermission(user.customPermissions, "financeiro.caixa", "edit");
   const overview = await getCashRegisterOverview(user.tenantId);
   const sessionMovements = overview.currentSession
     ? await getOpenSessionTransactions(
@@ -29,6 +31,7 @@ export default async function CashRegisterPage() {
       </div>
       <CashRegisterPanel
         accounts={overview.accounts}
+        canEdit={canEdit}
         currentSession={overview.currentSession}
         sessionMovements={sessionMovements}
         recentSessions={overview.recentSessions}

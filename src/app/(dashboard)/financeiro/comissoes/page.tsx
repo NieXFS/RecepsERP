@@ -1,4 +1,5 @@
-import { getAuthUserForModule } from "@/lib/session";
+import { getAuthUserForPermission } from "@/lib/session";
+import { hasPermission } from "@/lib/tenant-permissions";
 import { db } from "@/lib/db";
 import { getCommissionsSummaryByProfessional } from "@/services/financial.service";
 import { CommissionPanel } from "@/components/financial/commission-panel";
@@ -7,10 +8,14 @@ import { CommissionPanel } from "@/components/financial/commission-panel";
  * Submódulo de comissões dentro do Financeiro.
  */
 export default async function FinancialCommissionsPage() {
-  const user = await getAuthUserForModule("COMISSOES");
+  const user = await getAuthUserForPermission("financeiro.comissoes", "view");
+  const canEdit = hasPermission(user.customPermissions, "financeiro.comissoes", "edit");
 
   const [professionals, accounts] = await Promise.all([
-    getCommissionsSummaryByProfessional(user.tenantId),
+    getCommissionsSummaryByProfessional(user.tenantId, {
+      userId: user.id,
+      role: user.role,
+    }),
     db.financialAccount.findMany({
       where: { tenantId: user.tenantId, isActive: true },
       select: { id: true, name: true, type: true },
@@ -32,7 +37,11 @@ export default async function FinancialCommissionsPage() {
           Faça o fechamento financeiro dos profissionais com base nas comissões geradas pelos atendimentos.
         </p>
       </div>
-      <CommissionPanel professionals={professionals} accounts={serializedAccounts} />
+      <CommissionPanel
+        professionals={professionals}
+        accounts={serializedAccounts}
+        canEdit={canEdit}
+      />
     </div>
   );
 }

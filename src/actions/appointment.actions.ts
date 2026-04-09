@@ -20,7 +20,7 @@ import type { ActionResult } from "@/types";
 export async function createAppointmentAction(
   formData: unknown
 ): Promise<ActionResult<{ appointmentId: string }>> {
-  const session = await requireModuleAccess("AGENDA");
+  const session = await requireModuleAccess("AGENDA", "edit");
 
   const parsed = createAppointmentSchema.safeParse(formData);
   if (!parsed.success) {
@@ -67,7 +67,7 @@ export async function cancelAppointmentAction(
   appointmentId: string,
   cancellationNote?: string
 ): Promise<ActionResult> {
-  const session = await requireModuleAccess("AGENDA");
+  const session = await requireModuleAccess("AGENDA", "edit");
   return cancelAppointment(session.tenantId, appointmentId, cancellationNote);
 }
 
@@ -79,7 +79,7 @@ export async function cancelAppointmentAction(
 export async function updateAppointmentStatusAction(
   formData: unknown
 ): Promise<ActionResult<{ status: string }>> {
-  const session = await requireModuleAccess("AGENDA");
+  const session = await requireModuleAccess("AGENDA", "edit");
 
   const parsed = updateAppointmentStatusSchema.safeParse(formData);
   if (!parsed.success) {
