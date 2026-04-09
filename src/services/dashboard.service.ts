@@ -44,20 +44,30 @@ export async function getDailyKPIs(tenantId: string) {
   const { start: dayStart, endExclusive } = getCivilDayRange(today);
 
   const [
-    todayTransactions,
+    todayRevenueAggregate,
     completedAppointmentsCount,
     totalAppointmentsCount,
     newCustomersCount,
   ] = await Promise.all([
-    // Soma das transações INCOME pagas do dia
-    db.transaction.findMany({
+    // Soma das transações INCOME efetivamente pagas no dia.
+    db.transaction.aggregate({
       where: {
         tenantId,
         type: "INCOME",
         paymentStatus: "PAID",
-        paidAt: { gte: dayStart, lt: endExclusive },
+        OR: [
+          {
+            paidAt: { gte: dayStart, lt: endExclusive },
+          },
+          {
+            paidAt: null,
+            createdAt: { gte: dayStart, lt: endExclusive },
+          },
+        ],
       },
-      select: { amount: true },
+      _sum: {
+        amount: true,
+      },
     }),
 
     // Atendimentos concluídos do dia (Finalizado ou Pago) para calcular ticket médio.
@@ -87,10 +97,7 @@ export async function getDailyKPIs(tenantId: string) {
     }),
   ]);
 
-  const revenue = todayTransactions.reduce(
-    (sum, t) => sum + Number(t.amount),
-    0
-  );
+  const revenue = Number(todayRevenueAggregate._sum.amount ?? 0);
 
   const averageTicket =
     completedAppointmentsCount > 0

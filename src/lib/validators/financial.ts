@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment-methods";
 
 const optionalTrimmedString = z
   .string()
@@ -33,5 +34,19 @@ export const closeCashRegisterSchema = z.object({
   closingNotes: optionalTrimmedString,
 });
 
+export const manualCashTransactionSchema = z.object({
+  accountId: z.string().min(1, "Conta de destino inválida."),
+  type: z.enum(["INCOME", "EXPENSE"], {
+    message: "Tipo de movimentação inválido.",
+  }),
+  amount: z.coerce.number().positive("Informe um valor maior que zero."),
+  description: z.string().trim().min(1, "Informe a descrição da movimentação."),
+  paymentMethod: z.enum(PAYMENT_METHOD_OPTIONS.map((option) => option.value) as [
+    (typeof PAYMENT_METHOD_OPTIONS)[number]["value"],
+    ...(typeof PAYMENT_METHOD_OPTIONS)[number]["value"][],
+  ]),
+});
+
 export type OpenCashRegisterInput = z.infer<typeof openCashRegisterSchema>;
 export type CloseCashRegisterInput = z.infer<typeof closeCashRegisterSchema>;
+export type ManualCashTransactionInput = z.infer<typeof manualCashTransactionSchema>;

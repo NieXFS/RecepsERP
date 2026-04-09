@@ -16,6 +16,7 @@ import {
 } from "@/lib/payment-methods";
 import type {
   CloseCashRegisterInput,
+  ManualCashTransactionInput,
   OpenCashRegisterInput,
 } from "@/lib/validators/financial";
 import type { ActionResult } from "@/types";
@@ -72,6 +73,7 @@ export type CashRegisterOverview = {
     accountName: string;
     openedAt: string;
     openedByName: string;
+    openedByAvatarUrl: string | null;
     openingAmount: number;
     openingNotes: string | null;
     totalEntries: number;
@@ -91,6 +93,15 @@ export type CashRegisterOverview = {
     difference: number | null;
     status: "OPEN" | "CLOSED";
   }>;
+};
+
+export type CashSessionMovement = {
+  id: string;
+  occurredAt: string;
+  description: string;
+  paymentMethod: PaymentMethodValue;
+  type: "INCOME" | "EXPENSE";
+  amount: number;
 };
 
 export type FinancialOverview = {
@@ -172,34 +183,174 @@ async function getCashSessionMovementTotals(
   openedAt: Date,
   closedAt?: Date | null
 ) {
+  const dateWindow = {
+    gte: openedAt,
+    lt: closedAt ?? new Date(),
+  };
+
+  const [incomeAggregate, expenseAggregate] = await Promise.all([
+    db.transaction.aggregate({
+      where: {
+        tenantId,
+        accountId,
+        type: "INCOME",
+        paymentStatus: "PAID",
+        OR: [
+          {
+            createdAt: dateWindow,
+          },
+          {
+            paidAt: dateWindow,
+          },
+        ],
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
+    db.transaction.aggregate({
+      where: {
+        tenantId,
+        accountId,
+        type: "EXPENSE",
+        paymentStatus: "PAID",
+        OR: [
+          {
+            createdAt: dateWindow,
+          },
+          {
+            paidAt: dateWindow,
+          },
+        ],
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
+  ]);
+
+  return {
+    totalEntries: roundCurrency(Number(incomeAggregate._sum.amount ?? 0)),
+    totalExpenses: roundCurrency(Number(expenseAggregate._sum.amount ?? 0)),
+  };
+}
+
+export async function getOpenSessionTransactions(
+  tenantId: string,
+  accountId: string,
+  openedAt: Date
+): Promise<CashSessionMovement[]> {
   const transactions = await db.transaction.findMany({
     where: {
       tenantId,
       accountId,
       paymentStatus: "PAID",
-      paidAt: {
-        gte: openedAt,
-        lt: closedAt ?? new Date(),
-      },
+      OR: [
+        {
+          createdAt: {
+            gte: openedAt,
+          },
+        },
+        {
+          paidAt: {
+            gte: openedAt,
+          },
+        },
+      ],
     },
     select: {
+      id: true,
       type: true,
       amount: true,
+      description: true,
+      paymentMethod: true,
+      createdAt: true,
+      paidAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
 
-  const totalEntries = transactions
-    .filter((transaction) => transaction.type === "INCOME")
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+  return transactions
+    .map((transaction) => ({
+      id: transaction.id,
+      occurredAt: (transaction.paidAt ?? transaction.createdAt).toISOString(),
+      description:
+        transaction.description ??
+        (transaction.type === "INCOME" ? "Movimentacao manual de entrada" : "Movimentacao manual de saida"),
+      paymentMethod: transaction.paymentMethod as PaymentMethodValue,
+      type: transaction.type,
+      amount: Number(transaction.amount),
+    }))
+    .sort((left, right) => +new Date(right.occurredAt) - +new Date(left.occurredAt));
+}
 
-  const totalExpenses = transactions
-    .filter((transaction) => transaction.type === "EXPENSE")
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+export async function createManualCashTransaction(
+  tenantId: string,
+  input: ManualCashTransactionInput
+): Promise<ActionResult<{ transactionId: string }>> {
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const openSession = await tx.cashRegisterSession.findFirst({
+        where: {
+          tenantId,
+          accountId: input.accountId,
+          status: "OPEN",
+        },
+        select: {
+          id: true,
+          accountId: true,
+        },
+        orderBy: {
+          openedAt: "desc",
+        },
+      });
 
-  return {
-    totalEntries: roundCurrency(totalEntries),
-    totalExpenses: roundCurrency(totalExpenses),
-  };
+      if (!openSession) {
+        throw new Error("Nenhum caixa aberto foi encontrado para a conta selecionada.");
+      }
+
+      const paidAt = new Date();
+      const transaction = await tx.transaction.create({
+        data: {
+          tenantId,
+          accountId: input.accountId,
+          type: input.type,
+          paymentMethod: input.paymentMethod,
+          paymentStatus: "PAID",
+          amount: input.amount,
+          description: input.description,
+          paidAt,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      await tx.financialAccount.update({
+        where: {
+          id: input.accountId,
+        },
+        data: {
+          balance:
+            input.type === "INCOME"
+              ? { increment: input.amount }
+              : { decrement: input.amount },
+        },
+      });
+
+      return {
+        transactionId: transaction.id,
+      };
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Erro ao registrar a movimentacao manual.";
+    return { success: false, error: message };
+  }
 }
 
 /**
@@ -240,6 +391,7 @@ export async function checkoutAppointment(
     installments = 1,
     finalStatus = "COMPLETED",
   } = options;
+  const checkoutTimestamp = new Date();
 
   // --- Busca o agendamento com todos os dados necessários para o checkout ---
   const appointment = await db.appointment.findFirst({
@@ -266,7 +418,10 @@ export async function checkoutAppointment(
         select: {
           id: true,
           accountId: true,
+          amount: true,
           paymentMethod: true,
+          paymentStatus: true,
+          paidAt: true,
         },
       },
     },
@@ -303,31 +458,40 @@ export async function checkoutAppointment(
     return { success: false, error: "A conta de destino selecionada não está disponível." };
   }
 
-  if (normalizedStatus === "COMPLETED" && !appointment.transaction) {
-    await db.appointment.update({
-      where: { id: appointmentId },
-      data: { status: finalStatus },
-    });
-
-    return {
-      success: true,
-      data: {
-        transactionIds: [],
-        commissionIds: [],
-      },
-    };
-  }
-
   if (appointment.transaction) {
     try {
       await db.$transaction(async (tx) => {
+        const previousAccountId = appointment.transaction?.accountId ?? null;
+        const isTransactionAlreadyPaid = appointment.transaction?.paymentStatus === "PAID";
+        const transactionAmount = Number(appointment.transaction?.amount ?? 0);
+
         await tx.transaction.update({
           where: { id: appointment.transaction!.id },
           data: {
             accountId: destinationAccount.id,
             paymentMethod,
+            paymentStatus: "PAID",
+            paidAt: isTransactionAlreadyPaid
+              ? appointment.transaction?.paidAt ?? checkoutTimestamp
+              : checkoutTimestamp,
           },
         });
+
+        if (transactionAmount > 0) {
+          if (isTransactionAlreadyPaid && previousAccountId && previousAccountId !== destinationAccount.id) {
+            await tx.financialAccount.update({
+              where: { id: previousAccountId },
+              data: { balance: { decrement: transactionAmount } },
+            });
+          }
+
+          if (!isTransactionAlreadyPaid || previousAccountId !== destinationAccount.id) {
+            await tx.financialAccount.update({
+              where: { id: destinationAccount.id },
+              data: { balance: { increment: transactionAmount } },
+            });
+          }
+        }
 
         await tx.appointment.update({
           where: { id: appointmentId },
@@ -387,7 +551,7 @@ export async function checkoutAppointment(
                 installmentNumber: i,
                 totalInstallments: installments,
                 dueDate,
-                paidAt: i === 1 ? new Date() : null,
+                paidAt: i === 1 ? checkoutTimestamp : null,
                 description: `Agendamento #${appointmentId.slice(-6)} — Parcela ${i}/${installments}`,
               },
             });
@@ -407,7 +571,7 @@ export async function checkoutAppointment(
               installmentNumber: null,
               totalInstallments: null,
               dueDate: null,
-              paidAt: new Date(),
+              paidAt: checkoutTimestamp,
               description: `Agendamento #${appointmentId.slice(-6)} — Pagamento à vista`,
             },
           });
@@ -904,6 +1068,7 @@ export async function getCashRegisterOverview(
         openedByUser: {
           select: {
             name: true,
+            avatarUrl: true,
           },
         },
       },
@@ -955,6 +1120,7 @@ export async function getCashRegisterOverview(
           accountName: currentSession.account.name,
           openedAt: currentSession.openedAt.toISOString(),
           openedByName: currentSession.openedByUser.name,
+          openedByAvatarUrl: currentSession.openedByUser.avatarUrl ?? null,
           openingAmount: Number(currentSession.openingAmount),
           openingNotes: currentSession.openingNotes ?? null,
           totalEntries: totals.totalEntries,

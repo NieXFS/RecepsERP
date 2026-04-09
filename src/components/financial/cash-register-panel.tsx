@@ -3,8 +3,16 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Clock3, Landmark, Wallet } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  CheckCircle2,
+  Clock3,
+  Landmark,
+  Wallet,
+} from "lucide-react";
 import { openCashRegisterAction, closeCashRegisterAction } from "@/actions/financial.actions";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +23,11 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
   SelectValueLabel,
 } from "@/components/ui/select";
+import { ManualTransactionModal } from "@/components/financial/manual-transaction-modal";
+import { SessionMovementsTable } from "@/components/financial/session-movements-table";
+import type { CashSessionMovement } from "@/services/financial.service";
 
 type CashAccount = {
   id: string;
@@ -32,6 +42,7 @@ type CashSession = {
   accountName: string;
   openedAt: string;
   openedByName: string;
+  openedByAvatarUrl: string | null;
   openingAmount: number;
   openingNotes: string | null;
   totalEntries: number;
@@ -72,16 +83,27 @@ function formatDateTime(value: string | null) {
   });
 }
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 /**
  * Painel operacional de caixa com abertura, fechamento e histórico recente.
  */
 export function CashRegisterPanel({
   accounts,
   currentSession,
+  sessionMovements,
   recentSessions,
 }: {
   accounts: CashAccount[];
   currentSession: CashSession | null;
+  sessionMovements: CashSessionMovement[];
   recentSessions: RecentCashSession[];
 }) {
   const router = useRouter();
@@ -95,6 +117,10 @@ export function CashRegisterPanel({
     currentSession ? String(currentSession.expectedBalance) : ""
   );
   const [closingNotes, setClosingNotes] = useState("");
+  const [manualTransactionType, setManualTransactionType] = useState<"INCOME" | "EXPENSE">(
+    "INCOME"
+  );
+  const [isManualTransactionModalOpen, setIsManualTransactionModalOpen] = useState(false);
 
   useEffect(() => {
     setSelectedAccountId(firstAccountId);
@@ -156,6 +182,11 @@ export function CashRegisterPanel({
       setClosingNotes("");
       router.refresh();
     });
+  }
+
+  function openManualTransactionModal(type: "INCOME" | "EXPENSE") {
+    setManualTransactionType(type);
+    setIsManualTransactionModalOpen(true);
   }
 
   return (
@@ -309,11 +340,51 @@ export function CashRegisterPanel({
         </Card>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>Fechamento de caixa</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Sessão aberta por {currentSession.openedByName} em {formatDateTime(currentSession.openedAt)}.
-            </p>
+          <CardHeader className="gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar size="lg">
+                  <AvatarImage
+                    src={currentSession.openedByAvatarUrl ?? undefined}
+                    alt={currentSession.openedByName}
+                  />
+                  <AvatarFallback>{getInitials(currentSession.openedByName)}</AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <CardTitle>Caixa aberto</CardTitle>
+                  <div className="space-y-0.5 text-sm">
+                    <p className="font-medium text-foreground">
+                      Responsavel: {currentSession.openedByName}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Abertura em {formatDateTime(currentSession.openedAt)}
+                    </p>
+                    <p className="text-muted-foreground">{currentSession.accountName}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => openManualTransactionModal("EXPENSE")}
+                >
+                  <ArrowDownToLine className="h-4 w-4" />
+                  Sangria (Retirada)
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2 text-emerald-700 dark:text-emerald-300"
+                  onClick={() => openManualTransactionModal("INCOME")}
+                >
+                  <ArrowUpToLine className="h-4 w-4" />
+                  Suprimento (Entrada)
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -381,6 +452,44 @@ export function CashRegisterPanel({
           </CardContent>
         </Card>
       )}
+
+      {currentSession ? (
+        <Card>
+          <CardHeader className="gap-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <CardTitle>Extrato da Sessao Atual</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Movimentacoes do turno atual do caixa aberto, com entradas e saidas mais recentes primeiro.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => openManualTransactionModal("EXPENSE")}
+                >
+                  <ArrowDownToLine className="h-4 w-4" />
+                  Sangria
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2 text-emerald-700 dark:text-emerald-300"
+                  onClick={() => openManualTransactionModal("INCOME")}
+                >
+                  <ArrowUpToLine className="h-4 w-4" />
+                  Suprimento
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <SessionMovementsTable transactions={sessionMovements} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -461,6 +570,15 @@ export function CashRegisterPanel({
           )}
         </CardContent>
       </Card>
+
+      {currentSession ? (
+        <ManualTransactionModal
+          open={isManualTransactionModalOpen}
+          onOpenChange={setIsManualTransactionModalOpen}
+          accountId={currentSession.accountId}
+          type={manualTransactionType}
+        />
+      ) : null}
     </div>
   );
 }

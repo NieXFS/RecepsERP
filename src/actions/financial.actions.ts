@@ -5,6 +5,7 @@ import type { PaymentMethodValue } from "@/lib/payment-methods";
 import {
   checkoutAppointment,
   closeCashRegister,
+  createManualCashTransaction,
   getCashRegisterOverview,
   getFinancialStatement,
   payCommissions,
@@ -15,6 +16,7 @@ import {
 } from "@/services/financial.service";
 import {
   closeCashRegisterSchema,
+  manualCashTransactionSchema,
   openCashRegisterSchema,
 } from "@/lib/validators/financial";
 import type { ActionResult } from "@/types";
@@ -146,4 +148,24 @@ export async function closeCashRegisterAction(data: {
   }
 
   return closeCashRegister(session.tenantId, session.id, parsed.data);
+}
+
+/**
+ * Server Action: registra sangria ou suprimento diretamente no caixa aberto.
+ */
+export async function createManualCashTransactionAction(data: {
+  accountId: string;
+  type: "INCOME" | "EXPENSE";
+  amount: number;
+  description: string;
+  paymentMethod: PaymentMethodValue;
+}): Promise<ActionResult<{ transactionId: string }>> {
+  const session = await requireModuleAccess("COMISSOES");
+  const parsed = manualCashTransactionSchema.safeParse(data);
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Dados invalidos." };
+  }
+
+  return createManualCashTransaction(session.tenantId, parsed.data);
 }
