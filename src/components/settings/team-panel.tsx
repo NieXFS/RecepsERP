@@ -183,6 +183,7 @@ export function TeamPanel({
   const [contractType, setContractType] = useState<"CLT" | "PJ">("PJ");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [actsAsProfessional, setActsAsProfessional] = useState(false);
   const [customPermissions, setCustomPermissions] = useState<TenantCustomPermissions>(
     getDefaultCustomPermissions("RECEPTIONIST")
   );
@@ -201,6 +202,7 @@ export function TeamPanel({
     setContractType("PJ");
     setRegistrationNumber("");
     setIsActive(true);
+    setActsAsProfessional(false);
     setCustomPermissions(getDefaultCustomPermissions("RECEPTIONIST"));
     setExpandedModules({ financeiro: true });
   }
@@ -224,6 +226,7 @@ export function TeamPanel({
     setContractType((member.professional?.contractType as "CLT" | "PJ") ?? "PJ");
     setRegistrationNumber(member.professional?.registrationNumber ?? "");
     setIsActive(member.isActive);
+    setActsAsProfessional(member.role === "PROFESSIONAL" || Boolean(member.professional?.isActive));
     setCustomPermissions(clonePermissions(member.customPermissions));
     setExpandedModules({ financeiro: true });
     setShowModal(true);
@@ -231,6 +234,17 @@ export function TeamPanel({
 
   function handleRoleChange(nextRole: TeamRole) {
     setRole(nextRole);
+    setActsAsProfessional((current) => {
+      if (nextRole === "PROFESSIONAL") {
+        return true;
+      }
+
+      if (nextRole === "RECEPTIONIST") {
+        return false;
+      }
+
+      return current;
+    });
     setCustomPermissions(getDefaultCustomPermissions(nextRole));
   }
 
@@ -285,20 +299,24 @@ export function TeamPanel({
       return;
     }
 
+    const shouldShowProfessionalFields =
+      role === "PROFESSIONAL" || (role === "ADMIN" && actsAsProfessional);
+
     startTransition(async () => {
       const payload = {
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
         role,
-        specialty: role === "PROFESSIONAL" ? specialty.trim() || undefined : undefined,
+        actsAsProfessional,
+        specialty: shouldShowProfessionalFields ? specialty.trim() || undefined : undefined,
         commissionPercent:
-          role === "PROFESSIONAL" && commissionPercent
+          shouldShowProfessionalFields && commissionPercent
             ? parseFloat(commissionPercent)
             : undefined,
-        contractType: role === "PROFESSIONAL" ? contractType : undefined,
+        contractType: shouldShowProfessionalFields ? contractType : undefined,
         registrationNumber:
-          role === "PROFESSIONAL" ? registrationNumber.trim() || undefined : undefined,
+          shouldShowProfessionalFields ? registrationNumber.trim() || undefined : undefined,
         isActive,
         customPermissions,
       };
@@ -317,7 +335,7 @@ export function TeamPanel({
 
       toast.success(
         editingMember
-          ? "Profissional atualizado com sucesso!"
+          ? "Membro atualizado com sucesso!"
           : "Membro criado com sucesso!"
       );
       setShowModal(false);
@@ -341,6 +359,9 @@ export function TeamPanel({
       }
     });
   }
+
+  const shouldShowProfessionalFields =
+    role === "PROFESSIONAL" || (role === "ADMIN" && actsAsProfessional);
 
   const permissionGroups = Object.entries(permissionGroupLabels).map(
     ([groupKey, groupLabel]) => ({
@@ -554,7 +575,33 @@ export function TeamPanel({
                 </div>
               </div>
 
-              {role === "PROFESSIONAL" ? (
+              {role === "ADMIN" ? (
+                <div className="rounded-lg border bg-background p-4">
+                  <label
+                    htmlFor="acts-as-professional"
+                    className="flex cursor-pointer items-start gap-3"
+                  >
+                    <input
+                      id="acts-as-professional"
+                      type="checkbox"
+                      checked={actsAsProfessional}
+                      onChange={(event) => setActsAsProfessional(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                    />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        Este administrador tambem realiza atendimentos
+                      </p>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Quando ativado, o administrador ganha perfil assistencial, pode aparecer na
+                        agenda e ser vinculado aos servicos.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              ) : null}
+
+              {shouldShowProfessionalFields ? (
                 <div className="space-y-4 rounded-lg border bg-background p-4">
                   <p className="text-sm font-medium text-muted-foreground">
                     Dados do profissional

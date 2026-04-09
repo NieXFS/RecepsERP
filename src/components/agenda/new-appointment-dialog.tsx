@@ -18,10 +18,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
   SelectValueLabel,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { createAppointmentAction } from "@/actions/appointment.actions";
 import { CustomerCreateForm, type CreatedCustomer } from "@/components/customer/customer-create-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -228,7 +226,7 @@ export function NewAppointmentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4 -mr-4">
+        <div className="flex-1 overflow-y-auto pr-2">
           <div className="space-y-5 py-2">
             {/* ---- BUSCA DE CLIENTE ---- */}
             <div className="space-y-2">
@@ -414,7 +412,7 @@ export function NewAppointmentDialog({
               />
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="pt-4 border-t">
           <Button

@@ -23,6 +23,7 @@ export async function createTeamMemberAction(data: {
   email: string;
   password: string;
   role: "ADMIN" | "RECEPTIONIST" | "PROFESSIONAL";
+  actsAsProfessional?: boolean;
   phone?: string;
   specialty?: string;
   commissionPercent?: number;
@@ -55,6 +56,7 @@ export async function updateTeamMemberAction(
     email: string;
     phone?: string;
     role: "ADMIN" | "RECEPTIONIST" | "PROFESSIONAL";
+    actsAsProfessional?: boolean;
     specialty?: string;
     commissionPercent?: number;
     contractType?: "CLT" | "PJ";

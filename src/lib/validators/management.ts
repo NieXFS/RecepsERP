@@ -15,6 +15,7 @@ const teamMemberBaseShape = {
   email: z.email("Informe um email válido.").transform((value) => value.toLowerCase().trim()),
   phone: optionalTrimmedString,
   role: z.enum(["ADMIN", "RECEPTIONIST", "PROFESSIONAL"]),
+  actsAsProfessional: z.boolean().optional(),
   specialty: optionalTrimmedString,
   commissionPercent: z.coerce
     .number()
@@ -38,16 +39,34 @@ const teamMemberCreateObject = z.object({
  */
 export const teamMemberBaseSchema = teamMemberBaseObject.transform((data) => ({
   ...data,
+  actsAsProfessional:
+    data.role === "PROFESSIONAL"
+      ? true
+      : data.role === "ADMIN"
+        ? Boolean(data.actsAsProfessional)
+        : false,
   customPermissions: normalizeCustomPermissions(data.role, data.customPermissions),
 }));
 
 export const createTeamMemberSchema = teamMemberCreateObject.transform((data) => ({
   ...data,
+  actsAsProfessional:
+    data.role === "PROFESSIONAL"
+      ? true
+      : data.role === "ADMIN"
+        ? Boolean(data.actsAsProfessional)
+        : false,
   customPermissions: normalizeCustomPermissions(data.role, data.customPermissions),
 }));
 
 export const updateTeamMemberSchema = teamMemberBaseObject.transform((data) => ({
   ...data,
+  actsAsProfessional:
+    data.role === "PROFESSIONAL"
+      ? true
+      : data.role === "ADMIN"
+        ? Boolean(data.actsAsProfessional)
+        : false,
   customPermissions: normalizeCustomPermissions(data.role, data.customPermissions),
 }));
 

@@ -114,7 +114,7 @@ model User {
 
   // Relacionamentos
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  professional Professional? // Um User com role PROFESSIONAL pode ter um registro Professional
+  professional Professional? // Um User assistencial (PROFESSIONAL ou ADMIN que atende) pode ter um registro Professional
   modulePermissions UserModulePermission[]
   openedCashRegisterSessions CashRegisterSession[] @relation("CashRegisterOpenedBy")
   closedCashRegisterSessions CashRegisterSession[] @relation("CashRegisterClosedBy")

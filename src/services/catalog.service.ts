@@ -64,7 +64,15 @@ export async function listProductsForSelect(tenantId: string) {
  */
 export async function listProfessionalsForSelect(tenantId: string) {
   const profs = await db.professional.findMany({
-    where: { tenantId, isActive: true, deletedAt: null },
+    where: {
+      tenantId,
+      isActive: true,
+      deletedAt: null,
+      user: {
+        isActive: true,
+        deletedAt: null,
+      },
+    },
     include: { user: { select: { name: true } } },
     orderBy: { user: { name: "asc" } },
   });

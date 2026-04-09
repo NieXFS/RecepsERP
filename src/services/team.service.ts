@@ -15,6 +15,38 @@ import {
 } from "@/services/user-permission.service";
 import type { ActionResult } from "@/types";
 
+function shouldMaintainProfessionalProfile(data: {
+  role: "ADMIN" | "RECEPTIONIST" | "PROFESSIONAL";
+  actsAsProfessional?: boolean;
+}) {
+  return data.role === "PROFESSIONAL" || (data.role === "ADMIN" && data.actsAsProfessional === true);
+}
+
+function buildProfessionalUpsertData(
+  data: Pick<
+    CreateTeamMemberInput | UpdateTeamMemberInput,
+    | "specialty"
+    | "commissionPercent"
+    | "contractType"
+    | "registrationNumber"
+    | "isActive"
+  >,
+  tenantId: string,
+  userId: string,
+  isActive: boolean
+) {
+  return {
+    tenantId,
+    userId,
+    specialty: data.specialty ?? null,
+    commissionPercent: data.commissionPercent ?? 0,
+    contractType: data.contractType ?? "PJ",
+    registrationNumber: data.registrationNumber ?? null,
+    isActive,
+    deletedAt: isActive ? null : new Date(),
+  };
+}
+
 /**
  * Lista todos os membros da equipe (Users) do tenant,
  * incluindo dados do perfil Professional quando aplicável.
@@ -114,17 +146,9 @@ export async function createTeamMember(
 
       await replaceUserModulePermissions(tx, user.id, data.role, customPermissions);
 
-      if (data.role === "PROFESSIONAL") {
+      if (shouldMaintainProfessionalProfile(data)) {
         await tx.professional.create({
-          data: {
-            tenantId,
-            userId: user.id,
-            specialty: data.specialty ?? null,
-            commissionPercent: data.commissionPercent ?? 0,
-            contractType: data.contractType ?? "PJ",
-            registrationNumber: data.registrationNumber ?? null,
-            isActive: data.isActive,
-          },
+          data: buildProfessionalUpsertData(data, tenantId, user.id, data.isActive),
         });
       }
 
@@ -249,32 +273,28 @@ export async function updateTeamMember(
 
       await replaceUserModulePermissions(tx, userId, data.role, customPermissions);
 
-      const shouldProfessionalBeActive = data.role === "PROFESSIONAL" && data.isActive;
+      const shouldProfessionalBeActive =
+        shouldMaintainProfessionalProfile(data) && data.isActive;
 
-      if (data.role === "PROFESSIONAL") {
+      if (shouldMaintainProfessionalProfile(data)) {
         if (existingUser.professional) {
           await tx.professional.update({
             where: { id: existingUser.professional.id },
-            data: {
-              specialty: data.specialty ?? null,
-              commissionPercent: data.commissionPercent ?? 0,
-              contractType: data.contractType ?? "PJ",
-              registrationNumber: data.registrationNumber ?? null,
-              isActive: shouldProfessionalBeActive,
-              deletedAt: null,
-            },
+            data: buildProfessionalUpsertData(
+              data,
+              tenantId,
+              userId,
+              shouldProfessionalBeActive
+            ),
           });
         } else {
           await tx.professional.create({
-            data: {
+            data: buildProfessionalUpsertData(
+              data,
               tenantId,
               userId,
-              specialty: data.specialty ?? null,
-              commissionPercent: data.commissionPercent ?? 0,
-              contractType: data.contractType ?? "PJ",
-              registrationNumber: data.registrationNumber ?? null,
-              isActive: shouldProfessionalBeActive,
-            },
+              shouldProfessionalBeActive
+            ),
           });
         }
       } else if (existingUser.professional) {
@@ -282,6 +302,7 @@ export async function updateTeamMember(
           where: { id: existingUser.professional.id },
           data: {
             isActive: false,
+            deletedAt: existingUser.professional.deletedAt ?? new Date(),
           },
         });
       }
@@ -333,9 +354,19 @@ export async function deactivateTeamMember(
     }
   }
 
-  await db.user.update({
-    where: { id: userId },
-    data: { isActive: false, deletedAt: new Date() },
+  await db.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: { isActive: false, deletedAt: new Date() },
+    });
+
+    await tx.professional.updateMany({
+      where: { userId },
+      data: {
+        isActive: false,
+        deletedAt: new Date(),
+      },
+    });
   });
 
   return { success: true, data: undefined };

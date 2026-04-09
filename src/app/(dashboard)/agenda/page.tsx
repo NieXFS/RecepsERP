@@ -39,9 +39,18 @@ export default async function AgendaPage({
     cashOverview,
   ] =
     await Promise.all([
-      // Profissionais ativos do tenant
+      // Profissionais ativos do tenant com registro Professional.
+      // A agenda nao depende da role do User, apenas da existencia do perfil assistencial.
       db.professional.findMany({
-        where: { tenantId, isActive: true, deletedAt: null },
+        where: {
+          tenantId,
+          isActive: true,
+          deletedAt: null,
+          user: {
+            isActive: true,
+            deletedAt: null,
+          },
+        },
         include: {
           user: { select: { name: true } },
           services: { select: { serviceId: true, customCommissionPercent: true } },
