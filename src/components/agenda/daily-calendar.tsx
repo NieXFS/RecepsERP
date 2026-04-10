@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarX2, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppointmentCard } from "./appointment-card";
+import { AppointmentDetailDialog } from "./appointment-detail-dialog";
 import { AgendaOperationsPanel } from "./agenda-operations-panel";
 import { NewAppointmentDialog } from "./new-appointment-dialog";
 import { getAppointmentStatusLabel } from "@/lib/appointments/status";
@@ -84,6 +85,9 @@ export function DailyCalendar({
 
   // Estado do modal de novo agendamento
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<CalendarAppointment | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<CalendarProfessional | null>(null);
   const [selectedStartTime, setSelectedStartTime] = useState<Date | null>(null);
 
@@ -437,7 +441,13 @@ export function DailyCalendar({
                       {/* Cards de agendamentos posicionados com absolute */}
                       {profAppointments.map((apt) => (
                         <div key={apt.id} className="animate-fade-in">
-                          <AppointmentCard appointment={apt} />
+                          <AppointmentCard
+                            appointment={apt}
+                            onClick={() => {
+                              setSelectedAppointment(apt);
+                              setDetailDialogOpen(true);
+                            }}
+                          />
                         </div>
                       ))}
 
@@ -476,6 +486,21 @@ export function DailyCalendar({
       )}
 
       {/* ---- MODAL DE NOVO AGENDAMENTO ---- */}
+      <AppointmentDetailDialog
+        appointment={selectedAppointment}
+        open={detailDialogOpen}
+        onOpenChange={(open) => {
+          setDetailDialogOpen(open);
+          if (!open) {
+            setSelectedAppointment(null);
+            router.refresh();
+          }
+        }}
+        hasOpenCashRegister={hasOpenCashRegister}
+        openCashRegisterAccountId={openCashRegisterAccountId}
+        financialAccounts={financialAccounts}
+      />
+
       <NewAppointmentDialog
         open={dialogOpen}
         onOpenChange={handleDialogClose}

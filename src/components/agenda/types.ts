@@ -11,6 +11,7 @@ export type CalendarAppointment = {
   id: string;
   professionalId: string;
   professionalName: string;
+  professionalSpecialty: string | null;
   customerId: string;
   customerName: string;
   customerPhone: string | null;

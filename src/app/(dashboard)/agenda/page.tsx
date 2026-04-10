@@ -70,6 +70,7 @@ export default async function AgendaPage({
           customer: { select: { id: true, name: true, phone: true } },
           professional: {
             select: {
+              specialty: true,
               user: { select: { name: true } },
             },
           },
@@ -137,6 +138,7 @@ export default async function AgendaPage({
     id: a.id,
     professionalId: a.professionalId,
     professionalName: a.professional.user.name,
+    professionalSpecialty: a.professional.specialty,
     customerId: a.customerId,
     customerName: a.customer.name,
     customerPhone: a.customer.phone,

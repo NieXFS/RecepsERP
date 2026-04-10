@@ -12,6 +12,7 @@ import { CALENDAR_CONFIG } from "./types";
 
 type AppointmentCardProps = {
   appointment: CalendarAppointment;
+  onClick?: () => void;
 };
 
 /**
@@ -19,7 +20,7 @@ type AppointmentCardProps = {
  * Calcula top e height com base no horário de início/fim
  * relativo ao início do dia no grid (CALENDAR_CONFIG.START_HOUR).
  */
-export function AppointmentCard({ appointment }: AppointmentCardProps) {
+export function AppointmentCard({ appointment, onClick }: AppointmentCardProps) {
   const start = new Date(appointment.startTime);
   const end = new Date(appointment.endTime);
 
@@ -49,6 +50,17 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
 
   return (
     <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }
+      }}
       className={cn(
         "absolute left-1 right-1 z-10 overflow-hidden rounded-md border cursor-pointer",
         "transition-all duration-200 ease-out",
@@ -62,8 +74,8 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
       )}
       style={{ top: `${topOffset}px`, height: `${cardHeight}px` }}
       title={`${appointment.customerName} — ${serviceLabel} — ${statusLabel} — ${timeLabel}`}
-      role="button"
-      tabIndex={0}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       aria-label={`Agendamento: ${appointment.customerName}, ${serviceLabel}, ${timeLabel}, status ${statusLabel}`}
     >
       {isDense ? (

@@ -199,3 +199,20 @@ export function canTransitionAppointmentStatus(
 
   return getAllowedAppointmentTransitions(current).includes(next);
 }
+
+export function getStatusTransitionToast(
+  status: AppointmentWorkflowStatus
+): string {
+  const messages: Record<AppointmentWorkflowStatus, string> = {
+    SCHEDULED: "Agendamento voltou para Agendado.",
+    CONFIRMED: "Agendamento confirmado.",
+    WAITING: "Cliente marcado como aguardando.",
+    IN_PROGRESS: "Atendimento iniciado.",
+    COMPLETED: "Atendimento finalizado com sucesso.",
+    PAID: "Atendimento marcado como pago.",
+    CANCELLED: "Agendamento cancelado.",
+    NO_SHOW: "Agendamento marcado como falta.",
+  };
+
+  return messages[status];
+}

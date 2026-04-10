@@ -22,6 +22,7 @@ import {
   APPOINTMENT_VISIBLE_STATUS_ORDER,
   getAllowedAppointmentTransitions,
   getAppointmentStatusLabel,
+  getStatusTransitionToast,
   normalizeAppointmentStatus,
   type AppointmentWorkflowStatus,
 } from "@/lib/appointments/status";
@@ -745,19 +746,4 @@ function buildQuickActions(status: AppointmentWorkflowStatus): QuickAction[] {
   }
 
   return actions;
-}
-
-function getStatusTransitionToast(status: AppointmentWorkflowStatus) {
-  const messages: Record<AppointmentWorkflowStatus, string> = {
-    SCHEDULED: "Agendamento voltou para Agendado.",
-    CONFIRMED: "Agendamento confirmado.",
-    WAITING: "Cliente marcado como aguardando.",
-    IN_PROGRESS: "Atendimento iniciado.",
-    COMPLETED: "Atendimento finalizado com sucesso.",
-    PAID: "Atendimento marcado como pago.",
-    CANCELLED: "Agendamento cancelado.",
-    NO_SHOW: "Agendamento marcado como falta.",
-  };
-
-  return messages[status];
 }
