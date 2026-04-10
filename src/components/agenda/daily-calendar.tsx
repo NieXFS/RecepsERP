@@ -152,26 +152,41 @@ export function DailyCalendar({
     <>
       {/* ---- CABEÇALHO: Navegação de data ---- */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="animate-fade-in-down">
           <h2 className="text-2xl font-bold tracking-tight">Agenda</h2>
           <p className="text-sm text-muted-foreground capitalize">{dateFormatted}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigateDay(-1)}>
-            <ChevronLeft className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigateDay(-1)}
+            className="transition-transform active:scale-95"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="outline" size="sm" onClick={goToToday}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToToday}
+            className="transition-transform active:scale-95"
+          >
             Hoje
           </Button>
-          <Button variant="outline" size="icon" onClick={() => navigateDay(1)}>
-            <ChevronRight className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigateDay(1)}
+            className="transition-transform active:scale-95"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
 
       {/* ---- GRID DA AGENDA ---- */}
       {professionals.length === 0 ? (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <div className="animate-fade-in flex h-64 items-center justify-center text-muted-foreground">
           Nenhum profissional cadastrado. Cadastre profissionais para usar a agenda.
         </div>
       ) : (
@@ -243,7 +258,7 @@ export function DailyCalendar({
                     {timeSlots.map((slot, i) => (
                       <div
                         key={slot.label}
-                        className="absolute w-full border-t border-dashed border-muted-foreground/15 hover:bg-primary/5 cursor-pointer transition-colors group"
+                        className="group absolute w-full cursor-pointer border-t border-dashed border-muted-foreground/15 transition-all duration-200 hover:scale-[1.01] hover:bg-primary/8 hover:shadow-[inset_0_0_0_1px_var(--color-primary)]"
                         style={{
                           top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
                           height: `${CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
@@ -251,18 +266,17 @@ export function DailyCalendar({
                         onClick={() => handleSlotClick(prof, slot.hour, slot.minute)}
                       >
                         {/* Ícone de + aparece no hover */}
-                        <div className="hidden group-hover:flex items-center justify-center h-full">
-                          <Plus className="h-4 w-4 text-primary/40" />
+                        <div className="hidden h-full items-center justify-center group-hover:flex">
+                          <Plus className="h-4 w-4 text-primary/40" aria-hidden="true" />
                         </div>
                       </div>
                     ))}
 
                     {/* Cards de agendamentos posicionados com absolute */}
                     {profAppointments.map((apt) => (
-                      <AppointmentCard
-                        key={apt.id}
-                        appointment={apt}
-                      />
+                      <div key={apt.id} className="animate-fade-in">
+                        <AppointmentCard appointment={apt} />
+                      </div>
                     ))}
 
                     {/* Linha "agora" (apenas no dia atual) */}

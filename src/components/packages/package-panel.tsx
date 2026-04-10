@@ -11,13 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AnimatedDialog as Dialog,
+  AnimatedDialogContent as DialogContent,
+  AnimatedDialogDescription as DialogDescription,
+  AnimatedDialogFooter as DialogFooter,
+  AnimatedDialogHeader as DialogHeader,
+  AnimatedDialogTitle as DialogTitle,
+  AnimatedDialogTrigger as DialogTrigger,
+} from "@/components/ui/animated-dialog";
 import {
   Select,
   SelectContent,
@@ -207,7 +208,8 @@ export function PackagePanel({
   const soldCount = packages.reduce((sum, pkg) => sum + pkg.soldCount, 0);
 
   return (
-    <div className="flex flex-col gap-6">
+    <Dialog open={showModal} onOpenChange={setShowModal}>
+      <div className="flex flex-col gap-6">
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard
           title="Pacotes ativos"
@@ -239,23 +241,27 @@ export function PackagePanel({
           </div>
           <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
             <div className="relative min-w-[260px]">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar por nome ou serviço"
-                className="pl-9"
+                className="pl-9 transition-all duration-200 ease-out focus-visible:shadow-sm"
               />
             </div>
-            <Button onClick={openCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo pacote
-            </Button>
+            <DialogTrigger
+              render={
+                <Button onClick={openCreate} className="gap-2">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Novo pacote
+                </Button>
+              }
+            />
           </div>
         </CardHeader>
         <CardContent>
           {filteredPackages.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+            <div className="animate-fade-in rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
               Nenhum pacote encontrado com os filtros atuais.
             </div>
           ) : (
@@ -272,7 +278,7 @@ export function PackagePanel({
                 </thead>
                 <tbody>
                   {filteredPackages.map((pkg) => (
-                    <tr key={pkg.id} className="border-b last:border-0">
+                    <tr key={pkg.id} className="border-b transition-colors hover:bg-muted/20 last:border-0">
                       <td className="py-3 pr-4">
                         <div>
                           <p className="font-medium">{pkg.name}</p>
@@ -305,7 +311,7 @@ export function PackagePanel({
                       </td>
                       <td className="py-3 text-right">
                         <Button variant="outline" size="sm" onClick={() => openEdit(pkg)}>
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       </td>
                     </tr>
@@ -317,7 +323,6 @@ export function PackagePanel({
         </CardContent>
       </Card>
 
-      <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingPackage ? "Editar pacote" : "Novo pacote"}</DialogTitle>
@@ -468,8 +473,8 @@ export function PackagePanel({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    </div>
+      </div>
+    </Dialog>
   );
 }
 
@@ -485,7 +490,7 @@ function SummaryCard({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card className="border-border/70 shadow-sm">
+    <Card className="border-border/70 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
       <CardContent className="flex items-start justify-between py-5">
         <div>
           <p className="text-sm font-medium">{title}</p>
@@ -493,7 +498,7 @@ function SummaryCard({
           <p className="mt-2 text-xs text-muted-foreground">{description}</p>
         </div>
         <div className="rounded-xl bg-primary/10 p-3 text-primary">
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </CardContent>
     </Card>

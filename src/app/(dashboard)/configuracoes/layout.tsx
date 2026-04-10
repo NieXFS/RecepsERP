@@ -21,7 +21,7 @@ export default async function SettingsLayout({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
           Gerencie aparência, equipe, serviços, recursos e contas financeiras do estabelecimento.

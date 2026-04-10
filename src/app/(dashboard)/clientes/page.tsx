@@ -12,7 +12,7 @@ export default async function CustomersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
         <p className="text-muted-foreground">
           Gerencie os clientes e pacientes cadastrados.

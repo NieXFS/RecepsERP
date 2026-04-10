@@ -23,7 +23,7 @@ export default async function FinancialLayout({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Financeiro</h1>
         <p className="text-muted-foreground">
           Gerencie repasses, despesas, extrato operacional e rotina de caixa do estabelecimento.

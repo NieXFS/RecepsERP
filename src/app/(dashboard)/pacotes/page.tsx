@@ -19,7 +19,7 @@ export default async function PackagesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Pacotes</h1>
         <p className="text-muted-foreground">
           Cadastre e mantenha pacotes comerciais com serviços vinculados, preço e validade.

@@ -21,7 +21,7 @@ export default async function ServicesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Serviços</h1>
         <p className="text-muted-foreground">
           Organize o catálogo comercial, a ficha técnica e os profissionais aptos para cada serviço.

@@ -23,7 +23,7 @@ export default async function ProductsLayout({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
         <p className="text-muted-foreground">
           Centralize o cadastro mestre dos itens e a operação de estoque dentro do mesmo módulo.

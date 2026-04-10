@@ -54,9 +54,9 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
       {/* Voltar */}
       <Link
         href="/clientes"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Voltar para Clientes
       </Link>
 
@@ -65,14 +65,14 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
           <div className="flex flex-col sm:flex-row gap-6">
             {/* Avatar com iniciais */}
             <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white"
+              className="animate-scale-in flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white"
               style={{ backgroundColor: tier.color }}
             >
               {initials}
             </div>
 
             {/* Dados principais */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1 animate-fade-in-left" style={{ animationDelay: "100ms" }}>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold tracking-tight">{profile.name}</h1>
                 <Badge
@@ -87,24 +87,24 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
               <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
                 {profile.phone && (
                   <span className="flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5" />
+                    <Phone className="h-3.5 w-3.5" aria-hidden="true" />
                     {profile.phone}
                   </span>
                 )}
                 {profile.email && (
                   <span className="flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5" />
+                    <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                     {profile.email}
                   </span>
                 )}
                 {(profile.city || profile.state) && (
                   <span className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5" />
+                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
                     {[profile.city, profile.state].filter(Boolean).join(", ")}
                   </span>
                 )}
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
+                  <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                   Cliente desde {createdDate}
                   {age !== null && ` · ${age} anos`}
                 </span>
@@ -112,20 +112,20 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
             </div>
 
             {/* KPI cards do cliente */}
-            <div className="flex gap-4 sm:gap-6 shrink-0">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                  <Star className="h-3.5 w-3.5" />
+            <div className="flex shrink-0 gap-4 sm:gap-6">
+              <div className="animate-fade-in-up text-center" style={{ animationDelay: "150ms" }}>
+                <div className="mb-1 flex items-center justify-center gap-1 text-muted-foreground">
+                  <Star className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="text-xs font-medium">Visitas</span>
                 </div>
-                <p className="text-2xl font-bold">{profile.visitCount}</p>
+                <p className="text-2xl font-bold tabular-nums">{profile.visitCount}</p>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                  <DollarSign className="h-3.5 w-3.5" />
+              <div className="animate-fade-in-up text-center" style={{ animationDelay: "200ms" }}>
+                <div className="mb-1 flex items-center justify-center gap-1 text-muted-foreground">
+                  <DollarSign className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="text-xs font-medium">LTV</span>
                 </div>
-                <p className="text-2xl font-bold">
+                <p className="text-2xl font-bold tabular-nums">
                   R$ {profile.totalSpent.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>

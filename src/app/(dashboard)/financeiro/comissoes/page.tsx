@@ -31,7 +31,7 @@ export default async function FinancialCommissionsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h2 className="text-xl font-semibold tracking-tight">Comissões</h2>
         <p className="text-muted-foreground">
           Faça o fechamento financeiro dos profissionais com base nas comissões geradas pelos atendimentos.

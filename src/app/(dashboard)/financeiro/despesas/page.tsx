@@ -30,7 +30,7 @@ export default async function FinancialExpensesPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h2 className="text-xl font-semibold tracking-tight">Despesas</h2>
         <p className="text-muted-foreground">
           Cadastre custos fixos e variáveis, acompanhe pendências do mês e integre as saídas ao extrato e ao caixa.

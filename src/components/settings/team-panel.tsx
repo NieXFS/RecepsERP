@@ -18,6 +18,7 @@ import { createTeamMemberAction, deactivateTeamMemberAction, updateTeamMemberAct
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AnimatedList } from "@/components/ui/animated-list";
 import {
   Dialog,
   DialogContent,
@@ -383,19 +384,19 @@ export function TeamPanel({
           {members.length} membro{members.length !== 1 ? "s" : ""} na equipe
         </p>
         <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Novo Membro
         </Button>
       </div>
 
-      <div className="grid gap-3">
+      <AnimatedList className="grid gap-3" stagger={40}>
         {members.map((member) => {
           const rc = roleConfig[member.role] ?? roleConfig.RECEPTIONIST;
           const RoleIcon = rc.icon;
           const enabledAreasCount = countAccessibleAreas(member.customPermissions);
 
           return (
-            <Card key={member.id}>
+            <Card key={member.id} className="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
               <CardContent className="flex items-center gap-4 py-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                   {member.name
@@ -410,7 +411,7 @@ export function TeamPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{member.name}</p>
                     <Badge className={`gap-1 text-xs ${rc.color}`} variant="outline">
-                      <RoleIcon className="h-3 w-3" />
+                      <RoleIcon className="h-3 w-3" aria-hidden="true" />
                       {rc.label}
                     </Badge>
                     <Badge
@@ -451,7 +452,7 @@ export function TeamPanel({
                     onClick={() => openEdit(member)}
                     disabled={isPending}
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </Button>
                   {member.id !== currentUserId ? (
                     <Button
@@ -461,7 +462,7 @@ export function TeamPanel({
                       onClick={() => handleDeactivate(member)}
                       disabled={isPending}
                     >
-                      <UserX className="h-4 w-4" />
+                      <UserX className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   ) : null}
                 </div>
@@ -469,7 +470,7 @@ export function TeamPanel({
             </Card>
           );
         })}
-      </div>
+      </AnimatedList>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">

@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { AnimatedList } from "@/components/ui/animated-list";
 import { toast } from "sonner";
 import {
   DollarSign,
@@ -125,12 +126,12 @@ export function CommissionPanel({
   return (
     <div className="flex flex-col gap-6">
       {/* KPI Cards resumo geral */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="transition-shadow duration-200 hover:shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">Total Pendente</p>
@@ -139,11 +140,11 @@ export function CommissionPanel({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="transition-shadow duration-200 hover:shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">Retenção da Clínica</p>
@@ -152,11 +153,11 @@ export function CommissionPanel({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="transition-shadow duration-200 hover:shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <User className="h-5 w-5 text-purple-600 dark:text-purple-400" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">Profissionais c/ Pendência</p>
@@ -169,9 +170,9 @@ export function CommissionPanel({
 
       {/* Lista de profissionais */}
       {professionalsWithCommissions.length === 0 ? (
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="py-12 text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+            <CheckCircle className="mx-auto mb-3 h-12 w-12 text-green-500" aria-hidden="true" />
             <p className="text-lg font-medium">Tudo em dia!</p>
             <p className="text-muted-foreground">
               Não há comissões pendentes para acerto.
@@ -179,16 +180,16 @@ export function CommissionPanel({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <AnimatedList className="grid gap-4" stagger={50}>
           {professionalsWithCommissions.map((prof) => {
             const isExpanded = expandedId === prof.id;
 
             return (
-              <Card key={prof.id}>
+              <Card key={prof.id} className="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
                 <CardContent className="pt-6">
                   {/* Header do profissional */}
                   <div
-                    className="flex items-center gap-4 cursor-pointer"
+                    className="flex cursor-pointer items-center gap-4"
                     onClick={() => toggleExpand(prof.id)}
                   >
                     {/* Avatar */}
@@ -202,7 +203,7 @@ export function CommissionPanel({
                     </div>
 
                     {/* Info */}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-semibold">{prof.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {prof.specialty ?? "Profissional"} · Taxa padrão: {prof.commissionPercent}%
@@ -210,7 +211,7 @@ export function CommissionPanel({
                     </div>
 
                     {/* Resumo de valores */}
-                    <div className="hidden sm:flex items-center gap-6 shrink-0">
+                    <div className="hidden shrink-0 items-center gap-6 sm:flex">
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">A Pagar</p>
                         <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
@@ -228,14 +229,14 @@ export function CommissionPanel({
 
                     {/* Expand toggle */}
                     {isExpanded ? (
-                      <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <ChevronUp className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     ) : (
-                      <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     )}
                   </div>
 
                   {/* Mobile KPIs (visible on small screens only) */}
-                  <div className="sm:hidden flex items-center gap-4 mt-3">
+                  <div className="mt-3 flex items-center gap-4 sm:hidden">
                     <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700">
                       A pagar: {fmt(prof.totalPending)}
                     </Badge>
@@ -303,7 +304,7 @@ export function CommissionPanel({
                             onClick={() => openSettleDialog(prof)}
                             className="gap-2"
                           >
-                            <DollarSign className="h-4 w-4" />
+                            <DollarSign className="h-4 w-4" aria-hidden="true" />
                             Realizar Acerto — {fmt(prof.totalPending)}
                           </Button>
                         </div>
@@ -314,7 +315,7 @@ export function CommissionPanel({
               </Card>
             );
           })}
-        </div>
+        </AnimatedList>
       )}
 
       {/* Dialog de confirmação do acerto */}

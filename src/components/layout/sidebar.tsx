@@ -233,8 +233,8 @@ function NavGroup({
             className={cn(
               "mx-auto flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200 ease-out",
               isActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "translate-x-0.5 bg-primary text-primary-foreground shadow-sm"
+                : "translate-x-0 text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -249,8 +249,8 @@ function NavGroup({
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
               isActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "translate-x-0.5 bg-primary text-primary-foreground shadow-sm"
+                : "translate-x-0 text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />

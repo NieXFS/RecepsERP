@@ -23,7 +23,7 @@ export default async function CashRegisterPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h2 className="text-xl font-semibold tracking-tight">Caixa</h2>
         <p className="text-muted-foreground">
           Controle abertura, fechamento e conferência do caixa operacional do estabelecimento.

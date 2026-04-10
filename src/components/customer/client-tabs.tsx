@@ -175,7 +175,7 @@ export function ClientTabs({
             clinicalRecords={clinicalRecords}
           />
         ) : (
-          <Card>
+          <Card className="animate-fade-in">
             <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Lock className="h-10 w-10 mb-3 opacity-40" />
               <p className="text-sm font-medium">Acesso Restrito</p>
@@ -205,7 +205,7 @@ export function ClientTabs({
 function TabResumo({ appointments }: { appointments: Appointment[] }) {
   if (appointments.length === 0) {
     return (
-      <Card>
+      <Card className="animate-fade-in">
         <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <Calendar className="h-10 w-10 mb-3 opacity-40" />
           <p className="text-sm">Nenhum atendimento registrado ainda.</p>
@@ -247,7 +247,7 @@ function TabResumo({ appointments }: { appointments: Appointment[] }) {
                           : "bg-primary"
                   }`} />
 
-                  <div className="rounded-lg border p-4 hover:bg-muted/30 transition-colors">
+                  <div className="rounded-lg border p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-muted/30 hover:shadow-sm">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold">{dateLabel}</span>
@@ -353,7 +353,7 @@ function TabProntuario({
 
       {/* Formulário de evolução (colapsável) */}
       {showNoteForm && (
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="pt-6 space-y-3">
             <Label className="font-semibold">Nova Evolução Clínica</Label>
             <Textarea
@@ -377,7 +377,7 @@ function TabProntuario({
 
       {/* Timeline unificada */}
       {timeline.length === 0 ? (
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Stethoscope className="h-10 w-10 mb-3 opacity-40" />
             <p className="text-sm">Nenhum registro clínico encontrado.</p>
@@ -562,7 +562,7 @@ function TabGaleria({ customerId, media }: { customerId: string; media: MediaIte
             const catLabel = item.category ? CATEGORY_LABELS[item.category] ?? item.category : null;
 
             return (
-              <Card key={item.id} className="overflow-hidden">
+              <Card key={item.id} className="overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
                 <div className="aspect-square bg-muted relative">
                   {item.url.startsWith("data:image") ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -707,7 +707,7 @@ function TabFinanceiro({
         </CardHeader>
         <CardContent>
           {packages.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="animate-fade-in py-4 text-center text-sm text-muted-foreground">
               Nenhum pacote comprado.
             </p>
           ) : (
@@ -723,7 +723,7 @@ function TabFinanceiro({
                   : "Sem expiração";
 
                 return (
-                  <div key={pkg.id} className="rounded-lg border p-4">
+                  <div key={pkg.id} className="rounded-lg border p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
                     <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                       <div>
                         <p className="font-semibold text-sm">{pkg.packageName}</p>
@@ -767,7 +767,7 @@ function TabFinanceiro({
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="animate-fade-in py-4 text-center text-sm text-muted-foreground">
               Nenhuma transação registrada.
             </p>
           ) : (

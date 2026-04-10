@@ -84,7 +84,7 @@ export default async function FinancialStatementPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h2 className="text-xl font-semibold tracking-tight">Extrato por datas</h2>
         <p className="text-muted-foreground">
           Consulte entradas, saídas e saldo do período com base nos lançamentos financeiros do tenant.

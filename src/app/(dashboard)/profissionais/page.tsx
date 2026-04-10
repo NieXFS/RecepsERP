@@ -13,7 +13,7 @@ export default async function ProfessionalsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Profissionais</h1>
         <p className="text-muted-foreground">
           Gerencie administradores, recepção e profissionais vinculados ao tenant.

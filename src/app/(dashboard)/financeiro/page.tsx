@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -54,7 +55,7 @@ function ActionLink({
       className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
     >
       {label}
-      <ArrowRight className="h-4 w-4" />
+      <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </Link>
   );
 }
@@ -76,7 +77,7 @@ export default async function FinancialPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="border-primary/15 bg-gradient-to-br from-primary/8 via-card to-card">
+      <Card className="animate-fade-in-down border-primary/15 bg-gradient-to-br from-primary/8 via-card to-card">
         <CardHeader>
           <CardTitle>Visão geral do Financeiro</CardTitle>
           <CardDescription>
@@ -89,6 +90,7 @@ export default async function FinancialPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryMetricCard
+          delay={0}
           label="Entradas do período"
           value={formatCurrency(overview.summary.entradas)}
           note="Receitas registradas no extrato"
@@ -96,6 +98,7 @@ export default async function FinancialPage() {
           accent="text-emerald-600"
         />
         <SummaryMetricCard
+          delay={50}
           label="Saídas do período"
           value={formatCurrency(overview.summary.saidas)}
           note="Despesas e repasses lançados"
@@ -103,6 +106,7 @@ export default async function FinancialPage() {
           accent="text-red-600"
         />
         <SummaryMetricCard
+          delay={100}
           label="Saldo do período"
           value={formatCurrency(overview.summary.saldoPeriodo)}
           note={`${overview.summary.totalLancamentos} lançamento(s) no período`}
@@ -110,6 +114,7 @@ export default async function FinancialPage() {
           accent={overview.summary.saldoPeriodo >= 0 ? "text-emerald-600" : "text-red-600"}
         />
         <SummaryMetricCard
+          delay={150}
           label="Caixa atual"
           value={overview.cash.status === "OPEN" ? "Aberto" : "Fechado"}
           note={
@@ -129,7 +134,7 @@ export default async function FinancialPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <WalletCards className="h-4 w-4 text-primary" />
+              <WalletCards className="h-4 w-4 text-primary" aria-hidden="true" />
               Comissões
             </CardTitle>
             <CardDescription>
@@ -160,7 +165,7 @@ export default async function FinancialPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Landmark className="h-4 w-4 text-primary" />
+              <Landmark className="h-4 w-4 text-primary" aria-hidden="true" />
               Caixa
             </CardTitle>
             <CardDescription>
@@ -198,7 +203,7 @@ export default async function FinancialPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CalendarRange className="h-4 w-4 text-primary" />
+              <CalendarRange className="h-4 w-4 text-primary" aria-hidden="true" />
               Extrato por datas
             </CardTitle>
             <CardDescription>
@@ -229,7 +234,7 @@ export default async function FinancialPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ReceiptText className="h-4 w-4 text-primary" />
+              <ReceiptText className="h-4 w-4 text-primary" aria-hidden="true" />
               Fechamento de Caixa Hoje
             </CardTitle>
             <CardDescription>
@@ -252,7 +257,7 @@ export default async function FinancialPage() {
             </div>
 
             {overview.todayCashClosing.methods.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="animate-fade-in text-sm text-muted-foreground">
                 Nenhuma entrada paga registrada hoje até o momento.
               </p>
             ) : (
@@ -275,97 +280,103 @@ export default async function FinancialPage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Atividades recentes</CardTitle>
-            <CardDescription>
-              Últimos eventos financeiros e operacionais do módulo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {overview.recentActivities.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                Ainda não há movimentações recentes para exibir.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {overview.recentActivities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start justify-between gap-4 rounded-xl border bg-muted/15 p-4"
-                  >
-                    <div>
-                      <p className="font-medium">{activity.title}</p>
-                      <p className="text-sm text-muted-foreground">{activity.description}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatDateTime(activity.occurredAt)}
-                      </p>
+        <ScrollReveal>
+          <Card>
+            <CardHeader>
+              <CardTitle>Atividades recentes</CardTitle>
+              <CardDescription>
+                Últimos eventos financeiros e operacionais do módulo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {overview.recentActivities.length === 0 ? (
+                <div className="animate-fade-in rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  Ainda não há movimentações recentes para exibir.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {overview.recentActivities.map((activity) => (
+                    <div
+                      key={activity.id}
+                      className="flex items-start justify-between gap-4 rounded-xl border bg-muted/15 p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm"
+                    >
+                      <div>
+                        <p className="font-medium">{activity.title}</p>
+                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDateTime(activity.occurredAt)}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          {translateActivityType(activity.type)}
+                        </p>
+                        <p className="text-sm font-semibold">
+                          {activity.amount != null ? formatCurrency(activity.amount) : "—"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {translateActivityType(activity.type)}
-                      </p>
-                      <p className="text-sm font-semibold">
-                        {activity.amount != null ? formatCurrency(activity.amount) : "—"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </ScrollReveal>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Atalhos operacionais</CardTitle>
-            <CardDescription>
-              Acesse rapidamente as áreas mais usadas do Financeiro.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {canViewCommissions ? (
-              <ShortcutCard
-                href="/financeiro/comissoes"
-                title="Fechar comissões"
-                description="Pague repasses pendentes e registre a despesa no caixa."
-              />
-            ) : null}
-            {canViewDespesas ? (
-              <ShortcutCard
-                href="/financeiro/despesas"
-                title="Gerenciar despesas"
-                description="Cadastre custos fixos e variáveis integrados ao extrato do período."
-              />
-            ) : null}
-            {canViewExtrato ? (
-              <ShortcutCard
-                href="/financeiro/extrato"
-                title="Analisar extrato"
-                description="Filtre lançamentos por data, tipo e status."
-              />
-            ) : null}
-            {canViewCaixa ? (
-              <ShortcutCard
-                href="/financeiro/caixa"
-                title="Operar caixa"
-                description="Abra, acompanhe e feche a sessão atual do caixa."
-              />
-            ) : null}
-          </CardContent>
-        </Card>
+        <ScrollReveal delay={80}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Atalhos operacionais</CardTitle>
+              <CardDescription>
+                Acesse rapidamente as áreas mais usadas do Financeiro.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {canViewCommissions ? (
+                <ShortcutCard
+                  href="/financeiro/comissoes"
+                  title="Fechar comissões"
+                  description="Pague repasses pendentes e registre a despesa no caixa."
+                />
+              ) : null}
+              {canViewDespesas ? (
+                <ShortcutCard
+                  href="/financeiro/despesas"
+                  title="Gerenciar despesas"
+                  description="Cadastre custos fixos e variáveis integrados ao extrato do período."
+                />
+              ) : null}
+              {canViewExtrato ? (
+                <ShortcutCard
+                  href="/financeiro/extrato"
+                  title="Analisar extrato"
+                  description="Filtre lançamentos por data, tipo e status."
+                />
+              ) : null}
+              {canViewCaixa ? (
+                <ShortcutCard
+                  href="/financeiro/caixa"
+                  title="Operar caixa"
+                  description="Abra, acompanhe e feche a sessão atual do caixa."
+                />
+              ) : null}
+            </CardContent>
+          </Card>
+        </ScrollReveal>
       </section>
     </div>
   );
 }
 
 function SummaryMetricCard({
+  delay,
   label,
   value,
   note,
   icon: Icon,
   accent,
 }: {
+  delay: number;
   label: string;
   value: string;
   note: string;
@@ -373,13 +384,13 @@ function SummaryMetricCard({
   accent?: string;
 }) {
   return (
-    <Card>
+    <Card className="animate-fade-in-up" style={{ animationDelay: `${delay}ms` }}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-        <Icon className={`h-4 w-4 ${accent ?? "text-muted-foreground"}`} />
+        <Icon className={`h-4 w-4 ${accent ?? "text-muted-foreground"}`} aria-hidden="true" />
       </CardHeader>
       <CardContent>
-        <p className={`text-2xl font-bold ${accent ?? ""}`}>{value}</p>
+        <p className={`text-2xl font-bold tabular-nums ${accent ?? ""}`}>{value}</p>
         <p className="mt-1 text-xs text-muted-foreground">{note}</p>
       </CardContent>
     </Card>
@@ -413,7 +424,7 @@ function ShortcutCard({
   return (
     <Link
       href={href}
-      className="rounded-xl border bg-muted/15 p-4 transition-colors hover:border-primary/35 hover:bg-primary/5"
+      className="rounded-xl border bg-muted/15 p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] hover:border-primary/35 hover:bg-primary/5"
     >
       <div className="flex items-center justify-between gap-3">
         <div>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { AnimatedList } from "@/components/ui/animated-list";
 import {
   Select,
   SelectContent,
@@ -15,12 +16,13 @@ import {
   SelectValueLabel,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  AnimatedDialog as Dialog,
+  AnimatedDialogContent as DialogContent,
+  AnimatedDialogFooter as DialogFooter,
+  AnimatedDialogHeader as DialogHeader,
+  AnimatedDialogTitle as DialogTitle,
+  AnimatedDialogTrigger as DialogTrigger,
+} from "@/components/ui/animated-dialog";
 import { toast } from "sonner";
 import {
   Plus,
@@ -265,29 +267,34 @@ export function ServiceCatalogPanel({
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
-    <div className="flex flex-col gap-4">
+    <Dialog open={showModal} onOpenChange={setShowModal}>
+      <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {services.length} serviço{services.length !== 1 ? "s" : ""} cadastrado{services.length !== 1 ? "s" : ""}
         </p>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Serviço
-        </Button>
+        <DialogTrigger
+          render={
+            <Button onClick={openCreate} className="gap-2">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Novo Serviço
+            </Button>
+          }
+        />
       </div>
 
       {/* Lista de serviços */}
       {services.length === 0 ? (
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="py-12 text-center text-muted-foreground">
             Nenhum serviço cadastrado. Crie o primeiro!
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
+        <AnimatedList className="grid gap-3" stagger={40}>
           {services.map((service) => (
-            <Card key={service.id}>
+            <Card key={service.id} className="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
               <CardContent className="py-4">
                 <div className="flex items-start gap-4">
                   {/* Info principal */}
@@ -295,11 +302,11 @@ export function ServiceCatalogPanel({
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold">{service.name}</p>
                       <Badge variant="outline" className="gap-1 text-xs">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="h-3 w-3" aria-hidden="true" />
                         {service.durationMinutes}min
                       </Badge>
                       <Badge variant="outline" className="gap-1 text-xs">
-                        <DollarSign className="h-3 w-3" />
+                        <DollarSign className="h-3 w-3" aria-hidden="true" />
                         {fmt(service.price)}
                       </Badge>
                     </div>
@@ -311,7 +318,7 @@ export function ServiceCatalogPanel({
                     {/* Ficha técnica */}
                     {service.materials.length > 0 && (
                       <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                        <FlaskConical className="h-3.5 w-3.5 text-muted-foreground" />
+                        <FlaskConical className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                         <span className="text-xs text-muted-foreground">Ficha Técnica:</span>
                         {service.materials.map((m) => (
                           <Badge key={m.id} variant="secondary" className="text-xs">
@@ -324,7 +331,7 @@ export function ServiceCatalogPanel({
                     {/* Profissionais */}
                     {service.professionals.length > 0 && (
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                         <span className="text-xs text-muted-foreground">Profissionais:</span>
                         {service.professionals.map((p) => (
                           <Badge key={p.id} variant="outline" className="text-xs">
@@ -339,7 +346,7 @@ export function ServiceCatalogPanel({
                   {/* Ações */}
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -348,18 +355,17 @@ export function ServiceCatalogPanel({
                       onClick={() => handleDeactivate(service)}
                       disabled={isPending}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
-        </div>
+        </AnimatedList>
       )}
 
       {/* Dialog: Criar/Editar Serviço */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-4xl">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle>{editingId ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
@@ -563,7 +569,7 @@ export function ServiceCatalogPanel({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    </div>
+      </div>
+    </Dialog>
   );
 }

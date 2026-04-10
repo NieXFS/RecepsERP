@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AnimatedDialog,
+  AnimatedDialogContent,
+  AnimatedDialogDescription,
+  AnimatedDialogHeader,
+  AnimatedDialogTitle,
+  AnimatedDialogTrigger,
+} from "@/components/ui/animated-dialog";
+import { AnimatedList } from "@/components/ui/animated-list";
 import { Search, Users, Phone, Mail, ChevronRight, Plus } from "lucide-react";
 import { CustomerCreateForm } from "@/components/customer/customer-create-form";
 
@@ -48,28 +50,49 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
       {/* Barra de busca + ação primária */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
             placeholder="Buscar por nome, telefone ou email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 transition-all duration-200 ease-out focus-visible:shadow-sm"
           />
         </div>
 
-        <Button
-          type="button"
-          onClick={() => setIsDialogOpen(true)}
-          className="sm:self-stretch"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Cliente
-        </Button>
+        <AnimatedDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <AnimatedDialogTrigger
+            render={
+              <Button
+                type="button"
+                onClick={() => setIsDialogOpen(true)}
+                className="sm:self-stretch"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Novo Cliente
+              </Button>
+            }
+          />
+          <AnimatedDialogContent className="sm:max-w-lg">
+            <AnimatedDialogHeader>
+              <AnimatedDialogTitle>Novo Cliente</AnimatedDialogTitle>
+              <AnimatedDialogDescription>
+                Cadastre manualmente um novo cliente ou paciente no estabelecimento.
+              </AnimatedDialogDescription>
+            </AnimatedDialogHeader>
+            <CustomerCreateForm
+              onCancel={() => setIsDialogOpen(false)}
+              onSuccess={() => setIsDialogOpen(false)}
+            />
+          </AnimatedDialogContent>
+        </AnimatedDialog>
       </div>
 
       {/* Contador */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Users className="h-4 w-4" />
+        <Users className="h-4 w-4" aria-hidden="true" />
         <span>
           {filtered.length} cliente{filtered.length !== 1 ? "s" : ""} encontrado
           {filtered.length !== 1 ? "s" : ""}
@@ -78,17 +101,17 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
 
       {/* Lista de clientes */}
       {filtered.length === 0 ? (
-        <Card>
+        <Card className="animate-fade-in">
           <CardContent className="py-12 text-center text-muted-foreground">
             Nenhum cliente encontrado.
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-2">
+        <AnimatedList className="grid gap-2" stagger={40}>
           {filtered.map((customer) => (
             <Link key={customer.id} href={`/clientes/${customer.id}`}>
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                <CardContent className="py-4 flex items-center gap-4">
+              <Card className="cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-muted/50 hover:shadow-sm">
+                <CardContent className="flex items-center gap-4 py-4">
                   {/* Avatar com iniciais */}
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
                     {customer.name
@@ -100,18 +123,18 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
                   </div>
 
                   {/* Dados */}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">{customer.name}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+                    <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                       {customer.phone && (
                         <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
+                          <Phone className="h-3 w-3" aria-hidden="true" />
                           {customer.phone}
                         </span>
                       )}
                       {customer.email && (
                         <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
+                          <Mail className="h-3 w-3" aria-hidden="true" />
                           {customer.email}
                         </span>
                       )}
@@ -119,14 +142,14 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
                   </div>
 
                   {/* KPIs resumidos */}
-                  <div className="hidden sm:flex items-center gap-4 shrink-0">
+                  <div className="hidden shrink-0 items-center gap-4 sm:flex">
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">Visitas</p>
-                      <p className="text-sm font-semibold">{customer.visitCount}</p>
+                      <p className="text-sm font-semibold tabular-nums">{customer.visitCount}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">LTV</p>
-                      <p className="text-sm font-semibold">
+                      <p className="text-sm font-semibold tabular-nums">
                         R$ {customer.totalSpent.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </p>
                     </div>
@@ -135,33 +158,13 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
                     </Badge>
                   </div>
 
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </CardContent>
               </Card>
             </Link>
           ))}
-        </div>
+        </AnimatedList>
       )}
-
-      <Dialog
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          setIsDialogOpen(open);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Novo Cliente</DialogTitle>
-            <DialogDescription>
-              Cadastre manualmente um novo cliente ou paciente no estabelecimento.
-            </DialogDescription>
-          </DialogHeader>
-          <CustomerCreateForm
-            onCancel={() => setIsDialogOpen(false)}
-            onSuccess={() => setIsDialogOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

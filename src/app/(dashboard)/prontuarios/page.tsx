@@ -37,7 +37,7 @@ export default async function ClinicalRecordsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-[2rem] border border-border/70 bg-background px-8 py-7 shadow-sm">
+      <section className="animate-fade-in-down rounded-[2rem] border border-border/70 bg-background px-8 py-7 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">Prontuários</h1>
@@ -90,7 +90,7 @@ export default async function ClinicalRecordsPage() {
             </p>
           ) : (
             recentForms.map((form) => (
-              <div key={form.id} className="rounded-xl border border-border/70 p-4">
+              <div key={form.id} className="rounded-xl border border-border/70 p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
                 <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="font-medium">{form.title}</p>
@@ -126,7 +126,7 @@ function SummaryCard({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card className="border-border/70 shadow-sm">
+    <Card className="border-border/70 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
       <CardContent className="flex items-start justify-between py-5">
         <div>
           <p className="text-sm font-medium">{title}</p>
@@ -134,7 +134,7 @@ function SummaryCard({
           <p className="mt-2 text-xs text-muted-foreground">{description}</p>
         </div>
         <div className="rounded-xl bg-primary/10 p-3 text-primary">
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </CardContent>
     </Card>

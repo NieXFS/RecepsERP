@@ -37,8 +37,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as React.CSSProperties
       }
       toastOptions={{
+        className: "animate-fade-in-left",
+        style: {
+          animationDuration: "300ms",
+        },
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast animate-fade-in-left",
         },
       }}
       {...props}
