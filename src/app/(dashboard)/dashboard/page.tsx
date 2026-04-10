@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getAuthUserForModule } from "@/lib/session";
 import { parseCivilMonthFromQuery } from "@/lib/civil-date";
 import {
@@ -6,6 +7,7 @@ import {
   getMonthlyStatsForTenant,
 } from "@/services/dashboard.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
 import { MonthlySummarySection } from "@/components/dashboard/monthly-summary-section";
 import {
   DollarSign,
@@ -33,6 +35,51 @@ export default async function DashboardPage({
     getDailyRevenueForTenant(user.tenantId, selectedMonth),
   ]);
 
+  const isEmptyDashboard =
+    kpis.revenue === 0 &&
+    kpis.totalAppointments === 0 &&
+    kpis.newCustomers === 0 &&
+    kpis.completedAppointments === 0;
+
+  if (isEmptyDashboard) {
+    return <DashboardEmptyState />;
+  }
+
+  const kpiCards = [
+    {
+      id: "kpi-revenue-title",
+      title: "Faturamento Hoje",
+      icon: DollarSign,
+      value: `R$ ${kpis.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      subtitle: null,
+      href: "/financeiro",
+    },
+    {
+      id: "kpi-ticket-title",
+      title: "Ticket Médio",
+      icon: TrendingUp,
+      value: `R$ ${kpis.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      subtitle: `${kpis.completedAppointments} atendimento(s) finalizado(s)`,
+      href: "/financeiro",
+    },
+    {
+      id: "kpi-appointments-title",
+      title: "Agendamentos Hoje",
+      icon: Calendar,
+      value: String(kpis.totalAppointments),
+      subtitle: `${kpis.completedAppointments} finalizado(s)`,
+      href: "/agenda",
+    },
+    {
+      id: "kpi-customers-title",
+      title: "Novos Clientes",
+      icon: UserPlus,
+      value: String(kpis.newCustomers),
+      subtitle: "cadastrados hoje",
+      href: "/clientes",
+    },
+  ] as const;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
@@ -49,73 +96,42 @@ export default async function DashboardPage({
 
       {/* ---- KPI CARDS ---- */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpiCards.map((card, i) => {
+          const Icon = card.icon;
 
-        {/* Card 1: Faturamento do Dia */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Faturamento Hoje
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              R$ {kpis.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Ticket Médio */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Ticket Médio
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <>
-              <p className="text-2xl font-bold">
-                R$ {kpis.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {kpis.completedAppointments} atendimento(s) finalizado(s)
-              </p>
-            </>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Agendamentos Hoje */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Agendamentos Hoje
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{kpis.totalAppointments}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {kpis.completedAppointments} finalizado(s)
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: Novos Clientes */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Novos Clientes
-            </CardTitle>
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{kpis.newCustomers}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              cadastrados hoje
-            </p>
-          </CardContent>
-        </Card>
+          return (
+            <Link
+              key={card.id}
+              href={card.href}
+              className="group block rounded-xl animate-fade-in-up outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
+              style={{ animationDelay: `${i * 75}ms` }}
+            >
+              <Card
+                role="region"
+                aria-labelledby={card.id}
+                className="border border-transparent transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/20 group-hover:shadow-md group-hover:ring-primary/10"
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle
+                    id={card.id}
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    {card.title}
+                  </CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold tabular-nums">{card.value}</p>
+                  {card.subtitle && (
+                    <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                      {card.subtitle}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       <MonthlySummarySection

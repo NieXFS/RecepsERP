@@ -1,4 +1,4 @@
-import { Sidebar } from "@/components/layout/sidebar";
+import { Sidebar, type SidebarProps } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { TenantAccentThemeSync } from "@/components/layout/tenant-accent-theme-sync";
 import { getAuthUserWithAccess } from "@/lib/session";
@@ -24,6 +24,13 @@ export default async function DashboardLayout({
     select: { name: true, accentTheme: true },
   });
 
+  const sidebarProps = {
+    userRole: user.role,
+    userName: user.name,
+    allowedModules: user.allowedModules,
+    permissions: user.customPermissions,
+  } satisfies Omit<SidebarProps, "className" | "collapsed" | "onNavigate">;
+
   return (
     <div
       className="flex h-screen overflow-hidden"
@@ -32,18 +39,21 @@ export default async function DashboardLayout({
       <TenantAccentThemeSync
         accentTheme={tenant?.accentTheme ?? DEFAULT_TENANT_ACCENT_THEME}
       />
-      <Sidebar
-        userRole={user.role}
-        userName={user.name}
-        allowedModules={user.allowedModules}
-        permissions={user.customPermissions}
-      />
+
+      <div className="hidden md:block lg:hidden">
+        <Sidebar {...sidebarProps} collapsed={true} />
+      </div>
+      <div className="hidden lg:block">
+        <Sidebar {...sidebarProps} collapsed={false} />
+      </div>
+
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           tenantName={tenant?.name}
           userName={user.name}
           userEmail={user.email}
           userRole={user.role}
+          sidebarProps={sidebarProps}
         />
         <main className="flex-1 overflow-y-auto bg-muted/30 p-6">
           {children}

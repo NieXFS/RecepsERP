@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -12,9 +13,21 @@ import {
 import { addMonthsToCivilMonth, formatCivilMonthLabel, getTodayCivilMonth, type CivilMonth } from "@/lib/civil-date";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MonthlyRevenueChart } from "@/components/dashboard/monthly-revenue-chart";
 import { cn } from "@/lib/utils";
 import type { DailyRevenuePoint, MonthlyDashboardStats } from "@/services/dashboard.service";
+
+const MonthlyRevenueChart = dynamic(
+  () =>
+    import("@/components/dashboard/monthly-revenue-chart").then(
+      (mod) => mod.MonthlyRevenueChart
+    ),
+  {
+    loading: () => (
+      <div className="h-[320px] animate-pulse rounded-lg bg-muted" />
+    ),
+    ssr: false,
+  }
+);
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -57,13 +70,19 @@ export function MonthlySummarySection({
           <Link
             href={buildMonthHref(previousMonth)}
             aria-label="Ver mês anterior"
-            className={cn(buttonVariants({ variant: "outline", size: "icon-sm" }))}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon" }),
+              "min-h-[44px] min-w-[44px]"
+            )}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
           <Link
             href={buildMonthHref(getTodayCivilMonth())}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "min-h-[44px]"
+            )}
           >
             Mês Atual
           </Link>
@@ -71,83 +90,111 @@ export function MonthlySummarySection({
             <Link
               href={buildMonthHref(nextMonth)}
               aria-label="Ver próximo mês"
-              className={cn(buttonVariants({ variant: "outline", size: "icon-sm" }))}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "icon" }),
+                "min-h-[44px] min-w-[44px]"
+              )}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           ) : (
-            <Button variant="outline" size="icon-sm" disabled aria-label="Próximo mês indisponível">
-              <ChevronRight className="h-4 w-4" />
+            <Button
+              variant="outline"
+              size="icon"
+              disabled
+              aria-label="Próximo mês indisponível"
+              className="min-h-[44px] min-w-[44px]"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </Button>
           )}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card role="region" aria-labelledby="monthly-revenue-title">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle
+              id="monthly-revenue-title"
+              className="text-sm font-medium text-muted-foreground"
+            >
               Faturamento do Mês
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(stats.faturamentoMes)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-2xl font-bold tabular-nums">{formatCurrency(stats.faturamentoMes)}</p>
+            <p className="mt-1 text-xs text-muted-foreground tabular-nums">
               {stats.totalAtendimentos} atendimento(s) finalizado(s)
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card role="region" aria-labelledby="monthly-commissions-title">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle
+              id="monthly-commissions-title"
+              className="text-sm font-medium text-muted-foreground"
+            >
               Comissões do Mês
             </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(stats.totalComissoes)}</p>
+            <p className="text-2xl font-bold tabular-nums">{formatCurrency(stats.totalComissoes)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Total pago ou provisionado em comissões
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card role="region" aria-labelledby="monthly-expenses-title">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle
+              id="monthly-expenses-title"
+              className="text-sm font-medium text-muted-foreground"
+            >
               Despesas do Mês
             </CardTitle>
-            <ReceiptText className="h-4 w-4 text-muted-foreground" />
+            <ReceiptText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(stats.totalDespesas)}</p>
+            <p className="text-2xl font-bold tabular-nums">{formatCurrency(stats.totalDespesas)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Despesas operacionais pagas no extrato
             </p>
           </CardContent>
         </Card>
 
-        <Card className={stats.resultadoMes >= 0 ? "border-emerald-500/40" : "border-red-500/40"}>
+        <Card
+          role="region"
+          aria-labelledby="monthly-result-title"
+          className={stats.resultadoMes >= 0 ? "border-emerald-500/40" : "border-red-500/40"}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle
+              id="monthly-result-title"
+              className="text-sm font-medium text-muted-foreground"
+            >
               Resultado do Mês
             </CardTitle>
             {stats.resultadoMes >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <TrendingUp className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-red-600" />
+              <TrendingDown className="h-4 w-4 text-red-600" aria-hidden="true" />
             )}
           </CardHeader>
           <CardContent>
             <p
-              className={`text-2xl font-bold ${
+              className={`text-2xl font-bold tabular-nums ${
                 stats.resultadoMes >= 0 ? "text-emerald-600" : "text-red-600"
               }`}
             >
               {formatCurrency(stats.resultadoMes)}
             </p>
+            <span className="sr-only">
+              {stats.resultadoMes >= 0 ? "Resultado positivo" : "Resultado negativo"}
+            </span>
             <p className="mt-1 text-xs text-muted-foreground">
               Faturamento − comissões − despesas pagas
             </p>
@@ -161,7 +208,7 @@ export function MonthlySummarySection({
           <p className="text-sm text-muted-foreground">
             Acompanhe a curva diária de faturamento, comissões e despesas operacionais do período.
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground tabular-nums">
             Ticket médio do mês: {formatCurrency(stats.ticketMedio)}
           </p>
         </CardHeader>

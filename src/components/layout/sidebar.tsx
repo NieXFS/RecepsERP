@@ -70,11 +70,14 @@ const navItems: NavItem[] = [
   { module: "CONFIGURACOES", href: "/configuracoes", label: "Configurações", icon: Settings, group: "config" },
 ];
 
-type SidebarProps = {
+export type SidebarProps = {
   userRole: string;
   userName: string;
   allowedModules: TenantModule[];
   permissions: TenantCustomPermissions;
+  collapsed?: boolean;
+  className?: string;
+  onNavigate?: () => void;
 };
 
 /** Sidebar com navegação filtrada por permissões efetivas de módulo. */
@@ -83,6 +86,9 @@ export function Sidebar({
   userName,
   allowedModules,
   permissions,
+  collapsed = false,
+  className,
+  onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
   const visibleModuleSet = new Set(allowedModules);
@@ -103,38 +109,78 @@ export function Sidebar({
   const configItems = visibleItems.filter((i) => i.group === "config");
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-background">
+    <aside
+      className={cn(
+        "flex h-full flex-col overflow-hidden border-r bg-background transition-[width] duration-300 ease-out",
+        collapsed ? "w-16" : "w-64",
+        className
+      )}
+    >
       {/* Logo e nome do tenant */}
-      <div className="flex h-[64px] items-center justify-center border-b px-6">
-        <BrandLogo className="max-w-full" />
+      <div
+        className={cn(
+          "flex h-[64px] items-center border-b",
+          collapsed ? "justify-center px-2" : "justify-center px-6"
+        )}
+      >
+        {collapsed ? (
+          <>
+            <span className="sr-only">Receps</span>
+            <span className="text-lg font-bold text-primary" aria-hidden="true">
+              R
+            </span>
+          </>
+        ) : (
+          <BrandLogo className="max-w-full" />
+        )}
       </div>
 
       {/* Navegação */}
-      <nav className="flex-1 overflow-y-auto p-3">
-        <NavGroup items={mainItems} pathname={pathname} />
+      <nav className={cn("flex-1 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
+        <NavGroup
+          items={mainItems}
+          pathname={pathname}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
 
         {managementItems.length > 0 && (
           <>
             <Separator className="my-3" />
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Gestão
-            </p>
-            <NavGroup items={managementItems} pathname={pathname} />
+            {!collapsed && (
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Gestão
+              </p>
+            )}
+            <NavGroup
+              items={managementItems}
+              pathname={pathname}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
           </>
         )}
 
         {configItems.length > 0 && (
           <>
             <Separator className="my-3" />
-            <NavGroup items={configItems} pathname={pathname} />
+            <NavGroup
+              items={configItems}
+              pathname={pathname}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
           </>
         )}
       </nav>
 
       {/* Rodapé: info do usuário logado */}
       <div className="border-t p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+        <div
+          className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}
+          title={collapsed ? `${userName} • ${roleLabel(userRole)}` : undefined}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
             {userName
               .split(" ")
               .map((n) => n[0])
@@ -142,12 +188,14 @@ export function Sidebar({
               .slice(0, 2)
               .toUpperCase()}
           </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="truncate text-sm font-medium">{userName}</span>
-            <span className="text-xs text-muted-foreground">
-              {roleLabel(userRole)}
-            </span>
-          </div>
+          {!collapsed && (
+            <div className="flex flex-col overflow-hidden">
+              <span className="truncate text-sm font-medium">{userName}</span>
+              <span className="text-xs text-muted-foreground">
+                {roleLabel(userRole)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </aside>
@@ -155,7 +203,17 @@ export function Sidebar({
 }
 
 /** Renderiza uma lista de links de navegação */
-function NavGroup({ items, pathname }: { items: NavItem[]; pathname: string }) {
+function NavGroup({
+  items,
+  pathname,
+  collapsed,
+  onNavigate,
+}: {
+  items: NavItem[];
+  pathname: string;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   return (
     <div className="space-y-1">
       {items.map((item) => {
@@ -165,18 +223,37 @@ function NavGroup({ items, pathname }: { items: NavItem[]; pathname: string }) {
         );
         const Icon = item.icon;
 
-        return (
+        return collapsed ? (
           <Link
             key={item.href}
             href={item.href}
+            title={item.label}
+            aria-current={isActive ? "page" : undefined}
+            onClick={onNavigate}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "mx-auto flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200 ease-out",
               isActive
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="sr-only">{item.label}</span>
+          </Link>
+        ) : (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isActive ? "page" : undefined}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{item.label}</span>
           </Link>
         );

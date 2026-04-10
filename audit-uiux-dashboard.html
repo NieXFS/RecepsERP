@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoria UI/UX — Receps ERP Dashboard</title>
+<style>
+  :root {
+    --bg: #0f0d1a;
+    --surface: #1a1726;
+    --surface-2: #231f30;
+    --border: #2e2942;
+    --text: #e8e4f0;
+    --text-muted: #9a92ab;
+    --primary: #9b6dff;
+    --primary-dim: #7b52d9;
+    --critical: #ff5c7c;
+    --critical-bg: rgba(255,92,124,0.08);
+    --high: #ffb347;
+    --high-bg: rgba(255,179,71,0.08);
+    --medium: #47b8ff;
+    --medium-bg: rgba(71,184,255,0.08);
+    --low: #5ddb7a;
+    --low-bg: rgba(93,219,122,0.08);
+    --success: #5ddb7a;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Header */
+  .hero {
+    padding: 64px 32px 48px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(155,109,255,0.08) 0%, transparent 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(155,109,255,0.12); color: var(--primary);
+    padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 36px; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p { color: var(--text-muted); font-size: 15px; margin-top: 8px; max-width: 600px; margin-inline: auto; }
+
+  /* Scores */
+  .scores {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; max-width: 1100px; margin: -28px auto 0; padding: 0 32px; position: relative; z-index: 1;
+  }
+  .score-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; text-align: center;
+  }
+  .score-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); font-weight: 600; }
+  .score-card .value { font-size: 36px; font-weight: 800; margin: 4px 0 2px; }
+  .score-card .sublabel { font-size: 12px; color: var(--text-muted); }
+
+  /* Layout */
+  .container { max-width: 1100px; margin: 0 auto; padding: 48px 32px; }
+
+  /* Section */
+  .section { margin-bottom: 48px; }
+  .section-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .section-header h2 { font-size: 20px; font-weight: 700; }
+  .section-header .count {
+    margin-left: auto; font-size: 12px; font-weight: 600; padding: 4px 10px;
+    border-radius: 100px; background: var(--surface-2); color: var(--text-muted);
+  }
+
+  /* Finding cards */
+  .finding {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    margin-bottom: 14px; overflow: hidden; transition: border-color 0.2s;
+  }
+  .finding:hover { border-color: rgba(155,109,255,0.3); }
+  .finding-header {
+    display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px;
+    cursor: pointer; user-select: none;
+  }
+  .finding-header:hover { background: rgba(255,255,255,0.015); }
+  .severity {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    padding: 3px 8px; border-radius: 6px; white-space: nowrap; margin-top: 2px;
+  }
+  .severity.critical { color: var(--critical); background: var(--critical-bg); }
+  .severity.high { color: var(--high); background: var(--high-bg); }
+  .severity.medium { color: var(--medium); background: var(--medium-bg); }
+  .severity.low { color: var(--low); background: var(--low-bg); }
+  .finding-title { font-size: 15px; font-weight: 600; flex: 1; }
+  .finding-rule {
+    font-size: 11px; color: var(--text-muted); font-family: var(--mono);
+    background: var(--surface-2); padding: 2px 8px; border-radius: 6px; white-space: nowrap; margin-top: 2px;
+  }
+  .chevron { color: var(--text-muted); transition: transform 0.2s; font-size: 14px; margin-top: 3px; }
+  .finding.open .chevron { transform: rotate(90deg); }
+  .finding-body { display: none; padding: 0 20px 20px; }
+  .finding.open .finding-body { display: block; }
+  .finding-body p { color: var(--text-muted); font-size: 14px; margin-bottom: 12px; }
+  .finding-body strong { color: var(--text); }
+
+  /* Code blocks */
+  .code-block {
+    background: #0d0b14; border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; margin: 12px 0; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.7; color: #c4bdd4;
+  }
+  .code-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 6px; display: block;
+  }
+  .code-label.before { color: var(--critical); }
+  .code-label.after { color: var(--success); }
+
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 100px;
+    background: rgba(155,109,255,0.1); color: var(--primary); font-weight: 500;
+  }
+
+  /* Files affected */
+  .files { margin-top: 12px; }
+  .file-path {
+    font-family: var(--mono); font-size: 12px; color: var(--primary-dim);
+    background: rgba(155,109,255,0.06); padding: 4px 10px; border-radius: 6px;
+    display: inline-block; margin: 2px 4px 2px 0;
+  }
+
+  /* Summary table */
+  .summary-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .summary-table th, .summary-table td {
+    padding: 10px 14px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--border);
+  }
+  .summary-table th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); font-weight: 600; background: var(--surface-2);
+  }
+  .summary-table td { color: var(--text-muted); }
+  .summary-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 6px; background: var(--surface-2); border-radius: 100px; overflow: hidden; margin-top: 4px;
+  }
+  .progress-fill { height: 100%; border-radius: 100px; transition: width 0.6s ease; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero { padding: 40px 20px 32px; }
+    .hero h1 { font-size: 26px; }
+    .container { padding: 32px 16px; }
+    .scores { padding: 0 16px; grid-template-columns: repeat(2, 1fr); }
+    .finding-header { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    UI/UX Pro Max Audit
+  </div>
+  <h1>Receps ERP — Dashboard Audit</h1>
+  <p>Auditoria completa da tela de Dashboard baseada nas regras do UI/UX Pro Max Skill. Prioridades 1→10 com ações concretas de melhoria.</p>
+</div>
+
+<div class="scores">
+  <div class="score-card">
+    <div class="label">Score Geral</div>
+    <div class="value" style="color: var(--high)">72</div>
+    <div class="sublabel">de 100</div>
+  </div>
+  <div class="score-card">
+    <div class="label">Acessibilidade</div>
+    <div class="value" style="color: var(--critical)">58</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:58%;background:var(--critical)"></div></div>
+  </div>
+  <div class="score-card">
+    <div class="label">Interação</div>
+    <div class="value" style="color: var(--high)">70</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:70%;background:var(--high)"></div></div>
+  </div>
+  <div class="score-card">
+    <div class="label">Layout</div>
+    <div class="value" style="color: var(--success)">82</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:82%;background:var(--success)"></div></div>
+  </div>
+  <div class="score-card">
+    <div class="label">Design System</div>
+    <div class="value" style="color: var(--success)">85</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:85%;background:var(--success)"></div></div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 1: ACESSIBILIDADE (CRITICAL) -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--critical-bg);color:var(--critical)">1</div>
+    <div>
+      <h2>Acessibilidade</h2>
+      <div style="font-size:12px;color:var(--text-muted)">CRITICAL — Prioridade 1</div>
+    </div>
+    <div class="count">5 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity critical">Critical</span>
+      <span class="finding-title">KPI Cards sem landmarks semânticos e aria-labels</span>
+      <span class="finding-rule">aria-labels</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Os 4 cards de KPI no Dashboard usam <strong>&lt;Card&gt;</strong> (que renderiza <strong>&lt;div&gt;</strong>) sem <strong>role</strong>, <strong>aria-label</strong> ou <strong>aria-labelledby</strong>. Para leitores de tela, esses blocos são apenas divs genéricos — o usuário não sabe que está em "Faturamento Hoje: R$ 1.250,00".</p>
+      <span class="code-label before">Antes (atual)</span>
+      <div class="code-block">&lt;Card&gt;
+  &lt;CardHeader&gt;
+    &lt;CardTitle className="text-sm font-medium text-muted-foreground"&gt;
+      Faturamento Hoje
+    &lt;/CardTitle&gt;
+    &lt;DollarSign className="h-4 w-4 text-muted-foreground" /&gt;
+  &lt;/CardHeader&gt;
+  &lt;CardContent&gt;
+    &lt;p className="text-2xl font-bold"&gt;R$ {kpis.revenue...}&lt;/p&gt;
+  &lt;/CardContent&gt;
+&lt;/Card&gt;</div>
+      <span class="code-label after">Depois (recomendado)</span>
+      <div class="code-block">&lt;Card role="region" aria-labelledby="kpi-revenue-label"&gt;
+  &lt;CardHeader className="flex flex-row items-center justify-between pb-2"&gt;
+    &lt;CardTitle id="kpi-revenue-label" className="text-sm font-medium text-muted-foreground"&gt;
+      Faturamento Hoje
+    &lt;/CardTitle&gt;
+    &lt;DollarSign className="h-4 w-4 text-muted-foreground" aria-hidden="true" /&gt;
+  &lt;/CardHeader&gt;
+  &lt;CardContent&gt;
+    &lt;p className="text-2xl font-bold" aria-live="polite"&gt;
+      R$ {kpis.revenue.toLocaleString(...)}
+    &lt;/p&gt;
+  &lt;/CardContent&gt;
+&lt;/Card&gt;</div>
+      <p>Adicionar <strong>aria-hidden="true"</strong> nos ícones decorativos (DollarSign, TrendingUp, Calendar, UserPlus) para que não sejam lidos pelo screen reader.</p>
+      <div class="files">
+        <span class="file-path">src/app/(dashboard)/dashboard/page.tsx</span>
+      </div>
+      <div class="tags">
+        <span class="tag">aria-labels</span>
+        <span class="tag">voiceover-sr</span>
+        <span class="tag">color-not-only</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity critical">Critical</span>
+      <span class="finding-title">Ícones decorativos sem aria-hidden</span>
+      <span class="finding-rule">voiceover-sr</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Todos os ícones Lucide nos cards de KPI e na seção mensal (<strong>DollarSign, TrendingUp, Calendar, UserPlus, Wallet, ReceiptText, ChevronLeft, ChevronRight</strong>) não possuem <strong>aria-hidden="true"</strong>. O leitor de tela vai tentar anunciar o SVG, gerando ruído.</p>
+      <span class="code-label after">Correção</span>
+      <div class="code-block">// Para ícones puramente decorativos:
+&lt;DollarSign className="h-4 w-4 text-muted-foreground" aria-hidden="true" /&gt;
+
+// Para ícones com significado funcional (botões de navegação):
+// O aria-label já está no &lt;Link&gt; pai, então o ícone fica aria-hidden
+&lt;Link aria-label="Ver mês anterior"&gt;
+  &lt;ChevronLeft className="h-4 w-4" aria-hidden="true" /&gt;
+&lt;/Link&gt;</div>
+      <div class="files">
+        <span class="file-path">src/app/(dashboard)/dashboard/page.tsx</span>
+        <span class="file-path">src/components/dashboard/monthly-summary-section.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity critical">Critical</span>
+      <span class="finding-title">Gráfico de linha sem alternativa acessível (tabela/resumo)</span>
+      <span class="finding-rule">screen-reader-summary</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O <strong>MonthlyRevenueChart</strong> renderiza um LineChart do Recharts sem nenhum <strong>aria-label</strong>, <strong>role="img"</strong>, ou tabela alternativa. Para usuários de leitores de tela, esse gráfico é completamente invisível.</p>
+      <span class="code-label after">Recomendação</span>
+      <div class="code-block">// Adicionar wrapper com role="img" e aria-label descritivo
+&lt;div
+  role="img"
+  aria-label={`Gráfico: faturamento de R$ ${total} no mês, com pico no dia ${peakDay}`}
+&gt;
+  &lt;ResponsiveContainer&gt;...&lt;/ResponsiveContainer&gt;
+&lt;/div&gt;
+
+// Adicionalmente: incluir uma tabela visually-hidden como alternativa
+&lt;table className="sr-only"&gt;
+  &lt;caption&gt;Evolução diária de faturamento, comissões e despesas&lt;/caption&gt;
+  ...
+&lt;/table&gt;</div>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-revenue-chart.tsx</span>
+      </div>
+      <div class="tags">
+        <span class="tag">data-table</span>
+        <span class="tag">screen-reader-summary</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity high">High</span>
+      <span class="finding-title">Heading hierarchy quebrada — h2 → h3 pula contexto</span>
+      <span class="finding-rule">heading-hierarchy</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>A página Dashboard usa <strong>&lt;h2&gt;</strong> para "Dashboard" e <strong>&lt;h3&gt;</strong> no MonthlySummarySection, mas os KPI cards entre eles não possuem heading. Além disso, o <strong>&lt;CardTitle&gt;</strong> renderiza um <strong>&lt;div&gt;</strong> em vez de heading semântico. A hierarquia para leitores de tela fica: h2 → (div, div, div, div) → h3.</p>
+      <p><strong>Solução:</strong> Usar <strong>aria-level</strong> ou renderizar o CardTitle como <strong>&lt;h3&gt;</strong> nos cards de KPI, e o título da seção mensal como <strong>&lt;h3&gt;</strong> (mantendo a progressão h2→h3→h4).</p>
+      <div class="files">
+        <span class="file-path">src/components/ui/card.tsx</span>
+        <span class="file-path">src/app/(dashboard)/dashboard/page.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity high">High</span>
+      <span class="finding-title">Card "Resultado do Mês" comunica estado apenas por cor</span>
+      <span class="finding-rule">color-not-only</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O card de resultado mensal usa <strong>border-emerald-500</strong> ou <strong>border-red-500</strong> e <strong>text-emerald-600</strong> ou <strong>text-red-600</strong> para indicar lucro vs. prejuízo. Porém, não há ícone, texto auxiliar, ou badge que informe o estado sem depender da cor.</p>
+      <p>O ícone <strong>TrendingUp/TrendingDown</strong> já existe mas está com cor, sem texto. Adicionar um badge ou texto como <strong>"Positivo"</strong> / <strong>"Negativo"</strong> ao lado do valor resolve o problema.</p>
+      <span class="code-label after">Recomendação</span>
+      <div class="code-block">&lt;p className={`text-2xl font-bold ${...}`}&gt;
+  {formatCurrency(stats.resultadoMes)}
+&lt;/p&gt;
+&lt;span className="sr-only"&gt;
+  {stats.resultadoMes >= 0 ? "Resultado positivo" : "Resultado negativo"}
+&lt;/span&gt;</div>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-summary-section.tsx</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 2: INTERAÇÃO (CRITICAL) -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--high-bg);color:var(--high)">2</div>
+    <div>
+      <h2>Touch & Interação</h2>
+      <div style="font-size:12px;color:var(--text-muted)">CRITICAL — Prioridade 2</div>
+    </div>
+    <div class="count">3 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity high">High</span>
+      <span class="finding-title">Botões de navegação de mês com touch target insuficiente</span>
+      <span class="finding-rule">touch-target-size</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Os botões <strong>"icon-sm"</strong> (ChevronLeft/Right) para navegar entre meses têm <strong>size: 28px</strong> (h-7 / w-7). O mínimo recomendado pela Apple HIG é <strong>44×44px</strong> e pelo Material Design <strong>48×48dp</strong>.</p>
+      <span class="code-label after">Correção</span>
+      <div class="code-block">// Aumentar para "icon" (32px) ou melhor "icon-lg" (36px)
+// e adicionar padding extra para área de toque:
+&lt;Link
+  className={cn(buttonVariants({ variant: "outline", size: "icon" }),
+    "min-w-[44px] min-h-[44px]"
+  )}
+  aria-label="Ver mês anterior"
+&gt;
+  &lt;ChevronLeft className="h-4 w-4" aria-hidden="true" /&gt;
+&lt;/Link&gt;</div>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-summary-section.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">KPI Cards não são clicáveis — oportunidade perdida de drill-down</span>
+      <span class="finding-rule">press-feedback</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Os 4 cards de KPI são estáticos (divs). Em dashboards de ERP, o padrão esperado é <strong>clicar no card para ver detalhes</strong>. Ex: clicar "Agendamentos Hoje" levaria para <strong>/agenda?date=today</strong>.</p>
+      <p><strong>Recomendação:</strong> Envolver cada card com <strong>&lt;Link&gt;</strong> e adicionar micro-interação de hover:</p>
+      <div class="code-block">&lt;Link href="/agenda?date=today" className="group"&gt;
+  &lt;Card className="transition-all duration-200
+    group-hover:shadow-md group-hover:border-primary/20
+    group-hover:-translate-y-0.5"
+  &gt;
+    ...
+  &lt;/Card&gt;
+&lt;/Link&gt;</div>
+      <p>Isso adiciona: feedback visual no hover (<strong>shadow + lift</strong>), <strong>cursor pointer</strong> via Link, e <strong>affordance</strong> clara de que o card é interativo.</p>
+      <div class="tags">
+        <span class="tag">drill-down-consistency</span>
+        <span class="tag">cursor-pointer</span>
+        <span class="tag">state-transition</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Sidebar nav links sem feedback de transição (snap instantâneo)</span>
+      <span class="finding-rule">state-transition</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Os links da sidebar já possuem <strong>transition-colors</strong>, mas a troca entre estado ativo (<strong>bg-primary</strong>) e inativo é um snap duro. Não há transição animada entre "sair de uma página" e "entrar em outra".</p>
+      <span class="code-label after">Melhoria sutil</span>
+      <div class="code-block">// Adicionar transition mais completa no NavGroup:
+className={cn(
+  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+  "transition-all duration-200 ease-out",  // ← all em vez de apenas colors
+  isActive
+    ? "bg-primary text-primary-foreground shadow-sm"
+    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+)}</div>
+      <div class="files">
+        <span class="file-path">src/components/layout/sidebar.tsx</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 3: PERFORMANCE -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--high-bg);color:var(--high)">3</div>
+    <div>
+      <h2>Performance & Loading</h2>
+      <div style="font-size:12px;color:var(--text-muted)">HIGH — Prioridade 3</div>
+    </div>
+    <div class="count">3 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity high">High</span>
+      <span class="finding-title">Sem skeleton/loading state — CLS durante carregamento do Dashboard</span>
+      <span class="finding-rule">progressive-loading</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>A página Dashboard é um <strong>Server Component async</strong> que faz 3 chamadas paralelas (<strong>getDailyKPIs, getMonthlyStats, getDailyRevenue</strong>). Enquanto essas promises resolvem, o usuário vê... nada (ou o layout anterior). Não há <strong>loading.tsx</strong> com skeleton screens.</p>
+      <span class="code-label after">Criar loading.tsx</span>
+      <div class="code-block">// src/app/(dashboard)/dashboard/loading.tsx
+export default function DashboardLoading() {
+  return (
+    &lt;div className="flex flex-col gap-6 animate-pulse"&gt;
+      {/* Skeleton do header */}
+      &lt;div&gt;
+        &lt;div className="h-7 w-32 rounded bg-muted" /&gt;
+        &lt;div className="h-4 w-48 rounded bg-muted mt-2" /&gt;
+      &lt;/div&gt;
+      {/* Skeleton dos KPI cards */}
+      &lt;div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"&gt;
+        {[1,2,3,4].map(i =&gt; (
+          &lt;div key={i} className="rounded-xl bg-card ring-1 ring-foreground/10 p-4"&gt;
+            &lt;div className="h-4 w-24 rounded bg-muted mb-3" /&gt;
+            &lt;div className="h-8 w-28 rounded bg-muted" /&gt;
+          &lt;/div&gt;
+        ))}
+      &lt;/div&gt;
+      {/* Skeleton do gráfico */}
+      &lt;div className="rounded-xl bg-card ring-1 ring-foreground/10 p-6"&gt;
+        &lt;div className="h-[320px] rounded bg-muted" /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</div>
+      <div class="files">
+        <span class="file-path">src/app/(dashboard)/dashboard/loading.tsx (CRIAR)</span>
+      </div>
+      <div class="tags">
+        <span class="tag">content-jumping</span>
+        <span class="tag">loading-states</span>
+        <span class="tag">CLS</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Gráfico Recharts no bundle principal (sem lazy load)</span>
+      <span class="finding-rule">bundle-splitting</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O componente <strong>MonthlyRevenueChart</strong> importa Recharts diretamente. Recharts é uma lib pesada (~250KB gzipped). Como o gráfico está abaixo do fold (após os KPI cards), ele deveria ser carregado com <strong>dynamic import</strong>.</p>
+      <div class="code-block">// Em monthly-summary-section.tsx, trocar:
+import { MonthlyRevenueChart } from "@/components/dashboard/monthly-revenue-chart";
+
+// Por:
+import dynamic from "next/dynamic";
+const MonthlyRevenueChart = dynamic(
+  () =&gt; import("@/components/dashboard/monthly-revenue-chart")
+    .then(mod =&gt; mod.MonthlyRevenueChart),
+  {
+    loading: () =&gt; &lt;div className="h-[320px] animate-pulse rounded bg-muted" /&gt;,
+    ssr: false,
+  }
+);</div>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-summary-section.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Navegação entre meses causa full server round-trip</span>
+      <span class="finding-rule">content-jumping</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Clicar nos botões de mês anterior/próximo navega via <strong>&lt;Link href="/dashboard?month=..."&gt;</strong>, causando uma nova requisição ao servidor. Isso gera flash de conteúdo (CLS). Considerar usar <strong>startTransition + router.push</strong> com estado de loading local, ou converter para client-side data fetching com SWR/React Query para a seção mensal.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 5: LAYOUT & RESPONSIVIDADE -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--medium-bg);color:var(--medium)">5</div>
+    <div>
+      <h2>Layout & Responsividade</h2>
+      <div style="font-size:12px;color:var(--text-muted)">HIGH — Prioridade 5</div>
+    </div>
+    <div class="count">3 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity high">High</span>
+      <span class="finding-title">Sidebar fixa de 256px sem collapse — consome espaço em telas menores</span>
+      <span class="finding-rule">adaptive-navigation</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>A sidebar tem <strong>w-64 (256px)</strong> fixos e não possui mecanismo de collapse. Em telas de 1024px, o conteúdo principal fica com apenas ~700px. Não há breakpoint para esconder a sidebar em mobile — o layout usa <strong>flex h-screen</strong> sem tratamento responsivo.</p>
+      <span class="code-label after">Plano de ação</span>
+      <div class="code-block">1. Mobile (&lt; 768px): Sidebar como drawer/overlay com hamburger no Header
+2. Tablet (768-1024px): Sidebar colapsada (apenas ícones, ~64px)
+3. Desktop (&gt; 1024px): Sidebar expandida (256px, como hoje)
+
+// Implementar com:
+// - Estado de collapse no layout (useState ou cookie)
+// - Sheet/Drawer do shadcn para mobile
+// - Botão de toggle no Header
+// - Transição suave: transition-[width] duration-300</div>
+      <div class="files">
+        <span class="file-path">src/components/layout/sidebar.tsx</span>
+        <span class="file-path">src/app/(dashboard)/layout.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Gráfico não adapta em telas pequenas — eixo Y cortado</span>
+      <span class="finding-rule">responsive-chart</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O <strong>MonthlyRevenueChart</strong> usa <strong>ResponsiveContainer</strong> para largura, mas o eixo Y tem <strong>width: 88px</strong> fixo para o formatador de moeda. Em telas estreitas (~375px menos sidebar), o eixo Y + margem + label pode consumir ~120px do espaço, deixando o gráfico espremido.</p>
+      <span class="code-label after">Recomendação</span>
+      <div class="code-block">// Reduzir label do eixo Y em mobile:
+tickFormatter={(value) =&gt; {
+  if (windowWidth &lt; 640) {
+    return `${(Number(value) / 1000).toFixed(0)}k`;
+  }
+  return currencyFormatter.format(Number(value));
+}}
+
+// Ou usar margin dinâmica:
+margin={{
+  top: 8, right: 8,
+  left: isMobile ? -12 : 4,
+  bottom: 8
+}}</div>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-revenue-chart.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Grid de KPI cards: gap inconsistente entre breakpoints</span>
+      <span class="finding-rule">spacing-scale</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O grid usa <strong>gap-4</strong> (16px) uniformemente. A seção mensal abaixo usa <strong>gap-4</strong> também. Porém, o espaçamento entre seções é <strong>gap-6</strong> (24px). Considerar usar <strong>gap-4</strong> entre cards e <strong>gap-8</strong> (32px) entre seções para criar hierarquia visual mais clara.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 6: TIPOGRAFIA & COR -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--medium-bg);color:var(--medium)">6</div>
+    <div>
+      <h2>Tipografia & Cores</h2>
+      <div style="font-size:12px;color:var(--text-muted)">MEDIUM — Prioridade 6</div>
+    </div>
+    <div class="count">3 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Valores monetários não usam font tabular — layout shift em updates</span>
+      <span class="finding-rule">number-tabular</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Os valores como "R$ 1.250,00" usam a fonte sans-serif padrão com figuras proporcionais. Quando os números mudam, o layout pode "pular" porque o "1" é mais estreito que o "8". Usar <strong>font-variant-numeric: tabular-nums</strong> nos valores financeiros resolve isso.</p>
+      <div class="code-block">// Adicionar classe utilitária nos valores:
+&lt;p className="text-2xl font-bold tabular-nums"&gt;
+  R$ {kpis.revenue.toLocaleString(...)}
+&lt;/p&gt;
+
+// "tabular-nums" é uma classe nativa do Tailwind
+// Aplica font-variant-numeric: tabular-nums</div>
+      <p><strong>Impacto:</strong> Todos os cards de KPI + cards mensais + eixo Y do gráfico.</p>
+      <div class="files">
+        <span class="file-path">src/app/(dashboard)/dashboard/page.tsx</span>
+        <span class="file-path">src/components/dashboard/monthly-summary-section.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Accent themes misturam OKLch com hex — inconsistência nos tokens</span>
+      <span class="finding-rule">color-semantic</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O tema padrão (RECEPS_SIGNATURE) define todas as cores em <strong>oklch()</strong>, mas os accent themes alternativos (ROSE_ELEGANCE, EXECUTIVE_BLUE, etc.) usam <strong>hex</strong> puro (#b84773). Isso causa inconsistência de renderização: oklch é perceptualmente uniforme, hex não. Considerar converter todos os accent themes para OKLch.</p>
+      <div class="files">
+        <span class="file-path">src/app/globals.css</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Chart colors: escala monocromática do roxo dificulta distinção</span>
+      <span class="finding-rule">color-guidance</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>As variáveis <strong>chart-1 a chart-5</strong> formam uma escala do mesmo matiz roxo (285°). No gráfico que mostra "Faturamento", "Comissões" e "Despesas" simultaneamente, a distinção entre chart-1, chart-2 e chart-4 pode ser difícil, especialmente para pessoas com deficiência visual de cor.</p>
+      <p><strong>Recomendação:</strong> Usar cores de matizes distintos para as 3 séries principais. Ex: chart-1 (roxo/primary para faturamento), chart-2 (teal/verde para comissões), chart-4 (amber/laranja para despesas). Manter a escala monocromática apenas para variações do mesmo dado.</p>
+      <div class="tags">
+        <span class="tag">pattern-texture</span>
+        <span class="tag">contrast-data</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 7: MICRO-INTERAÇÕES -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--medium-bg);color:var(--medium)">7</div>
+    <div>
+      <h2>Micro-interações & Animação</h2>
+      <div style="font-size:12px;color:var(--text-muted)">MEDIUM — Prioridade 7</div>
+    </div>
+    <div class="count">3 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Nenhuma animação de entrada nos KPI cards</span>
+      <span class="finding-rule">stagger-sequence</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Os cards aparecem de uma vez, sem transição. Uma animação <strong>staggered fade-in + slide-up</strong> nos 4 cards dá sensação de carregamento progressivo e polimento profissional.</p>
+      <div class="code-block">// Opção 1: CSS puro com animation-delay
+// Adicionar em globals.css:
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+// No grid de KPI cards:
+{kpiCards.map((card, i) =&gt; (
+  &lt;Card
+    key={i}
+    className="animate-fade-in-up"
+    style={{ animationDelay: `${i * 75}ms` }}
+  &gt;
+    ...
+  &lt;/Card&gt;
+))}
+
+// IMPORTANTE: respeitar prefers-reduced-motion
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up { animation: none; }
+}</div>
+      <div class="tags">
+        <span class="tag">reduced-motion</span>
+        <span class="tag">duration-timing</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Tooltip do gráfico sem animação de entrada</span>
+      <span class="finding-rule">state-transition</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O Tooltip do Recharts aparece e desaparece instantaneamente. Adicionar <strong>animationDuration={200}</strong> no <strong>&lt;Tooltip&gt;</strong> cria uma experiência mais suave.</p>
+      <div class="code-block">&lt;Tooltip
+  animationDuration={200}
+  animationEasing="ease-out"
+  contentStyle={{...}}
+/&gt;</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Linha do gráfico sem animação de draw</span>
+      <span class="finding-rule">motion-meaning</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>As linhas do gráfico aparecem já renderizadas. Adicionar <strong>isAnimationActive</strong> com duration curta (800ms) dá feedback visual de que os dados foram carregados — a linha "se desenha" progressivamente.</p>
+      <div class="code-block">&lt;Line
+  isAnimationActive={true}
+  animationDuration={800}
+  animationEasing="ease-out"
+  ...
+/&gt;</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 8: EMPTY STATES -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--medium-bg);color:var(--medium)">8</div>
+    <div>
+      <h2>Empty States & Feedback</h2>
+      <div style="font-size:12px;color:var(--text-muted)">MEDIUM — Prioridade 8</div>
+    </div>
+    <div class="count">2 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity high">High</span>
+      <span class="finding-title">Sem empty state quando tenant é novo (todos KPIs = 0)</span>
+      <span class="finding-rule">empty-states</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Quando um tenant acaba de ser criado, o dashboard mostra <strong>"R$ 0,00"</strong> em todos os cards e um gráfico vazio. Isso não é informativo. Um empty state com ilustração e CTAs (<em>"Agende seu primeiro atendimento"</em>, <em>"Cadastre seus serviços"</em>) guia o usuário nos primeiros passos.</p>
+      <div class="code-block">// Detectar estado vazio:
+const isNewTenant = kpis.revenue === 0
+  && kpis.totalAppointments === 0
+  && kpis.newCustomers === 0;
+
+if (isNewTenant) {
+  return &lt;DashboardEmptyState /&gt;;
+}
+
+// DashboardEmptyState inclui:
+// - Ilustração ou ícone amigável
+// - "Bem-vindo ao Receps! Configure seu espaço"
+// - Botões: "Cadastrar serviços", "Criar agendamento", "Adicionar profissionais"</div>
+      <div class="files">
+        <span class="file-path">src/app/(dashboard)/dashboard/page.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Gráfico sem empty/error state</span>
+      <span class="finding-rule">empty-data-state</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>Se <strong>series</strong> (DailyRevenuePoint[]) estiver vazio, o gráfico renderiza um eixo sem dados. Adicionar: se <strong>data.length === 0</strong>, mostrar "Nenhum dado para este período" com ícone e sugestão.</p>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-revenue-chart.tsx</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 9: NAVEGAÇÃO -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--low-bg);color:var(--low)">9</div>
+    <div>
+      <h2>Navegação</h2>
+      <div style="font-size:12px;color:var(--text-muted)">HIGH — Prioridade 9</div>
+    </div>
+    <div class="count">2 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Header não mostra breadcrumb ou contexto de página</span>
+      <span class="finding-rule">breadcrumb-web</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O <strong>Header</strong> exibe apenas o nome do tenant à esquerda e controles do usuário à direita. Não há indicação de <em>em que página o usuário está</em> (essa info está no &lt;h2&gt; da própria página, abaixo do header). Para páginas com sub-níveis (ex: /configuracoes/aparencia), um breadcrumb no header seria valioso.</p>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Logout sem confirmação — ação destrutiva sem dialog</span>
+      <span class="finding-rule">confirmation-dialogs</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O botão "Sair" no header executa <strong>signOut()</strong> diretamente sem confirmação. Embora não seja uma ação tão destrutiva, em um ERP onde o usuário pode ter dados não salvos em formulários abertos, uma confirmação simples evita frustrações.</p>
+      <div class="files">
+        <span class="file-path">src/components/layout/header.tsx</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORIDADE 10: CHARTS & DATA VIZ -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:var(--low-bg);color:var(--low)">10</div>
+    <div>
+      <h2>Charts & Data Visualization</h2>
+      <div style="font-size:12px;color:var(--text-muted)">LOW — Prioridade 10</div>
+    </div>
+    <div class="count">2 findings</div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity medium">Medium</span>
+      <span class="finding-title">Legend do gráfico não é interativa</span>
+      <span class="finding-rule">legend-interactive</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O <strong>&lt;Legend /&gt;</strong> do Recharts renderiza as 3 séries, mas clicar nelas não faz nada. Habilitar toggle de visibilidade ao clicar na legenda é padrão em dashboards e ajuda o usuário a focar em uma série específica.</p>
+      <div class="code-block">// Adicionar estado para séries visíveis:
+const [hiddenSeries, setHiddenSeries] = useState&lt;Set&lt;string&gt;&gt;(new Set());
+
+&lt;Legend
+  onClick={(e) =&gt; {
+    const key = e.dataKey;
+    setHiddenSeries(prev =&gt; {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }}
+/&gt;
+
+&lt;Line
+  dataKey="faturamento"
+  hide={hiddenSeries.has("faturamento")}
+  ...
+/&gt;</div>
+      <div class="files">
+        <span class="file-path">src/components/dashboard/monthly-revenue-chart.tsx</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="severity low">Low</span>
+      <span class="finding-title">Tooltip do gráfico sem acessibilidade via teclado</span>
+      <span class="finding-rule">tooltip-keyboard</span>
+      <span class="chevron">›</span>
+    </div>
+    <div class="finding-body">
+      <p>O tooltip do Recharts só aparece com hover do mouse. Não há como navegar pelos data points com teclado. Isso é uma limitação do Recharts em si, mas pode ser mitigado com <strong>tabIndex nos activeDots</strong> ou com o <strong>Accessibility module do Recharts</strong>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- RESUMO DE IMPLEMENTAÇÃO -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:rgba(155,109,255,0.12);color:var(--primary)">★</div>
+    <h2>Roadmap de Implementação</h2>
+  </div>
+
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>Sprint</th>
+        <th>Ação</th>
+        <th>Impacto</th>
+        <th>Esforço</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--critical);font-weight:600">Sprint 1<br><small style="color:var(--text-muted)">Quick Wins</small></td>
+        <td>
+          aria-hidden nos ícones decorativos<br>
+          tabular-nums nos valores<br>
+          aria-labels nos KPI cards<br>
+          sr-only no card de resultado
+        </td>
+        <td><span class="severity critical" style="font-size:10px">Critical</span></td>
+        <td style="color:var(--success)">~2h</td>
+      </tr>
+      <tr>
+        <td style="color:var(--high);font-weight:600">Sprint 2<br><small style="color:var(--text-muted)">Loading & Performance</small></td>
+        <td>
+          Criar loading.tsx com skeletons<br>
+          Lazy load do Recharts<br>
+          Touch targets nos botões de mês
+        </td>
+        <td><span class="severity high" style="font-size:10px">High</span></td>
+        <td style="color:var(--high)">~4h</td>
+      </tr>
+      <tr>
+        <td style="color:var(--medium);font-weight:600">Sprint 3<br><small style="color:var(--text-muted)">Responsividade</small></td>
+        <td>
+          Sidebar colapsável + drawer mobile<br>
+          Gráfico responsivo (eixo Y adaptativo)<br>
+          Empty state para tenants novos
+        </td>
+        <td><span class="severity high" style="font-size:10px">High</span></td>
+        <td style="color:var(--critical)">~8h</td>
+      </tr>
+      <tr>
+        <td style="color:var(--low);font-weight:600">Sprint 4<br><small style="color:var(--text-muted)">Polish</small></td>
+        <td>
+          Micro-interações (stagger, hover cards)<br>
+          KPI cards clicáveis (drill-down)<br>
+          Legend interativa no gráfico<br>
+          Cores distintas para séries do chart
+        </td>
+        <td><span class="severity medium" style="font-size:10px">Medium</span></td>
+        <td style="color:var(--high)">~6h</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- O QUE JÁ ESTÁ BOM -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:rgba(93,219,122,0.12);color:var(--success)">✓</div>
+    <h2>O que já está excelente</h2>
+  </div>
+
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>Aspecto</th>
+        <th>Detalhe</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="color:var(--success);font-weight:500">Design Tokens</td><td>Sistema completo com OKLch, tokens semânticos, dark mode, 5 accent themes — muito acima da média.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Componentes UI</td><td>shadcn/base-ui bem customizado, CVA para variantes, cn() utility — arquitetura sólida.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Dark Mode</td><td>Implementação cuidadosa com tokens distintos para light/dark. Não é inversão simples.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Sidebar Navigation</td><td>Boa estrutura de grupos (main/management/config), ícones + labels, estado ativo claro.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Multi-tenancy Theme</td><td>Accent themes via data-attribute é elegante e performático.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Gráfico</td><td>Uso correto de design tokens CSS vars no Recharts (stroke, tooltip). Boa integração visual.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Server Components</td><td>Dashboard como SC com Promise.all para data fetching paralelo — pattern correto.</td></tr>
+      <tr><td style="color:var(--success);font-weight:500">Internacionalização</td><td>Formatação correta de moeda e data em pt-BR com Intl.NumberFormat.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</div><!-- container -->
+
+<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:12px;border-top:1px solid var(--border)">
+  Auditoria gerada com UI/UX Pro Max Skill — abril 2026<br>
+  Receps ERP · Next.js 16 · Tailwind v4 · shadcn/base-ui
+</div>
+
+<script>
+// Toggle all findings
+document.querySelectorAll('.finding').forEach(el => {
+  el.querySelector('.finding-header').addEventListener('click', (e) => {
+    e.stopPropagation();
+    el.classList.toggle('open');
+  });
+  // Remove the onclick from the parent to avoid double-toggle
+  el.removeAttribute('onclick');
+});
+</script>
+
+</body>
+</html>
