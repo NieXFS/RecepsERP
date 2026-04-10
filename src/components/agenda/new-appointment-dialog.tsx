@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -64,6 +64,7 @@ export function NewAppointmentDialog({
   const [isPending, startTransition] = useTransition();
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [customerOptions, setCustomerOptions] = useState<CalendarCustomer[]>(customers);
+  const customerSearchRef = useRef<HTMLInputElement | null>(null);
 
   // Estado do formulário
   const [customerId, setCustomerId] = useState("");
@@ -72,6 +73,10 @@ export function NewAppointmentDialog({
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    customer?: boolean;
+    services?: boolean;
+  }>({});
 
   // Filtra serviços pelos que o profissional pode fazer
   const availableServices = useMemo(() => {
@@ -130,6 +135,18 @@ export function NewAppointmentDialog({
     setCustomerOptions(customers);
   }, [customers]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      customerSearchRef.current?.focus();
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
   /** Reseta todos os campos do formulário */
   function resetForm() {
     setCustomerId("");
@@ -139,6 +156,7 @@ export function NewAppointmentDialog({
     setNotes("");
     setCustomerSearch("");
     setIsCreatingCustomer(false);
+    setFieldErrors({});
   }
 
   function handleCustomerCreated(customer: CreatedCustomer) {
@@ -156,6 +174,7 @@ export function NewAppointmentDialog({
     setCustomerId(customer.id);
     setCustomerSearch(customer.name);
     setIsCreatingCustomer(false);
+    setFieldErrors((prev) => ({ ...prev, customer: false }));
   }
 
   /** Toggle de seleção de serviço (multiselect via checkboxes) */
@@ -165,6 +184,7 @@ export function NewAppointmentDialog({
         ? prev.filter((id) => id !== serviceId)
         : [...prev, serviceId]
     );
+    setFieldErrors((prev) => ({ ...prev, services: false }));
   }
 
   /** Toggle de equipamento selecionado */
@@ -181,10 +201,28 @@ export function NewAppointmentDialog({
    * Usa useTransition para exibir loading e manter o modal aberto em caso de erro.
    */
   function handleSubmit() {
-    if (!customerId || selectedServiceIds.length === 0 || !startTime || !professional) {
+    if (!startTime || !professional) {
+      toast.error("Não foi possível identificar o horário ou profissional do agendamento.");
+      return;
+    }
+
+    const errors: { customer?: boolean; services?: boolean } = {};
+
+    if (!customerId) {
+      errors.customer = true;
+    }
+
+    if (selectedServiceIds.length === 0) {
+      errors.services = true;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
+
+    setFieldErrors({});
 
     startTransition(async () => {
       const result = await createAppointmentAction({
@@ -230,9 +268,12 @@ export function NewAppointmentDialog({
           <div className="space-y-5 py-2">
             {/* ---- BUSCA DE CLIENTE ---- */}
             <div className="space-y-2">
-              <Label>Cliente *</Label>
+              <Label className={fieldErrors.customer ? "text-destructive" : ""}>
+                Cliente <span className="text-destructive">*</span>
+              </Label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
+                  ref={customerSearchRef}
                   placeholder="Buscar por nome ou telefone..."
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
@@ -244,7 +285,7 @@ export function NewAppointmentDialog({
                   onClick={() => setIsCreatingCustomer((prev) => !prev)}
                   className="sm:self-start"
                 >
-                  <UserPlus className="h-4 w-4" />
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
                   Novo
                 </Button>
               </div>
@@ -279,6 +320,7 @@ export function NewAppointmentDialog({
                       onClick={() => {
                         setCustomerId(c.id);
                         setCustomerSearch(c.name);
+                        setFieldErrors((prev) => ({ ...prev, customer: false }));
                       }}
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex justify-between ${
                         customerId === c.id ? "bg-primary/10 font-medium" : ""
@@ -297,11 +339,19 @@ export function NewAppointmentDialog({
                   Nenhum cliente encontrado.
                 </p>
               )}
+              {fieldErrors.customer && (
+                <p className="text-xs text-destructive" role="alert">
+                  Selecione um cliente.
+                </p>
+              )}
             </div>
 
             {/* ---- SELEÇÃO DE SERVIÇOS (Multiselect) ---- */}
             <div className="space-y-2">
-              <Label>Serviços * {selectedServiceIds.length > 0 && `(${selectedServiceIds.length})`}</Label>
+              <Label className={fieldErrors.services ? "text-destructive" : ""}>
+                Serviços <span className="text-destructive">*</span>{" "}
+                {selectedServiceIds.length > 0 && `(${selectedServiceIds.length})`}
+              </Label>
               <div className="max-h-40 overflow-y-auto rounded-md border divide-y">
                 {availableServices.length === 0 && (
                   <p className="text-xs text-muted-foreground p-3">
@@ -322,7 +372,7 @@ export function NewAppointmentDialog({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleService(svc.id)}
-                          className="rounded border-gray-300"
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30 focus:ring-offset-0"
                         />
                         <span>{svc.name}</span>
                         <span className="text-xs text-muted-foreground">
@@ -336,11 +386,16 @@ export function NewAppointmentDialog({
                   );
                 })}
               </div>
+              {fieldErrors.services && (
+                <p className="text-xs text-destructive" role="alert">
+                  Selecione ao menos um serviço.
+                </p>
+              )}
             </div>
 
             {/* ---- RESUMO (duração + preço) ---- */}
             {selectedServiceIds.length > 0 && (
-              <div className="flex items-center gap-4 rounded-md bg-muted/50 px-3 py-2 text-sm">
+              <div className="animate-fade-in-up flex items-center gap-4 rounded-md bg-muted/50 px-3 py-2 text-sm">
                 <span>
                   Duração: <strong>{totalDuration}min</strong>
                 </span>
@@ -392,7 +447,7 @@ export function NewAppointmentDialog({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleEquipment(eq.id)}
-                          className="rounded border-gray-300"
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30 focus:ring-offset-0"
                         />
                         <span>{eq.name}</span>
                       </label>
@@ -422,8 +477,34 @@ export function NewAppointmentDialog({
           >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "Agendando..." : "Confirmar Agendamento"}
+          <Button onClick={handleSubmit} disabled={isPending} className="gap-2">
+            {isPending ? (
+              <>
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                Agendando...
+              </>
+            ) : (
+              "Confirmar Agendamento"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

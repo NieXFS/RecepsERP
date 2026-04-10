@@ -50,14 +50,21 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
   return (
     <div
       className={cn(
-        "absolute left-1 right-1 z-10 overflow-hidden rounded-md border transition-shadow hover:shadow-md",
+        "absolute left-1 right-1 z-10 overflow-hidden rounded-md border cursor-pointer",
+        "transition-all duration-200 ease-out",
+        "hover:z-20 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-lg",
+        "active:scale-[0.98] active:shadow-sm",
         isCompact ? "px-1.5 py-0.5" : "px-2 py-1",
         style.bg,
         style.border,
+        style.leftBorder,
         style.text
       )}
       style={{ top: `${topOffset}px`, height: `${cardHeight}px` }}
       title={`${appointment.customerName} — ${serviceLabel} — ${statusLabel} — ${timeLabel}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Agendamento: ${appointment.customerName}, ${serviceLabel}, ${timeLabel}, status ${statusLabel}`}
     >
       {isDense ? (
         <div className="flex h-full flex-col justify-center gap-0.5 leading-[1.05]">
@@ -87,7 +94,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
-              {!isCompact && <User className="h-3 w-3 shrink-0" />}
+              {!isCompact && <User className="h-3 w-3 shrink-0" aria-hidden="true" />}
               <span className={cn("truncate font-semibold", isCompact ? "text-[11px]" : "text-xs")}>
                 {appointment.customerName}
               </span>
@@ -104,7 +111,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
           </div>
 
           <div className={cn("flex items-center gap-1 opacity-80", isCompact ? "text-[10px]" : "text-[11px]")}>
-            {!isCompact && <Clock className="h-3 w-3 shrink-0" />}
+            {!isCompact && <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />}
             <span>{timeLabel}</span>
           </div>
 

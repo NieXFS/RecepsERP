@@ -62,55 +62,69 @@ export const APPOINTMENT_STATUS_BADGE_VARIANTS: Record<
 
 export const APPOINTMENT_STATUS_CARD_STYLES: Record<
   AppointmentWorkflowStatus,
-  { bg: string; border: string; text: string; badge: string }
+  {
+    bg: string;
+    border: string;
+    text: string;
+    badge: string;
+    leftBorder: string;
+  }
 > = {
   SCHEDULED: {
     bg: "bg-blue-50 dark:bg-blue-950/40",
     border: "border-blue-300 dark:border-blue-700",
     text: "text-blue-900 dark:text-blue-200",
     badge: "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    leftBorder: "border-l-[3px] border-l-blue-500",
   },
   CONFIRMED: {
     bg: "bg-emerald-50 dark:bg-emerald-950/40",
     border: "border-emerald-300 dark:border-emerald-700",
     text: "text-emerald-900 dark:text-emerald-200",
     badge: "bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+    leftBorder: "border-l-[3px] border-l-emerald-500",
   },
   WAITING: {
     bg: "bg-amber-50 dark:bg-amber-950/40",
     border: "border-amber-300 dark:border-amber-700",
     text: "text-amber-900 dark:text-amber-200",
     badge: "bg-amber-200 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    leftBorder: "border-l-[3px] border-l-amber-500",
   },
   IN_PROGRESS: {
     bg: "bg-purple-50 dark:bg-purple-950/40",
     border: "border-purple-300 dark:border-purple-700",
     text: "text-purple-900 dark:text-purple-200",
     badge: "bg-purple-200 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    leftBorder: "border-l-[3px] border-l-purple-500",
   },
   COMPLETED: {
     bg: "bg-slate-50 dark:bg-slate-900/40",
     border: "border-slate-300 dark:border-slate-700",
     text: "text-slate-800 dark:text-slate-200",
     badge: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    leftBorder: "border-l-[3px] border-l-slate-400",
   },
   PAID: {
     bg: "bg-emerald-50 dark:bg-emerald-950/40",
     border: "border-emerald-300 dark:border-emerald-700",
     text: "text-emerald-900 dark:text-emerald-200",
     badge: "bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+    leftBorder: "border-l-[3px] border-l-emerald-600",
   },
   CANCELLED: {
     bg: "bg-red-50 dark:bg-red-950/40",
     border: "border-red-300 dark:border-red-700",
     text: "text-red-900 dark:text-red-200",
     badge: "bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200",
+    leftBorder: "border-l-[3px] border-l-red-500",
   },
   NO_SHOW: {
     bg: "bg-orange-50 dark:bg-orange-950/40",
     border: "border-orange-300 dark:border-orange-700",
     text: "text-orange-900 dark:text-orange-200",
     badge: "bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+    leftBorder: "border-l-[3px] border-l-orange-500",
   },
 };
 

@@ -56,6 +56,7 @@ import {
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethodValue,
 } from "@/lib/payment-methods";
+import { cn } from "@/lib/utils";
 import type { CalendarFinancialAccount, OperationalAppointment } from "./types";
 
 type AgendaOperationsPanelProps = {
@@ -69,7 +70,7 @@ type AgendaOperationsPanelProps = {
 type QuickAction = {
   nextStatus: AppointmentWorkflowStatus;
   label: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   variant: "default" | "outline" | "secondary" | "destructive" | "ghost";
 };
 
@@ -96,6 +97,31 @@ const STATUS_DESCRIPTIONS: Record<AppointmentWorkflowStatus, string> = {
   PAID: "Atendimentos concluídos e sinalizados como pagos.",
   CANCELLED: "Compromissos cancelados para a data selecionada.",
   NO_SHOW: "Clientes que não compareceram ao agendamento.",
+};
+
+const STATUS_COUNTER_COLORS: Record<AppointmentWorkflowStatus, string> = {
+  SCHEDULED: "border-t-2 border-t-blue-400",
+  CONFIRMED: "border-t-2 border-t-emerald-400",
+  WAITING: "border-t-2 border-t-amber-400",
+  IN_PROGRESS: "border-t-2 border-t-purple-400",
+  COMPLETED: "border-t-2 border-t-slate-300",
+  PAID: "border-t-2 border-t-emerald-500",
+  CANCELLED: "border-t-2 border-t-red-400",
+  NO_SHOW: "border-t-2 border-t-orange-400",
+};
+
+const STATUS_ICONS: Record<
+  AppointmentWorkflowStatus,
+  ComponentType<{ className?: string; "aria-hidden"?: boolean }>
+> = {
+  SCHEDULED: Clock3,
+  CONFIRMED: UserRoundCheck,
+  WAITING: Clock3,
+  IN_PROGRESS: Play,
+  COMPLETED: CheckCircle2,
+  PAID: Receipt,
+  CANCELLED: XCircle,
+  NO_SHOW: AlertCircle,
 };
 
 /**
@@ -143,11 +169,18 @@ export function AgendaOperationsPanel({
             <span className="font-medium text-foreground capitalize">{dateLabel}</span>.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="flex flex-wrap gap-2"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {counters.map((counter) => (
             <div
               key={counter.status}
-              className="rounded-lg border bg-background px-3 py-2 text-xs"
+              className={cn(
+                "rounded-lg border bg-background px-3 py-2 text-xs",
+                STATUS_COUNTER_COLORS[counter.status]
+              )}
             >
               <p className="font-medium text-foreground">{counter.label}</p>
               <p className="text-muted-foreground">{counter.count} agendamento(s)</p>
@@ -199,7 +232,7 @@ function LaneGrid({
           {title}
         </h4>
       </div>
-      <div className="grid gap-4 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {statuses.map((status) => (
           <StatusLane
             key={status}
@@ -228,11 +261,16 @@ function StatusLane({
   openCashRegisterAccountId: string | null;
   financialAccounts: CalendarFinancialAccount[];
 }) {
+  const Icon = STATUS_ICONS[status];
+
   return (
     <Card className="min-h-[220px]">
       <CardHeader className="space-y-2 pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">{APPOINTMENT_STATUS_LABELS[status]}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
+            <CardTitle className="text-base">{APPOINTMENT_STATUS_LABELS[status]}</CardTitle>
+          </div>
           <Badge
             variant="outline"
             className={getLaneCounterBadgeClass(appointments.length)}
@@ -246,7 +284,7 @@ function StatusLane({
       </CardHeader>
       <CardContent className="space-y-3">
         {appointments.length === 0 ? (
-          <div className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+          <div className="animate-fade-in rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
             Nenhum agendamento neste status.
           </div>
         ) : (
@@ -288,6 +326,8 @@ function OperationalAppointmentCard({
   const [isPending, startTransition] = useTransition();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [cashClosedAlertOpen, setCashClosedAlertOpen] = useState(false);
+  const [confirmAction, setConfirmAction] =
+    useState<AppointmentWorkflowStatus | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodValue | "">("");
   const [destinationAccountId, setDestinationAccountId] = useState("");
   const normalizedStatus = normalizeAppointmentStatus(appointment.status);
@@ -369,6 +409,11 @@ function OperationalAppointmentCard({
       return;
     }
 
+    if (nextStatus === "CANCELLED" || nextStatus === "NO_SHOW") {
+      setConfirmAction(nextStatus);
+      return;
+    }
+
     handleTransition(nextStatus);
   }
 
@@ -419,7 +464,7 @@ function OperationalAppointmentCard({
   });
 
   return (
-    <div className="rounded-xl border bg-background/70 p-3 shadow-sm">
+    <div className="animate-fade-in-up rounded-xl border bg-background/70 p-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{appointment.customerName}</p>
@@ -450,12 +495,13 @@ function OperationalAppointmentCard({
             return (
               <Button
                 key={action.nextStatus}
-                size="xs"
+                size="sm"
                 variant={action.variant}
                 disabled={isPending}
                 onClick={() => handleActionClick(action.nextStatus)}
+                className="min-h-[36px] min-w-[44px]"
               >
-                <Icon className="h-3 w-3" />
+                <Icon className="h-3 w-3" aria-hidden={true} />
                 {action.label}
               </Button>
             );
@@ -546,6 +592,56 @@ function OperationalAppointmentCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !isPending) {
+            setConfirmAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === "CANCELLED"
+                ? "Cancelar Agendamento?"
+                : "Marcar como Falta?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === "CANCELLED"
+                ? "O agendamento será marcado como cancelado. Esta ação não pode ser desfeita."
+                : "O agendamento será marcado como falta (no-show). Esta ação não pode ser desfeita."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmAction(null)}
+              disabled={isPending}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!confirmAction) {
+                  return;
+                }
+
+                const nextStatus = confirmAction;
+                setConfirmAction(null);
+                handleTransition(nextStatus);
+              }}
+              disabled={isPending}
+            >
+              {confirmAction === "CANCELLED"
+                ? "Sim, Cancelar"
+                : "Sim, Marcar Falta"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={cashClosedAlertOpen}
