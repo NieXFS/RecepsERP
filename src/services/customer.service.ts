@@ -1,6 +1,51 @@
 import { db } from "@/lib/db";
 import type { ActionResult } from "@/types";
-import type { CreateCustomerInput } from "@/lib/validators/customer";
+import type {
+  CreateCustomerInput,
+  UpdateCustomerInput,
+} from "@/lib/validators/customer";
+
+function normalizeOptionalText(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeBirthDate(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const parsed = dateOnlyMatch
+    ? new Date(
+        Number(dateOnlyMatch[1]),
+        Number(dateOnlyMatch[2]) - 1,
+        Number(dateOnlyMatch[3]),
+        12,
+        0,
+        0,
+        0
+      )
+    : new Date(value);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function buildLegacyAddress(data: {
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  fallbackAddress?: string | null;
+}) {
+  const line = [data.street, data.number].filter(Boolean).join(", ");
+  const parts = [line, data.complement].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(" · ");
+  }
+
+  return data.fallbackAddress ?? null;
+}
 
 /**
  * Lista todos os clientes do tenant com busca por nome/telefone/email.
@@ -58,8 +103,23 @@ export async function createCustomer(
 > {
   const normalizedName = data.name.trim();
   const normalizedPhone = data.phone.trim();
-  const normalizedEmail = data.email?.trim() || null;
-  const normalizedDocument = data.document?.trim() || null;
+  const normalizedEmail = normalizeOptionalText(data.email);
+  const normalizedDocument = normalizeOptionalText(data.document);
+  const normalizedZipCode = normalizeOptionalText(data.zipCode);
+  const normalizedStreet = normalizeOptionalText(data.street);
+  const normalizedNumber = normalizeOptionalText(data.number);
+  const normalizedComplement = normalizeOptionalText(data.complement);
+  const normalizedNeighborhood = normalizeOptionalText(data.neighborhood);
+  const normalizedCity = normalizeOptionalText(data.city);
+  const normalizedState = normalizeOptionalText(data.state);
+  const normalizedNotes = normalizeOptionalText(data.notes);
+  const normalizedBirthDate = normalizeBirthDate(data.birthDate);
+  const normalizedGender = data.gender ?? "NOT_INFORMED";
+  const normalizedAddress = buildLegacyAddress({
+    street: normalizedStreet,
+    number: normalizedNumber,
+    complement: normalizedComplement,
+  });
 
   if (normalizedDocument) {
     const existingDocument = await db.customer.findFirst({
@@ -86,7 +146,129 @@ export async function createCustomer(
       phone: normalizedPhone,
       email: normalizedEmail,
       document: normalizedDocument,
+      birthDate: normalizedBirthDate,
+      gender: normalizedGender,
+      address: normalizedAddress,
+      zipCode: normalizedZipCode,
+      street: normalizedStreet,
+      number: normalizedNumber,
+      complement: normalizedComplement,
+      neighborhood: normalizedNeighborhood,
+      city: normalizedCity,
+      state: normalizedState,
+      notes: normalizedNotes,
       isActive: true,
+    },
+  });
+
+  return {
+    success: true,
+    data: {
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        document: customer.document,
+      },
+    },
+  };
+}
+
+export async function updateCustomer(
+  tenantId: string,
+  customerId: string,
+  data: UpdateCustomerInput
+): Promise<
+  ActionResult<{
+    customer: {
+      id: string;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      document: string | null;
+    };
+  }>
+> {
+  const existingCustomer = await db.customer.findFirst({
+    where: {
+      id: customerId,
+      tenantId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      address: true,
+    },
+  });
+
+  if (!existingCustomer) {
+    return {
+      success: false,
+      error: "Cliente não encontrado.",
+    };
+  }
+
+  const normalizedName = data.name.trim();
+  const normalizedPhone = data.phone.trim();
+  const normalizedEmail = normalizeOptionalText(data.email);
+  const normalizedDocument = normalizeOptionalText(data.document);
+  const normalizedZipCode = normalizeOptionalText(data.zipCode);
+  const normalizedStreet = normalizeOptionalText(data.street);
+  const normalizedNumber = normalizeOptionalText(data.number);
+  const normalizedComplement = normalizeOptionalText(data.complement);
+  const normalizedNeighborhood = normalizeOptionalText(data.neighborhood);
+  const normalizedCity = normalizeOptionalText(data.city);
+  const normalizedState = normalizeOptionalText(data.state);
+  const normalizedNotes = normalizeOptionalText(data.notes);
+  const normalizedBirthDate = normalizeBirthDate(data.birthDate);
+  const normalizedGender = data.gender ?? "NOT_INFORMED";
+  const normalizedAddress = buildLegacyAddress({
+    street: normalizedStreet,
+    number: normalizedNumber,
+    complement: normalizedComplement,
+    fallbackAddress: existingCustomer.address,
+  });
+
+  if (normalizedDocument) {
+    const existingDocument = await db.customer.findFirst({
+      where: {
+        tenantId,
+        deletedAt: null,
+        document: normalizedDocument,
+        id: {
+          not: customerId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingDocument) {
+      return {
+        success: false,
+        error: "Já existe um cliente com este CPF / documento neste estabelecimento.",
+      };
+    }
+  }
+
+  const customer = await db.customer.update({
+    where: { id: customerId },
+    data: {
+      name: normalizedName,
+      phone: normalizedPhone,
+      email: normalizedEmail,
+      document: normalizedDocument,
+      birthDate: normalizedBirthDate,
+      gender: normalizedGender,
+      address: normalizedAddress,
+      zipCode: normalizedZipCode,
+      street: normalizedStreet,
+      number: normalizedNumber,
+      complement: normalizedComplement,
+      neighborhood: normalizedNeighborhood,
+      city: normalizedCity,
+      state: normalizedState,
+      notes: normalizedNotes,
     },
   });
 
@@ -124,6 +306,10 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     birthDate: customer.birthDate?.toISOString() ?? null,
     gender: customer.gender,
     address: customer.address,
+    street: customer.street,
+    number: customer.number,
+    complement: customer.complement,
+    neighborhood: customer.neighborhood,
     city: customer.city,
     state: customer.state,
     zipCode: customer.zipCode,

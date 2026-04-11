@@ -283,9 +283,13 @@ model Customer {
   birthDate   DateTime?
   gender      Gender    @default(NOT_INFORMED)
   address     String?
+  zipCode     String?
+  street      String?
+  number      String?
+  complement  String?
+  neighborhood String?
   city        String?
   state       String?
-  zipCode     String?
   notes       String?   @db.Text // Observações gerais
   totalSpent  Decimal   @default(0) @db.Decimal(12, 2) // LTV acumulado
   visitCount  Int       @default(0) // Total de visitas finalizadas

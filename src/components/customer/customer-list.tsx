@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/animated-dialog";
 import { AnimatedList } from "@/components/ui/animated-list";
 import { Search, Users, Phone, Mail, ChevronRight, Plus } from "lucide-react";
-import { CustomerCreateForm } from "@/components/customer/customer-create-form";
+import { CustomerForm } from "@/components/customer/customer-form";
 
 type CustomerRow = {
   id: string;
@@ -75,17 +75,20 @@ export function CustomerList({ customers }: { customers: CustomerRow[] }) {
               </Button>
             }
           />
-          <AnimatedDialogContent className="sm:max-w-lg">
+          <AnimatedDialogContent className="overflow-hidden p-0 sm:max-w-3xl">
             <AnimatedDialogHeader>
               <AnimatedDialogTitle>Novo Cliente</AnimatedDialogTitle>
               <AnimatedDialogDescription>
                 Cadastre manualmente um novo cliente ou paciente no estabelecimento.
               </AnimatedDialogDescription>
             </AnimatedDialogHeader>
-            <CustomerCreateForm
-              onCancel={() => setIsDialogOpen(false)}
-              onSuccess={() => setIsDialogOpen(false)}
-            />
+            <div className="px-6 pb-6">
+              <CustomerForm
+                mode="full"
+                onCancel={() => setIsDialogOpen(false)}
+                onSuccess={() => setIsDialogOpen(false)}
+              />
+            </div>
           </AnimatedDialogContent>
         </AnimatedDialog>
       </div>

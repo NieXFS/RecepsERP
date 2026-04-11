@@ -1,5 +1,18 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CustomerForm } from "@/components/customer/customer-form";
 import {
   Phone,
   Mail,
@@ -8,6 +21,7 @@ import {
   Star,
   DollarSign,
   ArrowLeft,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -20,8 +34,14 @@ type CustomerProfile = {
   birthDate: string | null;
   gender: string;
   address: string | null;
+  zipCode: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string | null;
   city: string | null;
   state: string | null;
+  notes: string | null;
   totalSpent: number;
   visitCount: number;
   createdAt: string;
@@ -33,6 +53,8 @@ type CustomerProfile = {
  *   Bronze: < R$500 | Prata: R$500–2000 | Ouro: R$2000–5000 | Diamante: > R$5000
  */
 export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
+  const router = useRouter();
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const tier = getClientTier(profile.totalSpent);
   const initials = profile.name
     .split(" ")
@@ -81,6 +103,16 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
                 >
                   {tier.icon} {tier.label}
                 </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsEditOpen(true)}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  Editar Perfil
+                </Button>
               </div>
 
               {/* Info de contato */}
@@ -133,6 +165,52 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Editar Perfil do Cliente</DialogTitle>
+            <DialogDescription>
+              Atualize os dados cadastrais e de contato de {profile.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-6">
+            <CustomerForm
+              mode="full"
+              initialData={{
+                id: profile.id,
+                name: profile.name,
+                phone: profile.phone,
+                email: profile.email,
+                document: profile.document,
+                birthDate: profile.birthDate,
+                gender:
+                  profile.gender === "MALE" ||
+                  profile.gender === "FEMALE" ||
+                  profile.gender === "OTHER" ||
+                  profile.gender === "NOT_INFORMED"
+                    ? profile.gender
+                    : "NOT_INFORMED",
+                zipCode: profile.zipCode,
+                street: profile.street,
+                number: profile.number,
+                complement: profile.complement,
+                neighborhood: profile.neighborhood,
+                city: profile.city,
+                state: profile.state,
+                notes: profile.notes,
+              }}
+              refreshOnSuccess={false}
+              onCancel={() => setIsEditOpen(false)}
+              onSuccess={() => {
+                setIsEditOpen(false);
+                router.refresh();
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

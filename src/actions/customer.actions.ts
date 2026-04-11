@@ -1,11 +1,16 @@
 "use server";
 
 import { getAuthUser } from "@/lib/session";
-import { createCustomerSchema } from "@/lib/validators/customer";
+import {
+  createCustomerSchema,
+  updateCustomerSchema,
+  type CustomerInput,
+} from "@/lib/validators/customer";
 import {
   addClinicalNote,
   addCustomerMedia,
   createCustomer,
+  updateCustomer,
 } from "@/services/customer.service";
 import type { ActionResult } from "@/types";
 
@@ -13,12 +18,9 @@ import type { ActionResult } from "@/types";
  * Server Action para criação manual de clientes a partir do dashboard.
  * O tenantId é sempre extraído da sessão autenticada do usuário atual.
  */
-export async function createCustomerAction(input: {
-  name: string;
-  phone: string;
-  email?: string;
-  document?: string;
-}): Promise<
+export async function createCustomerAction(
+  input: CustomerInput
+): Promise<
   ActionResult<{
     customer: {
       id: string;
@@ -48,6 +50,62 @@ export async function createCustomerAction(input: {
     phone: parsed.data.phone,
     email: parsed.data.email || undefined,
     document: parsed.data.document || undefined,
+    birthDate: parsed.data.birthDate || undefined,
+    gender: parsed.data.gender,
+    zipCode: parsed.data.zipCode || undefined,
+    street: parsed.data.street || undefined,
+    number: parsed.data.number || undefined,
+    complement: parsed.data.complement || undefined,
+    neighborhood: parsed.data.neighborhood || undefined,
+    city: parsed.data.city || undefined,
+    state: parsed.data.state || undefined,
+    notes: parsed.data.notes || undefined,
+  });
+}
+
+export async function updateCustomerAction(
+  customerId: string,
+  input: CustomerInput
+): Promise<
+  ActionResult<{
+    customer: {
+      id: string;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      document: string | null;
+    };
+  }>
+> {
+  const user = await getAuthUser();
+  const parsed = updateCustomerSchema.safeParse(input);
+
+  if (!parsed.success) {
+    const firstError = Object.values(parsed.error.flatten().fieldErrors)
+      .flat()
+      .find(Boolean);
+
+    return {
+      success: false,
+      error: firstError ?? "Dados inválidos para atualizar o cliente.",
+    };
+  }
+
+  return updateCustomer(user.tenantId, customerId, {
+    name: parsed.data.name,
+    phone: parsed.data.phone,
+    email: parsed.data.email || undefined,
+    document: parsed.data.document || undefined,
+    birthDate: parsed.data.birthDate || undefined,
+    gender: parsed.data.gender,
+    zipCode: parsed.data.zipCode || undefined,
+    street: parsed.data.street || undefined,
+    number: parsed.data.number || undefined,
+    complement: parsed.data.complement || undefined,
+    neighborhood: parsed.data.neighborhood || undefined,
+    city: parsed.data.city || undefined,
+    state: parsed.data.state || undefined,
+    notes: parsed.data.notes || undefined,
   });
 }
 

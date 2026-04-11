@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
   FlaskConical,
   Users,
   X,
+  Search,
 } from "lucide-react";
 import {
   createServiceAction,
@@ -101,6 +102,7 @@ export function ServiceCatalogPanel({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -120,6 +122,19 @@ export function ServiceCatalogPanel({
     value: professional.id,
     label: `${professional.name} (padrão: ${professional.commissionPercent}%)`,
   }));
+  const filteredServices = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return services;
+    }
+
+    return services.filter((service) => {
+      const haystacks = [service.name, service.description ?? ""];
+
+      return haystacks.some((value) => value.toLowerCase().includes(query));
+    });
+  }, [search, services]);
 
   function resetForm() {
     setEditingId(null);
@@ -272,7 +287,7 @@ export function ServiceCatalogPanel({
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {services.length} serviço{services.length !== 1 ? "s" : ""} cadastrado{services.length !== 1 ? "s" : ""}
+          {filteredServices.length} serviço{filteredServices.length !== 1 ? "s" : ""} exibido{filteredServices.length !== 1 ? "s" : ""}
         </p>
         <DialogTrigger
           render={
@@ -284,6 +299,19 @@ export function ServiceCatalogPanel({
         />
       </div>
 
+      <div className="relative">
+        <Search
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          placeholder="Buscar por nome ou descrição do serviço..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {/* Lista de serviços */}
       {services.length === 0 ? (
         <Card className="animate-fade-in">
@@ -291,9 +319,15 @@ export function ServiceCatalogPanel({
             Nenhum serviço cadastrado. Crie o primeiro!
           </CardContent>
         </Card>
+      ) : filteredServices.length === 0 ? (
+        <Card className="animate-fade-in">
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Nenhum serviço encontrado para a busca atual.
+          </CardContent>
+        </Card>
       ) : (
         <AnimatedList className="grid gap-3" stagger={40}>
-          {services.map((service) => (
+          {filteredServices.map((service) => (
             <Card key={service.id} className="transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
               <CardContent className="py-4">
                 <div className="flex items-start gap-4">
