@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { getAuthUserForModule } from "@/lib/session";
-import { parseCivilMonthFromQuery } from "@/lib/civil-date";
+import { getCivilMonthRange, parseCivilMonthFromQuery } from "@/lib/civil-date";
 import {
+  getAppointmentsHeatmap,
   getDailyKPIs,
   getDailyRevenueForTenant,
   getMonthlyStatsForTenant,
 } from "@/services/dashboard.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AppointmentsHeatmap } from "@/components/dashboard/appointments-heatmap";
 import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
 import { MonthlySummarySection } from "@/components/dashboard/monthly-summary-section";
 import {
@@ -28,11 +30,13 @@ export default async function DashboardPage({
   const user = await getAuthUserForModule("DASHBOARD");
   const query = searchParams ? await searchParams : undefined;
   const selectedMonth = parseCivilMonthFromQuery(query?.month, query?.year);
+  const { start, endExclusive } = getCivilMonthRange(selectedMonth);
 
-  const [kpis, monthlyStats, dailyRevenue] = await Promise.all([
+  const [kpis, monthlyStats, dailyRevenue, appointmentsHeatmap] = await Promise.all([
     getDailyKPIs(user.tenantId),
     getMonthlyStatsForTenant(user.tenantId, selectedMonth),
     getDailyRevenueForTenant(user.tenantId, selectedMonth),
+    getAppointmentsHeatmap(user.tenantId, start, endExclusive),
   ]);
 
   const isEmptyDashboard =
@@ -134,11 +138,14 @@ export default async function DashboardPage({
         })}
       </div>
 
-      <MonthlySummarySection
-        period={selectedMonth}
-        stats={monthlyStats}
-        series={dailyRevenue}
-      />
+      <div className="flex flex-col gap-4">
+        <MonthlySummarySection
+          period={selectedMonth}
+          stats={monthlyStats}
+          series={dailyRevenue}
+        />
+        <AppointmentsHeatmap heatmap={appointmentsHeatmap} />
+      </div>
     </div>
   );
 }

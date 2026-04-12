@@ -31,6 +31,41 @@ export type DailyRevenuePoint = {
   despesas: number;
 };
 
+export type AppointmentHeatmapSlot = {
+  hour: number;
+  count: number;
+};
+
+export type AppointmentHeatmapDay = {
+  dayOfWeek: number;
+  label: string;
+  slots: AppointmentHeatmapSlot[];
+};
+
+export type AppointmentsHeatmap = {
+  hours: number[];
+  days: AppointmentHeatmapDay[];
+  maxCount: number;
+  totalAppointments: number;
+};
+
+const APPOINTMENT_HEATMAP_HOURS = Array.from(
+  { length: 20 - 8 + 1 },
+  (_, index) => 8 + index
+);
+
+const APPOINTMENT_HEATMAP_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+const APPOINTMENT_HEATMAP_DAY_LABELS: Record<number, string> = {
+  0: "Dom",
+  1: "Seg",
+  2: "Ter",
+  3: "Qua",
+  4: "Qui",
+  5: "Sex",
+  6: "Sáb",
+};
+
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -358,4 +393,69 @@ export async function getDailyRevenueForTenant(
   }
 
   return Array.from(points.values());
+}
+
+/**
+ * Consolida o volume de agendamentos por dia da semana e hora do dia.
+ * O agrupamento é feito em memória para manter compatibilidade entre bancos.
+ */
+export async function getAppointmentsHeatmap(
+  tenantId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<AppointmentsHeatmap> {
+  const appointments = await db.appointment.findMany({
+    where: {
+      tenantId,
+      startTime: {
+        gte: startDate,
+        lt: endDate,
+      },
+    },
+    select: {
+      startTime: true,
+    },
+  });
+
+  const days = APPOINTMENT_HEATMAP_DAY_ORDER.map((dayOfWeek) => ({
+    dayOfWeek,
+    label: APPOINTMENT_HEATMAP_DAY_LABELS[dayOfWeek],
+    slots: APPOINTMENT_HEATMAP_HOURS.map((hour) => ({
+      hour,
+      count: 0,
+    })),
+  }));
+
+  let maxCount = 0;
+  let totalAppointments = 0;
+
+  for (const appointment of appointments) {
+    const dayOfWeek = appointment.startTime.getDay();
+    const hour = appointment.startTime.getHours();
+
+    if (
+      !APPOINTMENT_HEATMAP_HOURS.includes(hour) ||
+      !APPOINTMENT_HEATMAP_DAY_ORDER.includes(dayOfWeek)
+    ) {
+      continue;
+    }
+
+    const day = days.find((entry) => entry.dayOfWeek === dayOfWeek);
+    const slot = day?.slots.find((entry) => entry.hour === hour);
+
+    if (!slot) {
+      continue;
+    }
+
+    slot.count += 1;
+    totalAppointments += 1;
+    maxCount = Math.max(maxCount, slot.count);
+  }
+
+  return {
+    hours: APPOINTMENT_HEATMAP_HOURS,
+    days,
+    maxCount,
+    totalAppointments,
+  };
 }

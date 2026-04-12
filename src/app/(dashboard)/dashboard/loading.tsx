@@ -64,6 +64,32 @@ export default function DashboardLoading() {
             <div className="h-[320px] animate-pulse rounded-lg bg-muted" />
           </div>
         </div>
+
+        <div className="flex flex-col gap-4 rounded-xl bg-card py-4 ring-1 ring-foreground/10">
+          <div className="px-4">
+            <div className="h-5 w-52 animate-pulse rounded bg-muted" />
+            <div className="mt-2 h-4 w-80 animate-pulse rounded bg-muted" />
+          </div>
+          <div className="px-4">
+            <div className="grid gap-2" style={{ gridTemplateColumns: "60px repeat(13, minmax(0, 1fr))" }}>
+              <div />
+              {Array.from({ length: 13 }).map((_, i) => (
+                <div key={`hour-${i}`} className="h-4 animate-pulse rounded bg-muted" />
+              ))}
+              {Array.from({ length: 7 }).map((_, row) => (
+                <div key={`row-${row}`} className="contents">
+                  <div className="h-8 animate-pulse rounded bg-muted" />
+                  {Array.from({ length: 13 }).map((_, col) => (
+                    <div
+                      key={`cell-${row}-${col}`}
+                      className="h-9 animate-pulse rounded-md bg-muted"
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
