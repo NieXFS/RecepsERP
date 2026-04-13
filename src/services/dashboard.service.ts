@@ -13,6 +13,11 @@ import {
   getTodayCivilDate,
   type CivilMonth,
 } from "@/lib/civil-date";
+import {
+  generateHeatmapHours,
+  getTenantScheduleBounds,
+  normalizeTenantScheduleConfig,
+} from "@/lib/tenant-schedule";
 
 export type MonthlyDashboardStats = {
   faturamentoMes: number;
@@ -47,12 +52,9 @@ export type AppointmentsHeatmap = {
   days: AppointmentHeatmapDay[];
   maxCount: number;
   totalAppointments: number;
+  openingTime: string;
+  closingTime: string;
 };
-
-const APPOINTMENT_HEATMAP_HOURS = Array.from(
-  { length: 20 - 8 + 1 },
-  (_, index) => 8 + index
-);
 
 const APPOINTMENT_HEATMAP_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -404,23 +406,37 @@ export async function getAppointmentsHeatmap(
   startDate: Date,
   endDate: Date
 ): Promise<AppointmentsHeatmap> {
-  const appointments = await db.appointment.findMany({
-    where: {
-      tenantId,
-      startTime: {
-        gte: startDate,
-        lt: endDate,
+  const [tenant, appointments] = await Promise.all([
+    db.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        openingTime: true,
+        closingTime: true,
+        slotIntervalMinutes: true,
       },
-    },
-    select: {
-      startTime: true,
-    },
-  });
+    }),
+    db.appointment.findMany({
+      where: {
+        tenantId,
+        startTime: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      select: {
+        startTime: true,
+      },
+    }),
+  ]);
+
+  const scheduleConfig = normalizeTenantScheduleConfig(tenant);
+  const hours = generateHeatmapHours(scheduleConfig);
+  const scheduleBounds = getTenantScheduleBounds(scheduleConfig);
 
   const days = APPOINTMENT_HEATMAP_DAY_ORDER.map((dayOfWeek) => ({
     dayOfWeek,
     label: APPOINTMENT_HEATMAP_DAY_LABELS[dayOfWeek],
-    slots: APPOINTMENT_HEATMAP_HOURS.map((hour) => ({
+    slots: hours.map((hour) => ({
       hour,
       count: 0,
     })),
@@ -432,9 +448,13 @@ export async function getAppointmentsHeatmap(
   for (const appointment of appointments) {
     const dayOfWeek = appointment.startTime.getDay();
     const hour = appointment.startTime.getHours();
+    const startMinutes =
+      appointment.startTime.getHours() * 60 + appointment.startTime.getMinutes();
 
     if (
-      !APPOINTMENT_HEATMAP_HOURS.includes(hour) ||
+      startMinutes < scheduleBounds.startMinutes ||
+      startMinutes >= scheduleBounds.endMinutes ||
+      !hours.includes(hour) ||
       !APPOINTMENT_HEATMAP_DAY_ORDER.includes(dayOfWeek)
     ) {
       continue;
@@ -453,9 +473,11 @@ export async function getAppointmentsHeatmap(
   }
 
   return {
-    hours: APPOINTMENT_HEATMAP_HOURS,
+    hours,
     days,
     maxCount,
     totalAppointments,
+    openingTime: scheduleConfig.openingTime,
+    closingTime: scheduleConfig.closingTime,
   };
 }

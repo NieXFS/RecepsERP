@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import type { TenantAccentTheme } from "@/generated/prisma/enums";
 import { requireModuleAccess } from "@/lib/session";
 import { tenantAppearanceSchema } from "@/lib/validators/appearance";
-import { updateTenantAccentTheme } from "@/services/tenant-settings.service";
+import { tenantBusinessSettingsSchema } from "@/lib/validators/tenant-settings";
+import {
+  updateTenantAccentTheme,
+  updateTenantBusinessSettings,
+} from "@/services/tenant-settings.service";
 import type { ActionResult } from "@/types";
 
 /**
@@ -29,6 +33,37 @@ export async function updateTenantAccentThemeAction(
   if (result.success) {
     revalidatePath("/dashboard", "layout");
     revalidatePath("/configuracoes/aparencia");
+  }
+
+  return result;
+}
+
+export async function updateTenantSettingsAction(
+  input: unknown
+): Promise<ActionResult<{ name: string }>> {
+  const user = await requireModuleAccess("CONFIGURACOES", "edit");
+
+  if (user.role !== "ADMIN") {
+    return {
+      success: false,
+      error: "Apenas administradores podem alterar os dados do negócio.",
+    };
+  }
+
+  const parsed = tenantBusinessSettingsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues.map((issue) => issue.message).join(", "),
+    };
+  }
+
+  const result = await updateTenantBusinessSettings(user.tenantId, parsed.data);
+
+  if (result.success) {
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/agenda");
+    revalidatePath("/configuracoes/negocio");
   }
 
   return result;

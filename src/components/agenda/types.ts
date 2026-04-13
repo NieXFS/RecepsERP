@@ -1,3 +1,9 @@
+import {
+  CALENDAR_SLOT_HEIGHT_PX,
+  generateTimeSlots as generateTenantTimeSlots,
+  type TenantScheduleConfig,
+} from "@/lib/tenant-schedule";
+
 /** Profissional serializado para o Client Component da agenda */
 export type CalendarProfessional = {
   id: string;
@@ -67,25 +73,14 @@ export type CalendarResource = {
   name: string;
 };
 
-/** Configuração da grade de horários */
+export type CalendarScheduleConfig = TenantScheduleConfig;
+
+/** Configuração visual fixa da grade (a malha é dinâmica, a altura do slot não). */
 export const CALENDAR_CONFIG = {
-  START_HOUR: 8,
-  END_HOUR: 20,
-  SLOT_MINUTES: 30,
-  SLOT_HEIGHT_PX: 48, // Altura de cada slot de 30min em pixels
+  SLOT_HEIGHT_PX: CALENDAR_SLOT_HEIGHT_PX,
 } as const;
 
-/** Gera os slots de horário para o eixo Y do grid */
-export function generateTimeSlots() {
-  const slots: { hour: number; minute: number; label: string }[] = [];
-  for (let h = CALENDAR_CONFIG.START_HOUR; h < CALENDAR_CONFIG.END_HOUR; h++) {
-    for (let m = 0; m < 60; m += CALENDAR_CONFIG.SLOT_MINUTES) {
-      slots.push({
-        hour: h,
-        minute: m,
-        label: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
-      });
-    }
-  }
-  return slots;
+/** Gera os slots de horário para o eixo Y do grid com base no expediente do tenant. */
+export function generateTimeSlots(config: CalendarScheduleConfig) {
+  return generateTenantTimeSlots(config);
 }

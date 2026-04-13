@@ -46,7 +46,8 @@ export function AppointmentsHeatmap({
           selecionado.
         </p>
         <p className="text-xs text-muted-foreground">
-          Faixa analisada: 08h às 20h · {heatmap.totalAppointments} agendamento(s)
+          Faixa analisada: {heatmap.openingTime} às {heatmap.closingTime} ·{" "}
+          {heatmap.totalAppointments} agendamento(s)
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -101,11 +102,11 @@ export function AppointmentsHeatmap({
           <div className="flex items-center gap-2">
             <span>Frio</span>
             <div className="flex items-center gap-1">
-              <span className="h-3 w-3 rounded-sm border border-background bg-emerald-500 dark:bg-emerald-600" />
-              <span className="h-3 w-3 rounded-sm border border-background bg-green-400 dark:bg-green-500" />
-              <span className="h-3 w-3 rounded-sm border border-background bg-yellow-400 dark:bg-yellow-500" />
-              <span className="h-3 w-3 rounded-sm border border-background bg-orange-500" />
-              <span className="h-3 w-3 rounded-sm border border-background bg-red-600" />
+              <span className="h-3 w-3 rounded-sm bg-muted/20" />
+              <span className="h-3 w-3 rounded-sm bg-emerald-500/30" />
+              <span className="h-3 w-3 rounded-sm bg-amber-500/50" />
+              <span className="h-3 w-3 rounded-sm bg-orange-500/80" />
+              <span className="h-3 w-3 rounded-sm bg-rose-600" />
             </div>
             <span>Quente</span>
           </div>

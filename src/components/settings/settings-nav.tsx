@@ -4,9 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Role, TenantModule } from "@/generated/prisma/enums";
-import { Palette, Users, Scissors, Building2, Landmark } from "lucide-react";
+import { Palette, Users, Scissors, Building2, Landmark, Store } from "lucide-react";
 
 const tabs = [
+  {
+    href: "/configuracoes/negocio",
+    label: "Negócio",
+    icon: Store,
+    module: "CONFIGURACOES" as TenantModule,
+    adminOnly: true,
+  },
   {
     href: "/configuracoes/aparencia",
     label: "Aparência",

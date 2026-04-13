@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
+import { getAuthUserForModule } from "@/lib/session";
 
-/** Redireciona /configuracoes para a primeira sub-rota de aparência. */
-export default function SettingsIndexPage() {
-  redirect("/configuracoes/aparencia");
+/** Redireciona /configuracoes para a sub-rota mais relevante por perfil. */
+export default async function SettingsIndexPage() {
+  const user = await getAuthUserForModule("CONFIGURACOES");
+
+  redirect(user.role === "ADMIN" ? "/configuracoes/negocio" : "/configuracoes/aparencia");
 }

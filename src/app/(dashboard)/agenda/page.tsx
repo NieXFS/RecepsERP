@@ -2,6 +2,7 @@ import { getAuthUserForModule } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DailyCalendar } from "@/components/agenda/daily-calendar";
 import { getCashRegisterOverview } from "@/services/financial.service";
+import { normalizeTenantScheduleConfig } from "@/lib/tenant-schedule";
 import {
   formatCivilDateToQuery,
   getCivilDayRange,
@@ -37,6 +38,7 @@ export default async function AgendaPage({
     equipment,
     financialAccounts,
     cashOverview,
+    tenantSettings,
   ] =
     await Promise.all([
       // Profissionais ativos do tenant com registro Professional.
@@ -124,7 +126,18 @@ export default async function AgendaPage({
       }),
 
       getCashRegisterOverview(tenantId),
+
+      db.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          openingTime: true,
+          closingTime: true,
+          slotIntervalMinutes: true,
+        },
+      }),
     ]);
+
+  const scheduleConfig = normalizeTenantScheduleConfig(tenantSettings);
 
   // Serializa os dados para o Client Component (Decimal → number, Date → string)
   const serializedProfessionals = professionals.map((p) => ({
@@ -184,6 +197,7 @@ export default async function AgendaPage({
     <div className="flex flex-col gap-4 h-full">
       <DailyCalendar
         date={formatCivilDateToQuery(selectedDate)}
+        scheduleConfig={scheduleConfig}
         professionals={serializedProfessionals}
         appointments={serializedGridAppointments}
         operationalAppointments={operationalAppointments}

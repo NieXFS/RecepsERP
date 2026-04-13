@@ -1,5 +1,7 @@
 import type { TenantAccentTheme } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { normalizeTenantScheduleConfig } from "@/lib/tenant-schedule";
+import type { TenantBusinessSettingsInput } from "@/lib/validators/tenant-settings";
 import type { ActionResult } from "@/types";
 
 /**
@@ -21,6 +23,69 @@ export async function getTenantAppearanceSettings(tenantId: string) {
   }
 
   return tenant;
+}
+
+export async function getTenantBusinessSettings(tenantId: string) {
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      id: true,
+      name: true,
+      document: true,
+      phone: true,
+      email: true,
+      openingTime: true,
+      closingTime: true,
+      slotIntervalMinutes: true,
+    },
+  });
+
+  if (!tenant) {
+    throw new Error("Estabelecimento não encontrado.");
+  }
+
+  return {
+    ...tenant,
+    ...normalizeTenantScheduleConfig(tenant),
+  };
+}
+
+export async function updateTenantBusinessSettings(
+  tenantId: string,
+  input: TenantBusinessSettingsInput
+): Promise<ActionResult<{ name: string }>> {
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true },
+  });
+
+  if (!tenant) {
+    return { success: false, error: "Estabelecimento não encontrado." };
+  }
+
+  const normalizedSchedule = normalizeTenantScheduleConfig({
+    openingTime: input.openingTime,
+    closingTime: input.closingTime,
+    slotIntervalMinutes: input.slotIntervalMinutes,
+  });
+
+  await db.tenant.update({
+    where: { id: tenantId },
+    data: {
+      name: input.name,
+      document: input.document || null,
+      phone: input.phone || null,
+      email: input.email || null,
+      openingTime: normalizedSchedule.openingTime,
+      closingTime: normalizedSchedule.closingTime,
+      slotIntervalMinutes: normalizedSchedule.slotIntervalMinutes,
+    },
+  });
+
+  return {
+    success: true,
+    data: { name: input.name },
+  };
 }
 
 /**

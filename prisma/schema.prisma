@@ -29,6 +29,9 @@ model Tenant {
   city            String?
   state           String?
   zipCode         String?
+  openingTime     String               @default("08:00")
+  closingTime     String               @default("20:00")
+  slotIntervalMinutes Int              @default(30)
   logoUrl         String?
   notes           String?              @db.Text
   isActive        Boolean              @default(true)

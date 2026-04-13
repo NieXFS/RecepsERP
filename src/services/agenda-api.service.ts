@@ -1,11 +1,16 @@
 import { db } from "@/lib/db";
 import { createAppointment } from "@/services/appointment.service";
-import { CALENDAR_CONFIG, generateTimeSlots } from "@/components/agenda/types";
 import {
   civilDateToLocalDate,
   getCivilDayRange,
   parseCivilDate,
 } from "@/lib/civil-date";
+import {
+  generateTimeSlots,
+  getTenantScheduleBounds,
+  normalizeTenantScheduleConfig,
+  type TenantScheduleConfig,
+} from "@/lib/tenant-schedule";
 import type {
   AgendaInfoQuery,
   AvailabilityQuery,
@@ -16,6 +21,9 @@ type AgendaApiTenant = {
   id: string;
   slug: string;
   name: string;
+  openingTime: string;
+  closingTime: string;
+  slotIntervalMinutes: number;
 };
 
 type AvailabilitySlot = {
@@ -28,7 +36,11 @@ function formatTimeLabel(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-function buildAvailabilitySlots(date: string, durationMinutes: number): AvailabilitySlot[] {
+function buildAvailabilitySlots(
+  date: string,
+  durationMinutes: number,
+  scheduleConfig: TenantScheduleConfig
+): AvailabilitySlot[] {
   const civilDate = parseCivilDate(date);
 
   if (!civilDate) {
@@ -36,7 +48,9 @@ function buildAvailabilitySlots(date: string, durationMinutes: number): Availabi
   }
 
   const dayRange = getCivilDayRange(civilDate);
-  const slots = generateTimeSlots();
+  const normalizedSchedule = normalizeTenantScheduleConfig(scheduleConfig);
+  const slots = generateTimeSlots(normalizedSchedule);
+  const scheduleBounds = getTenantScheduleBounds(normalizedSchedule);
 
   return slots
     .map((slot) => {
@@ -55,14 +69,14 @@ function buildAvailabilitySlots(date: string, durationMinutes: number): Availabi
       };
     })
     .filter((slot) => {
-      const hourBoundary = civilDateToLocalDate(civilDate, {
-        hour: CALENDAR_CONFIG.END_HOUR,
-        minute: 0,
+      const closingBoundary = civilDateToLocalDate(civilDate, {
+        hour: Math.floor(scheduleBounds.endMinutes / 60),
+        minute: scheduleBounds.endMinutes % 60,
         second: 0,
         millisecond: 0,
       });
 
-      return slot.startTime >= dayRange.start && slot.endTime <= hourBoundary;
+      return slot.startTime >= dayRange.start && slot.endTime <= closingBoundary;
     });
 }
 
@@ -90,6 +104,9 @@ async function getActiveTenantBySlug(tenantSlug: string): Promise<AgendaApiTenan
       id: true,
       slug: true,
       name: true,
+      openingTime: true,
+      closingTime: true,
+      slotIntervalMinutes: true,
     },
   });
 }
@@ -350,7 +367,11 @@ export async function getAgendaAvailabilityForBot(params: AvailabilityQuery) {
     },
   });
 
-  const candidateSlots = buildAvailabilitySlots(params.date, service.durationMinutes);
+  const candidateSlots = buildAvailabilitySlots(
+    params.date,
+    service.durationMinutes,
+    tenant
+  );
   const availableTimes = candidateSlots
     .filter((slot) =>
       professionals.some(

@@ -12,6 +12,7 @@ import { getAppointmentStatusLabel } from "@/lib/appointments/status";
 import {
   generateTimeSlots,
   CALENDAR_CONFIG,
+  type CalendarScheduleConfig,
   type CalendarProfessional,
   type CalendarAppointment,
   type CalendarFinancialAccount,
@@ -28,10 +29,12 @@ import {
   getTodayCivilDate,
   parseCivilDateFromQuery,
 } from "@/lib/civil-date";
+import { getTenantScheduleBounds } from "@/lib/tenant-schedule";
 import { useSwipeNavigation } from "@/hooks/use-swipe-navigation";
 
 type DailyCalendarProps = {
   date: string;
+  scheduleConfig: CalendarScheduleConfig;
   professionals: CalendarProfessional[];
   appointments: CalendarAppointment[];
   operationalAppointments: OperationalAppointment[];
@@ -63,6 +66,7 @@ type DailyCalendarProps = {
  */
 export function DailyCalendar({
   date,
+  scheduleConfig,
   professionals,
   appointments,
   operationalAppointments,
@@ -81,7 +85,14 @@ export function DailyCalendar({
     () => civilDateToLocalDate(currentCivilDate),
     [currentCivilDate]
   );
-  const timeSlots = useMemo(() => generateTimeSlots(), []);
+  const timeSlots = useMemo(
+    () => generateTimeSlots(scheduleConfig),
+    [scheduleConfig]
+  );
+  const scheduleBounds = useMemo(
+    () => getTenantScheduleBounds(scheduleConfig),
+    [scheduleConfig]
+  );
 
   // Estado do modal de novo agendamento
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -153,10 +164,12 @@ export function DailyCalendar({
   const now = new Date();
   const isToday = currentDate.toDateString() === now.toDateString();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const gridStartMinutes = CALENDAR_CONFIG.START_HOUR * 60;
-  const gridEndMinutes = CALENDAR_CONFIG.END_HOUR * 60;
+  const gridStartMinutes = scheduleBounds.startMinutes;
+  const gridEndMinutes = scheduleBounds.endMinutes;
   const showNowLine = isToday && nowMinutes >= gridStartMinutes && nowMinutes <= gridEndMinutes;
-  const nowLineTop = ((nowMinutes - gridStartMinutes) / CALENDAR_CONFIG.SLOT_MINUTES) * CALENDAR_CONFIG.SLOT_HEIGHT_PX;
+  const nowLineTop =
+    ((nowMinutes - gridStartMinutes) / scheduleConfig.slotIntervalMinutes) *
+    CALENDAR_CONFIG.SLOT_HEIGHT_PX;
   const nowFormatted = now.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
@@ -220,17 +233,33 @@ export function DailyCalendar({
     }
 
     const initialTime = new Date(currentDate);
+    const latestStartMinutes = Math.max(
+      scheduleBounds.startMinutes,
+      scheduleBounds.endMinutes - scheduleConfig.slotIntervalMinutes
+    );
 
     if (isToday) {
-      const clampedHour = Math.min(
-        Math.max(now.getHours(), CALENDAR_CONFIG.START_HOUR),
-        CALENDAR_CONFIG.END_HOUR - 1
+      const clampedMinutes = Math.min(
+        Math.max(now.getHours() * 60 + now.getMinutes(), scheduleBounds.startMinutes),
+        latestStartMinutes
       );
-      const roundedMinute = now.getMinutes() >= 30 ? 30 : 0;
+      const roundedMinutes =
+        clampedMinutes -
+        (clampedMinutes % scheduleConfig.slotIntervalMinutes);
 
-      initialTime.setHours(clampedHour, roundedMinute, 0, 0);
+      initialTime.setHours(
+        Math.floor(roundedMinutes / 60),
+        roundedMinutes % 60,
+        0,
+        0
+      );
     } else {
-      initialTime.setHours(CALENDAR_CONFIG.START_HOUR, 0, 0, 0);
+      initialTime.setHours(
+        Math.floor(scheduleBounds.startMinutes / 60),
+        scheduleBounds.startMinutes % 60,
+        0,
+        0
+      );
     }
 
     setSelectedProfessional(firstProfessional);
@@ -443,6 +472,7 @@ export function DailyCalendar({
                         <div key={apt.id} className="animate-fade-in">
                           <AppointmentCard
                             appointment={apt}
+                            scheduleConfig={scheduleConfig}
                             onClick={() => {
                               setSelectedAppointment(apt);
                               setDetailDialogOpen(true);

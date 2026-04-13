@@ -7,31 +7,41 @@ import {
   getAppointmentStatusLabel,
   normalizeAppointmentStatus,
 } from "@/lib/appointments/status";
-import type { CalendarAppointment } from "./types";
-import { CALENDAR_CONFIG } from "./types";
+import { CALENDAR_SLOT_HEIGHT_PX, getTenantScheduleBounds } from "@/lib/tenant-schedule";
+import type { CalendarAppointment, CalendarScheduleConfig } from "./types";
 
 type AppointmentCardProps = {
   appointment: CalendarAppointment;
+  scheduleConfig: CalendarScheduleConfig;
   onClick?: () => void;
 };
 
 /**
  * Card visual posicionado sobre o grid da agenda.
  * Calcula top e height com base no horário de início/fim
- * relativo ao início do dia no grid (CALENDAR_CONFIG.START_HOUR).
+ * relativo ao início do dia no grid configurado pelo tenant.
  */
-export function AppointmentCard({ appointment, onClick }: AppointmentCardProps) {
+export function AppointmentCard({
+  appointment,
+  scheduleConfig,
+  onClick,
+}: AppointmentCardProps) {
   const start = new Date(appointment.startTime);
   const end = new Date(appointment.endTime);
+  const scheduleBounds = getTenantScheduleBounds(scheduleConfig);
 
   // Calcula a posição (top) e altura relativa ao grid
-  const gridStartMinutes = CALENDAR_CONFIG.START_HOUR * 60;
+  const gridStartMinutes = scheduleBounds.startMinutes;
   const startMinutes = start.getHours() * 60 + start.getMinutes();
   const endMinutes = end.getHours() * 60 + end.getMinutes();
   const durationMinutes = endMinutes - startMinutes;
 
-  const topOffset = ((startMinutes - gridStartMinutes) / CALENDAR_CONFIG.SLOT_MINUTES) * CALENDAR_CONFIG.SLOT_HEIGHT_PX;
-  const height = (durationMinutes / CALENDAR_CONFIG.SLOT_MINUTES) * CALENDAR_CONFIG.SLOT_HEIGHT_PX;
+  const topOffset =
+    ((startMinutes - gridStartMinutes) / scheduleConfig.slotIntervalMinutes) *
+    CALENDAR_SLOT_HEIGHT_PX;
+  const height =
+    (durationMinutes / scheduleConfig.slotIntervalMinutes) *
+    CALENDAR_SLOT_HEIGHT_PX;
 
   const normalizedStatus = normalizeAppointmentStatus(appointment.status);
   const style =
