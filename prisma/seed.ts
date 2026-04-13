@@ -2,6 +2,11 @@ import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import {
+  DEFAULT_BOT_FALLBACK_MESSAGE,
+  DEFAULT_BOT_GREETING_MESSAGE,
+  DEFAULT_BOT_SYSTEM_PROMPT,
+} from "../src/lib/bot-config";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -86,6 +91,31 @@ async function main() {
     },
   });
   console.log(`✅ Tenant: ${tenant.name} (${tenant.id})`);
+
+  await prisma.botConfig.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      wabaId: "885963267804070",
+      phoneNumberId: "1075428132314639",
+      waAccessToken: process.env.WA_ACCESS_TOKEN_SEED || "token-de-teste",
+      waVerifyToken: "111104VHps",
+      botName: "Ana",
+      systemPrompt: DEFAULT_BOT_SYSTEM_PROMPT,
+      greetingMessage: DEFAULT_BOT_GREETING_MESSAGE,
+      fallbackMessage: DEFAULT_BOT_FALLBACK_MESSAGE,
+      aiModel: "gpt-4o-mini",
+      aiTemperature: 0.7,
+      aiMaxTokens: 500,
+      botActiveStart: "08:00",
+      botActiveEnd: "20:00",
+      timezone: "America/Sao_Paulo",
+      isActive: true,
+      activatedAt: new Date(),
+    },
+  });
+  console.log("✅ BotConfig seedado para o tenant de teste");
 
   // --- 2. USUÁRIOS ---
   const admin = await prisma.user.upsert({
