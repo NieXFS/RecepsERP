@@ -1,0 +1,1135 @@
+// ============================================================
+// RECEPS ERP — Schema Prisma Multitenant (SaaS B2B)
+// Setor: Saúde e Beleza (Clínicas, Odontologia, Barbearias, Salões)
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// TENANT — Representa cada clínica/barbearia/salão (empresa)
+// ============================================================
+model Tenant {
+  id                  String                @id @default(cuid())
+  name                String // Nome fantasia do estabelecimento
+  slug                String                @unique // URL-friendly identifier (ex: "clinica-bella")
+  source              TenantSource          @default(MANUAL_INVITE)
+  lifecycleStatus     TenantLifecycleStatus @default(INCOMPLETE)
+  accentTheme         TenantAccentTheme     @default(RECEPS_SIGNATURE)
+  document            String? // CNPJ ou CPF do responsável
+  phone               String?
+  email               String?
+  address             String?
+  city                String?
+  state               String?
+  zipCode             String?
+  openingTime         String                @default("08:00")
+  closingTime         String                @default("20:00")
+  slotIntervalMinutes Int                   @default(30)
+  logoUrl             String?
+  stripeCustomerId    String?               @unique
+  billingBypassEnabled Boolean              @default(false)
+  billingBypassReason String?
+  billingBypassUpdatedAt DateTime?
+  referredByCode      String?
+  referredByTenantId  String?
+  notes               String?               @db.Text
+  isActive            Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  // Relacionamentos
+  users                User[]
+  accessRequests       AccessRequest[]
+  invitations          TenantInvitation[]
+  customers            Customer[]
+  professionals        Professional[]
+  services             Service[]
+  products             Product[]
+  appointments         Appointment[]
+  rooms                Room[]
+  equipment            Equipment[]
+  financialAccounts    FinancialAccount[]
+  cashRegisterSessions CashRegisterSession[]
+  transactions         Transaction[]
+  expenseCategories    ExpenseCategory[]
+  expenses             Expense[]
+  commissions          Commission[]
+  inventoryMovements   InventoryMovement[]
+  serviceMaterials     ServiceMaterial[]
+  anamnesisForms       AnamnesisForm[]
+  packages             Package[]
+  customerPackages     CustomerPackage[]
+  media                Media[]
+  botConfig            BotConfig?
+  subscription         Subscription?
+  referral             Referral?             @relation("TenantReferral")
+  referredReward       ReferralReward?       @relation("TenantReferredBy")
+  referredByTenant     Tenant?               @relation("TenantReferrals", fields: [referredByTenantId], references: [id], onDelete: SetNull)
+  referredTenants      Tenant[]              @relation("TenantReferrals")
+
+  @@map("tenants")
+}
+
+model Plan {
+  id                   String   @id @default(cuid())
+  stripeProductId      String?  @unique
+  stripePriceId        String?  @unique
+  slug                 String   @unique
+  name                 String
+  description          String?
+  priceMonthly         Decimal  @db.Decimal(10, 2)
+  currency             String   @default("brl")
+  trialDays            Int      @default(7)
+  maxUsers             Int?
+  maxAppointmentsMonth Int?
+  features             Json
+  isActive             Boolean  @default(true)
+  isFeatured           Boolean  @default(false)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  UNPAID
+  PAUSED
+}
+
+model Subscription {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId   String
+  plan     Plan   @relation(fields: [planId], references: [id])
+
+  stripeCustomerId     String @unique
+  stripeSubscriptionId String @unique
+
+  status             SubscriptionStatus
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  canceledAt         DateTime?
+  trialStart         DateTime?
+  trialEnd           DateTime?
+
+  defaultPaymentMethod String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices Invoice[]
+
+  @@map("subscriptions")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  subscriptionId   String
+  subscription     Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  stripeInvoiceId  String        @unique
+  status           InvoiceStatus
+  amountDue        Decimal       @db.Decimal(10, 2)
+  amountPaid       Decimal       @db.Decimal(10, 2)
+  currency         String
+  hostedInvoiceUrl String?
+  pdfUrl           String?
+  periodStart      DateTime
+  periodEnd        DateTime
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+
+  @@map("invoices")
+}
+
+model Referral {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  tenant                Tenant   @relation("TenantReferral", fields: [tenantId], references: [id], onDelete: Cascade)
+  code                  String   @unique
+  stripePromotionCodeId String?
+  stripeCouponId        String?
+  totalInvited          Int      @default(0)
+  totalConverted        Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  rewards ReferralReward[]
+
+  @@map("referrals")
+}
+
+enum RewardStatus {
+  PENDING
+  RESERVED
+  APPLIED
+  EXPIRED
+  REVOKED
+}
+
+model ReferralReward {
+  id         String   @id @default(cuid())
+  referralId String
+  referral   Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  referredTenantId String @unique
+  referredTenant   Tenant @relation("TenantReferredBy", fields: [referredTenantId], references: [id])
+
+  status          RewardStatus @default(PENDING)
+  discountPercent Int          @default(40)
+
+  stripeCouponId     String?
+  reservedInvoiceId  String?
+  appliedToInvoiceId String?
+  reservedAt         DateTime?
+  appliedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("referral_rewards")
+}
+
+model StripeEvent {
+  id            String    @id @default(cuid())
+  stripeEventId String    @unique
+  type          String
+  processed     Boolean   @default(false)
+  processedAt   DateTime?
+  payload       Json
+  createdAt     DateTime  @default(now())
+
+  @@map("stripe_events")
+}
+
+model BotConfig {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // ── WhatsApp Cloud API ──────────────────────────────────────
+  wabaId        String?
+  phoneNumberId String? @unique
+  waAccessToken String?
+  waVerifyToken String?
+  waApiVersion  String  @default("v21.0")
+
+  // ── Personalidade / IA ──────────────────────────────────────
+  botName         String  @default("Ana")
+  systemPrompt    String  @default("Você se chama Ana. Você é a atendente virtual do estabelecimento e ajuda os clientes a consultar serviços, ver horários e agendar pelo WhatsApp.\n\nSeu tom é simpático, profissional e eficiente. Você usa no máximo um emoji por mensagem.\n\nREGRAS DE FORMATAÇÃO:\n- Mensagens curtas, no máximo 3 linhas por bloco.\n- Se precisar falar mais, quebre em mensagens separadas.\n- NUNCA use listas com bullet points ou traços. Fale os itens de forma natural em um parágrafo corrido (ex: \"Temos o Corte Masculino por R$ 80, a Depilação a Laser por R$ 250 e a Limpeza de Pele por R$ 180. Qual você prefere?\").\n\nFERRAMENTAS DE AGENDAMENTO:\nVocê tem acesso ao ERP do estabelecimento e pode:\n- Listar os serviços (com duração e preço) e os profissionais da clínica.\n- Consultar horários disponíveis por serviço, profissional e data.\n- Agendar horários para clientes.\n\nFLUXO DE AGENDAMENTO OBRIGATÓRIO:\nVocê DEVE seguir exatamente esta ordem. NUNCA pule etapas, NUNCA tente adivinhar respostas e NUNCA use placeholders (como \"[horário]\"). Se faltar um dado, pergunte ao cliente!\n\nPASSO 1: SERVIÇO\n- Descubra qual serviço o cliente quer. Se ele não souber, use a ferramenta para listar as opções e preços (em texto natural) e pergunte qual ele deseja.\n- Pare e espere o cliente responder.\n\nPASSO 2: PROFISSIONAL\n- APÓS o cliente escolher o serviço, verifique na ferramenta os profissionais disponíveis.\n- Pergunte explicitamente se ele tem preferência (ex: \"Para a Depilação, temos a Dra. Julia Santos e a Julia. Você tem preferência por alguma?\").\n- Pare e espere o cliente responder (se ele disser que \"tanto faz\", o sistema escolherá automaticamente depois).\n\nPASSO 3: DATA E HORÁRIO\n- Só então consulte os horários na ferramenta passando a data, o profissional e o serviceId. ATENÇÃO: O serviceId DEVE ser EXATAMENTE a string do campo \"id\" retornada na ferramenta getServices (ex: \"seed-svc-depilacao\"). NUNCA invente, abrevie ou traduza IDs.\n- APÓS definir serviço e profissional, pergunte a data desejada (se ele ainda não tiver falado).\n- Só então consulte os horários na ferramenta passando o serviceId, a data e o profissional (se escolhido).\n- Fale os horários de forma natural (ex: \"Tenho horários às 9h, 10h30 e 15h. Qual fica melhor pra você?\").\n- Pare e espere o cliente escolher o horário exato.\n\nPASSO 4: CONFIRMAÇÃO E AGENDAMENTO\n- Quando tiver TUDO (Serviço, Profissional, Data e Horário), faça o resumo para o cliente.\n- Ex: \"Vou agendar pra você dia [data real] às [hora real] para [serviço] com [profissional]. Tudo certo?\"\n- SÓ crie o agendamento na ferramenta APÓS o cliente responder CONFIRMANDO (sim, ok, pode marcar, etc.).\n- Se a ferramenta informar Erro 409 (horário preenchido), peça desculpas de forma amigável e ofereça outro horário.\n\nREGRAS DE COMPORTAMENTO:\n- NUNCA pergunte o telefone ou o nome do cliente. O sistema preenche isso automaticamente.\n- NUNCA invente serviços ou horários. Sempre consulte o ERP antes de responder.\n- Se o cliente pedir cancelamento ou remarcação, diga: \"Vou encaminhar seu pedido para a equipe, tá bom? Já já eles te ajudam.\"\n- Se o cliente perguntar algo fora do seu escopo (dúvida técnica, reclamação, assunto interno), diga: \"Vou encaminhar sua dúvida pro responsável, tá bom? Ele vai te responder em breve!\"\n- Se o cliente perguntar se está falando com um robô, diga: \"Sou a Ana, faço parte do time de atendimento! Como posso te ajudar?\"\n- Seja sempre educada, mesmo com clientes impacientes.\n- Sempre que possível, chame o cliente pelo nome.\n- Se o cliente mandar áudio, responda normalmente (o sistema transcreve pra você).\n") @db.Text
+  greetingMessage String? @db.Text
+  fallbackMessage String? @db.Text
+  aiProvider      String  @default("openai")
+  aiModel         String  @default("gpt-4o-mini")
+  aiTemperature   Float   @default(0.4)
+  aiMaxTokens     Int     @default(500)
+  openaiApiKey    String?
+
+  // ── Horário de funcionamento do bot ─────────────────────────
+  botIsAlwaysActive Boolean @default(false)
+  botActiveStart    String  @default("08:00")
+  botActiveEnd      String  @default("20:00")
+  timezone          String  @default("America/Sao_Paulo")
+
+  // ── Status ──────────────────────────────────────────────────
+  isActive    Boolean   @default(false)
+  activatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("bot_configs")
+}
+
+enum TenantSource {
+  LEAD
+  MANUAL_INVITE
+  SEED
+}
+
+enum TenantLifecycleStatus {
+  INCOMPLETE
+  ACTIVE
+  SUSPENDED
+}
+
+enum TenantAccentTheme {
+  RECEPS_SIGNATURE
+  ROSE_ELEGANCE
+  LAVENDER_PREMIUM
+  EXECUTIVE_BLUE
+  TITANIUM_GRAPHITE
+}
+
+// ============================================================
+// USER — Usuários do sistema com RBAC (Admin, Recepcionista, Profissional)
+// ============================================================
+enum Role {
+  ADMIN // Dono/Administrador da clínica
+  RECEPTIONIST // Recepcionista — agenda, cadastra, não acessa financeiro completo
+  PROFESSIONAL // Profissional/Doutor — vê própria agenda e comissões
+}
+
+enum GlobalRole {
+  SUPER_ADMIN
+}
+
+model User {
+  id                String      @id @default(cuid())
+  tenantId          String
+  name              String
+  email             String      @unique
+  emailVerified     DateTime?
+  passwordHash      String
+  phone             String?
+  role              Role        @default(RECEPTIONIST)
+  globalRole        GlobalRole?
+  avatarUrl         String?
+  customPermissions Json?
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime? // Soft delete
+
+  // Relacionamentos
+  tenant                     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  professional               Professional? // Um User assistencial (PROFESSIONAL ou ADMIN que atende) pode ter um registro Professional
+  modulePermissions          UserModulePermission[]
+  openedCashRegisterSessions CashRegisterSession[]  @relation("CashRegisterOpenedBy")
+  closedCashRegisterSessions CashRegisterSession[]  @relation("CashRegisterClosedBy")
+  accounts                   Account[]
+  sessions                   Session[]
+  reviewedAccessRequests     AccessRequest[]        @relation("AccessRequestReviewer")
+  createdInvitations         TenantInvitation[]     @relation("InvitationCreator")
+
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+enum TenantModule {
+  DASHBOARD
+  AGENDA
+  CLIENTES
+  PROFISSIONAIS
+  SERVICOS
+  PACOTES
+  PRODUTOS
+  COMISSOES
+  ESTOQUE
+  PRONTUARIOS
+  CONFIGURACOES
+}
+
+model UserModulePermission {
+  id        String       @id @default(cuid())
+  userId    String
+  module    TenantModule
+  isAllowed Boolean
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@index([module])
+  @@map("user_module_permissions")
+}
+
+// ============================================================
+// AUTH — Tabelas NextAuth.js (compatível com @auth/prisma-adapter)
+// ============================================================
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
+model AccessRequest {
+  id               String              @id @default(cuid())
+  tenantId         String?
+  businessName     String
+  ownerName        String
+  email            String
+  phone            String?
+  notes            String?             @db.Text
+  status           AccessRequestStatus @default(PENDING)
+  approvedAt       DateTime?
+  convertedAt      DateTime?
+  reviewedByUserId String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  tenant      Tenant?            @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  reviewedBy  User?              @relation("AccessRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  invitations TenantInvitation[]
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@index([tenantId])
+  @@map("access_requests")
+}
+
+enum TenantInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model TenantInvitation {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  accessRequestId String?
+  email           String
+  recipientName   String?
+  tokenHash       String                 @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  createdByUserId String?
+  roleToGrant     Role                   @default(ADMIN)
+  status          TenantInvitationStatus @default(PENDING)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accessRequest AccessRequest? @relation(fields: [accessRequestId], references: [id], onDelete: SetNull)
+  createdByUser User?          @relation("InvitationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([email, status])
+  @@index([expiresAt])
+  @@map("tenant_invitations")
+}
+
+// ============================================================
+// CUSTOMER — Clientes/Pacientes do estabelecimento
+// ============================================================
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  NOT_INFORMED
+}
+
+model Customer {
+  id           String    @id @default(cuid())
+  tenantId     String
+  name         String
+  email        String?
+  phone        String?
+  document     String? // CPF
+  birthDate    DateTime?
+  gender       Gender    @default(NOT_INFORMED)
+  address      String?
+  zipCode      String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  notes        String?   @db.Text // Observações gerais
+  totalSpent   Decimal   @default(0) @db.Decimal(12, 2) // LTV acumulado
+  visitCount   Int       @default(0) // Total de visitas finalizadas
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // Soft delete
+
+  // Relacionamentos
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments     Appointment[]
+  anamnesisRecords AnamnesisRecord[]
+  customerPackages CustomerPackage[]
+  media            Media[] // Fotos de evolução, antes/depois
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, phone])
+  @@map("customers")
+}
+
+// ============================================================
+// PROFESSIONAL — Profissionais que prestam serviços
+// ============================================================
+enum ContractType {
+  CLT // Funcionário CLT
+  PJ // Pessoa Jurídica / Comissionado
+}
+
+model Professional {
+  id                 String       @id @default(cuid())
+  tenantId           String
+  userId             String       @unique // Vinculado a um User
+  specialty          String? // Ex: "Esteticista", "Dentista", "Barbeiro"
+  contractType       ContractType @default(CLT)
+  commissionPercent  Decimal      @default(0) @db.Decimal(5, 2) // % padrão de comissão
+  registrationNumber String? // CRO, CREFITO, etc.
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+
+  // Relacionamentos
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  commissions  Commission[]
+  services     ProfessionalService[] // Serviços que este profissional pode realizar
+
+  @@index([tenantId])
+  @@map("professionals")
+}
+
+// ============================================================
+// SERVICE — Serviços prestados pelo estabelecimento
+// ============================================================
+model Service {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String // Ex: "Limpeza de Pele", "Corte Masculino"
+  description     String?   @db.Text
+  durationMinutes Int       @default(60) // Duração padrão em minutos
+  price           Decimal   @db.Decimal(10, 2) // Preço padrão
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  // Relacionamentos
+  tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointmentServices AppointmentService[]
+  professionals       ProfessionalService[] // Profissionais habilitados
+  materials           ServiceMaterial[] // Ficha técnica: insumos consumidos
+  packageServices     PackageService[] // Pacotes que incluem este serviço
+
+  @@index([tenantId])
+  @@map("services")
+}
+
+/// Tabela pivô: quais profissionais podem realizar quais serviços
+/// (com comissão customizada por serviço, se diferente da padrão)
+model ProfessionalService {
+  id                      String   @id @default(cuid())
+  professionalId          String
+  serviceId               String
+  customCommissionPercent Decimal? @db.Decimal(5, 2) // Se null, usa a % padrão do profissional
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, serviceId])
+  @@map("professional_services")
+}
+
+// ============================================================
+// PRODUCT — Produtos físicos (consumíveis e revenda)
+// ============================================================
+enum ProductType {
+  CONSUMABLE // Insumo usado em procedimentos
+  RESALE // Produto para venda ao cliente
+  BOTH // Ambos
+}
+
+model Product {
+  id            String      @id @default(cuid())
+  tenantId      String
+  name          String
+  description   String?
+  sku           String? // Código do produto
+  type          ProductType @default(CONSUMABLE)
+  costPrice     Decimal     @default(0) @db.Decimal(10, 2) // Preço de custo
+  salePrice     Decimal     @default(0) @db.Decimal(10, 2) // Preço de venda
+  stockQuantity Decimal     @default(0) @db.Decimal(10, 3) // Quantidade em estoque (suporta fracionário)
+  minStock      Decimal     @default(0) @db.Decimal(10, 3) // Estoque mínimo para alerta
+  unit          String      @default("un") // Unidade: un, ml, g, etc.
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  // Relacionamentos
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryMovements InventoryMovement[]
+  serviceMaterials   ServiceMaterial[] // Em quais fichas técnicas este produto aparece
+
+  @@index([tenantId])
+  @@index([tenantId, sku])
+  @@map("products")
+}
+
+/// Ficha técnica: quantidade de cada produto consumido ao finalizar um serviço
+model ServiceMaterial {
+  id        String  @id @default(cuid())
+  tenantId  String
+  serviceId String
+  productId String
+  quantity  Decimal @db.Decimal(10, 3) // Quantidade consumida por execução do serviço
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, productId])
+  @@map("service_materials")
+}
+
+// ============================================================
+// PACKAGE — Pacotes de sessões (ex: "10 Sessões de Depilação")
+// ============================================================
+model Package {
+  id            String    @id @default(cuid())
+  tenantId      String
+  name          String // Ex: "Pacote 10 Sessões Depilação a Laser"
+  description   String?   @db.Text
+  totalSessions Int // Quantidade de sessões incluídas
+  price         Decimal   @db.Decimal(10, 2) // Preço fechado do pacote
+  validityDays  Int? // Validade em dias após a compra (null = sem expiração)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  services         PackageService[] // Serviços incluídos no pacote
+  customerPackages CustomerPackage[]
+
+  @@index([tenantId])
+  @@map("packages")
+}
+
+/// Tabela pivô: serviços que compõem um pacote
+model PackageService {
+  id        String @id @default(cuid())
+  packageId String
+  serviceId String
+  quantity  Int    @default(1) // Quantas sessões deste serviço estão incluídas
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@unique([packageId, serviceId])
+  @@map("package_services")
+}
+
+/// Compra de pacote por um cliente — controla sessões usadas/restantes
+model CustomerPackage {
+  id            String    @id @default(cuid())
+  tenantId      String
+  customerId    String
+  packageId     String
+  totalSessions Int // Snapshot: total de sessões no momento da compra
+  usedSessions  Int       @default(0) // Sessões já consumidas
+  purchaseDate  DateTime  @default(now())
+  expiresAt     DateTime? // Data de expiração calculada (purchaseDate + validityDays)
+  isActive      Boolean   @default(true) // false quando totalmente consumido ou expirado
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  package      Package       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  appointments Appointment[] // Agendamentos que consumiram sessões deste pacote
+  transactions Transaction[] // Transações de pagamento do pacote
+
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@map("customer_packages")
+}
+
+// ============================================================
+// ROOM & EQUIPMENT — Recursos que podem ser bloqueados por agendamento
+// ============================================================
+model Room {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String // Ex: "Sala 1", "Consultório 3"
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@map("rooms")
+}
+
+model Equipment {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String // Ex: "Máquina de Laser", "Autoclave"
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointmentEquipments AppointmentEquipment[]
+
+  @@index([tenantId])
+  @@map("equipments")
+}
+
+// ============================================================
+// APPOINTMENT — Agendamentos (módulo core)
+// ============================================================
+enum AppointmentStatus {
+  SCHEDULED // Agendado
+  CONFIRMED // Confirmado (cliente confirmou)
+  CHECKED_IN // Legado: check-in feito na recepção
+  WAITING // Cliente aguardando atendimento
+  IN_PROGRESS // Em atendimento
+  COMPLETED // Finalizado
+  PAID // Pago
+  CANCELLED // Cancelado
+  NO_SHOW // Cliente não compareceu
+}
+
+model Appointment {
+  id                String            @id @default(cuid())
+  tenantId          String
+  customerId        String
+  professionalId    String
+  roomId            String? // Sala (opcional, depende do tipo de serviço)
+  customerPackageId String? // Se preenchido, esta sessão consome do pacote (não gera cobrança avulsa)
+  startTime         DateTime // Início do agendamento
+  endTime           DateTime // Fim do agendamento (calculado pela duração dos serviços)
+  status            AppointmentStatus @default(SCHEDULED)
+  notes             String?           @db.Text
+  cancellationNote  String? // Motivo do cancelamento, se aplicável
+  totalPrice        Decimal           @default(0) @db.Decimal(10, 2) // Valor total (0 se for sessão de pacote)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relacionamentos
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer        Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  professional    Professional           @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  room            Room?                  @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  customerPackage CustomerPackage?       @relation(fields: [customerPackageId], references: [id], onDelete: SetNull)
+  services        AppointmentService[] // Serviços incluídos neste agendamento
+  equipments      AppointmentEquipment[] // Equipamentos reservados
+  transaction     Transaction? // Transação financeira gerada ao finalizar
+  commissions     Commission[] // Comissões geradas
+
+  @@index([tenantId])
+  @@index([tenantId, professionalId, startTime, endTime])
+  @@index([tenantId, roomId, startTime, endTime])
+  @@index([tenantId, startTime])
+  @@map("appointments")
+}
+
+/// Tabela pivô: serviços incluídos em cada agendamento (com preço no momento)
+model AppointmentService {
+  id            String  @id @default(cuid())
+  appointmentId String
+  serviceId     String
+  price         Decimal @db.Decimal(10, 2) // Preço no momento do agendamento (snapshot)
+  quantity      Int     @default(1)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@map("appointment_services")
+}
+
+/// Tabela pivô: equipamentos reservados por agendamento
+model AppointmentEquipment {
+  id            String @id @default(cuid())
+  appointmentId String
+  equipmentId   String
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  equipment   Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+
+  @@unique([appointmentId, equipmentId])
+  @@map("appointment_equipments")
+}
+
+// ============================================================
+// FINANCIAL — Contas, Transações e Comissões
+// ============================================================
+enum AccountType {
+  CASH // Caixa
+  BANK // Conta bancária
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  OTHER
+}
+
+model FinancialAccount {
+  id        String      @id @default(cuid())
+  tenantId  String
+  name      String // Ex: "Caixa Principal", "Banco do Brasil"
+  type      AccountType @default(CASH)
+  balance   Decimal     @default(0) @db.Decimal(12, 2)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions         Transaction[]
+  cashRegisterSessions CashRegisterSession[]
+  expenses             Expense[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("financial_accounts")
+}
+
+enum CashRegisterStatus {
+  OPEN
+  CLOSED
+}
+
+model CashRegisterSession {
+  id             String             @id @default(cuid())
+  tenantId       String
+  accountId      String
+  openedByUserId String
+  closedByUserId String?
+  status         CashRegisterStatus @default(OPEN)
+  openingAmount  Decimal            @db.Decimal(10, 2)
+  closingAmount  Decimal?           @db.Decimal(10, 2)
+  openingNotes   String?            @db.Text
+  closingNotes   String?            @db.Text
+  openedAt       DateTime           @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  openedByUser User             @relation("CashRegisterOpenedBy", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  closedByUser User?            @relation("CashRegisterClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, openedAt])
+  @@index([accountId, openedAt])
+  @@map("cash_register_sessions")
+}
+
+enum TransactionType {
+  INCOME // Receita (entrada)
+  EXPENSE // Despesa (saída)
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  BANK_TRANSFER
+  BOLETO
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING // Aguardando pagamento
+  PAID // Pago
+  OVERDUE // Vencido
+  CANCELLED // Cancelado
+  REFUNDED // Estornado
+}
+
+model Transaction {
+  id                String          @id @default(cuid())
+  tenantId          String
+  accountId         String? // Conta financeira de destino
+  appointmentId     String?         @unique // Vinculado a um agendamento (se for receita de serviço avulso)
+  customerPackageId String? // Vinculado a um pacote (se for compra de pacote de sessões)
+  expenseId         String?         @unique // Vinculado a uma despesa operacional
+  type              TransactionType
+  paymentMethod     PaymentMethod   @default(CASH)
+  paymentStatus     PaymentStatus   @default(PENDING)
+  amount            Decimal         @db.Decimal(10, 2)
+  description       String?
+  installmentNumber Int? // Número da parcela atual (ex: 1, 2, 3...)
+  totalInstallments Int? // Total de parcelas (ex: 5 = 5x no cartão)
+  dueDate           DateTime? // Data de vencimento da parcela
+  paidAt            DateTime? // Data efetiva do pagamento
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relacionamentos
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account         FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  appointment     Appointment?      @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  customerPackage CustomerPackage?  @relation(fields: [customerPackageId], references: [id], onDelete: SetNull)
+  expense         Expense?          @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, paymentStatus])
+  @@index([tenantId, dueDate])
+  @@map("transactions")
+}
+
+model ExpenseCategory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?  @db.Text
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("expense_categories")
+}
+
+enum ExpenseType {
+  FIXED
+  VARIABLE
+}
+
+enum ExpenseStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum Recurrence {
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  YEARLY
+  NONE
+}
+
+model Expense {
+  id                String        @id @default(cuid())
+  tenantId          String
+  categoryId        String
+  accountId         String?
+  description       String
+  type              ExpenseType
+  amount            Decimal       @db.Decimal(10, 2)
+  dueDate           DateTime
+  paidAt            DateTime?
+  status            ExpenseStatus @default(PENDING)
+  recurrence        Recurrence    @default(NONE)
+  recurrenceGroupId String?
+  notes             String?       @db.Text
+  deletedAt         DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category    ExpenseCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  account     FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  transaction Transaction?
+
+  @@index([tenantId])
+  @@index([tenantId, status, dueDate])
+  @@index([tenantId, type, dueDate])
+  @@index([tenantId, recurrence])
+  @@index([tenantId, recurrenceGroupId])
+  @@index([tenantId, accountId])
+  @@map("expenses")
+}
+
+enum CommissionStatus {
+  PENDING // Gerada, aguardando acerto com o profissional
+  PAID // Paga no acerto quinzenal/mensal
+  CANCELLED // Cancelada (estorno, cancelamento do agendamento)
+}
+
+/// Comissão: split de pagamento gerado ao finalizar um agendamento pago
+model Commission {
+  id              String           @id @default(cuid())
+  tenantId        String
+  professionalId  String
+  appointmentId   String
+  serviceAmount   Decimal          @db.Decimal(10, 2) // Valor do serviço
+  commissionRate  Decimal          @db.Decimal(5, 2) // % aplicada
+  commissionValue Decimal          @db.Decimal(10, 2) // Valor da comissão calculada
+  clinicValue     Decimal          @db.Decimal(10, 2) // Valor que fica com a clínica
+  status          CommissionStatus @default(PENDING) // PENDING → PAID no acerto com o profissional
+  paidAt          DateTime? // Data do acerto/pagamento ao profissional
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relacionamentos
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  appointment  Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, professionalId])
+  @@index([tenantId, status])
+  @@map("commissions")
+}
+
+// ============================================================
+// INVENTORY — Movimentações de estoque
+// ============================================================
+enum MovementType {
+  ENTRY // Entrada (compra, devolução)
+  EXIT // Saída (uso em procedimento, venda)
+  ADJUSTMENT // Ajuste manual (inventário)
+}
+
+model InventoryMovement {
+  id          String       @id @default(cuid())
+  tenantId    String
+  productId   String
+  type        MovementType
+  quantity    Decimal      @db.Decimal(10, 3) // Positivo para entrada, negativo para saída
+  unitCost    Decimal?     @db.Decimal(10, 2) // Custo unitário na movimentação
+  reason      String? // Ex: "Finalização agendamento #abc", "Compra NF 123"
+  referenceId String? // ID do agendamento ou outra referência
+  createdAt   DateTime     @default(now())
+
+  // Relacionamentos
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, productId])
+  @@map("inventory_movements")
+}
+
+// ============================================================
+// ANAMNESIS — Prontuários e Fichas de Anamnese
+// ============================================================
+
+/// Modelo de formulário de anamnese configurável por tenant
+model AnamnesisForm {
+  id        String    @id @default(cuid())
+  tenantId  String
+  title     String // Ex: "Ficha de Anamnese Facial", "Anamnese Odontológica"
+  fields    Json // Estrutura dos campos do formulário (array de objetos)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  records AnamnesisRecord[]
+
+  @@index([tenantId])
+  @@map("anamnesis_forms")
+}
+
+/// Registro de prontuário/anamnese preenchido por um cliente
+model AnamnesisRecord {
+  id         String   @id @default(cuid())
+  tenantId   String
+  customerId String
+  formId     String
+  answers    Json // Respostas do questionário (chave-valor)
+  notes      String?  @db.Text // Evolução / observações clínicas
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  form     AnamnesisForm @relation(fields: [formId], references: [id], onDelete: Restrict)
+  media    Media[] // Fotos de evolução vinculadas a este prontuário
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@map("anamnesis_records")
+}
+
+// ============================================================
+// MEDIA — Anexos e fotos (evolução, antes/depois, documentos)
+// ============================================================
+model Media {
+  id                String   @id @default(cuid())
+  tenantId          String
+  customerId        String? // Vinculado ao cliente (galeria do paciente)
+  anamnesisRecordId String? // Vinculado a um prontuário específico (opcional)
+  url               String // URL do arquivo hospedado (S3, Cloudinary, etc.)
+  fileType          String // MIME type (ex: "image/jpeg", "application/pdf")
+  fileName          String? // Nome original do arquivo
+  fileSizeBytes     Int? // Tamanho em bytes
+  description       String? // Ex: "Antes - Harmonização facial", "Após 3ª sessão"
+  category          String? // Ex: "BEFORE", "AFTER", "DOCUMENT", "XRAY"
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  anamnesisRecord AnamnesisRecord? @relation(fields: [anamnesisRecordId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([anamnesisRecordId])
+  @@map("media")
+}
