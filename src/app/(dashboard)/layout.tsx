@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { Sidebar, type SidebarProps } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { TenantAccentThemeSync } from "@/components/layout/tenant-accent-theme-sync";
@@ -17,8 +18,14 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get("x-receps-pathname") ?? "";
   const user = await getAuthUserWithAccess();
   await enforceSubscriptionAccess(user);
+
+  if (pathname === "/assinatura/bloqueada") {
+    return <div className="min-h-screen bg-muted/20">{children}</div>;
+  }
 
   // Busca o nome do tenant para exibir na Sidebar
   const tenant = await db.tenant.findUnique({

@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { getSubscriptionStatus as getBillingSubscriptionStatus } from "@/services/billing.service";
 
 const ALWAYS_ACCESSIBLE_PATH_PREFIXES = [
-  "/configuracoes/assinatura",
-  "/assinatura/",
+  "/assinatura/bloqueada",
   "/logout",
 ] as const;
 
