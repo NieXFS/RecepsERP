@@ -17,9 +17,7 @@ export type BotSettingsRecord = {
   systemPrompt: string;
   greetingMessage: string | null;
   fallbackMessage: string | null;
-  aiModel: string;
-  aiTemperature: number;
-  aiMaxTokens: number;
+  botIsAlwaysActive: boolean;
   botActiveStart: string;
   botActiveEnd: string;
   timezone: string;
@@ -37,6 +35,7 @@ export type TenantBotRuntimeConfig = {
   aiTemperature: number;
   aiMaxTokens: number;
   openaiApiKey: string | null;
+  botIsAlwaysActive: boolean;
   botActiveStart: string;
   botActiveEnd: string;
   timezone: string;
@@ -52,9 +51,7 @@ function createDefaultBotSettings(): BotSettingsRecord {
     systemPrompt: DEFAULT_BOT_SYSTEM_PROMPT,
     greetingMessage: DEFAULT_BOT_GREETING_MESSAGE,
     fallbackMessage: DEFAULT_BOT_FALLBACK_MESSAGE,
-    aiModel: "gpt-4o-mini",
-    aiTemperature: 0.7,
-    aiMaxTokens: 500,
+    botIsAlwaysActive: false,
     botActiveStart: "08:00",
     botActiveEnd: "20:00",
     timezone: "America/Sao_Paulo",
@@ -72,8 +69,9 @@ function getDefaultBotConfigCreateData(tenantId: string) {
     fallbackMessage: DEFAULT_BOT_FALLBACK_MESSAGE,
     aiProvider: "openai",
     aiModel: "gpt-4o-mini",
-    aiTemperature: 0.7,
+    aiTemperature: 0.4,
     aiMaxTokens: 500,
+    botIsAlwaysActive: false,
     botActiveStart: "08:00",
     botActiveEnd: "20:00",
     timezone: "America/Sao_Paulo",
@@ -91,9 +89,7 @@ export async function getBotConfigByTenantId(
       systemPrompt: true,
       greetingMessage: true,
       fallbackMessage: true,
-      aiModel: true,
-      aiTemperature: true,
-      aiMaxTokens: true,
+      botIsAlwaysActive: true,
       botActiveStart: true,
       botActiveEnd: true,
       timezone: true,
@@ -111,9 +107,7 @@ export async function getBotConfigByTenantId(
     systemPrompt: botConfig.systemPrompt,
     greetingMessage: botConfig.greetingMessage,
     fallbackMessage: botConfig.fallbackMessage,
-    aiModel: botConfig.aiModel,
-    aiTemperature: botConfig.aiTemperature,
-    aiMaxTokens: botConfig.aiMaxTokens,
+    botIsAlwaysActive: botConfig.botIsAlwaysActive,
     botActiveStart: botConfig.botActiveStart,
     botActiveEnd: botConfig.botActiveEnd,
     timezone: botConfig.timezone,
@@ -155,6 +149,7 @@ export async function getBotConfigByPhoneNumberId(
     aiTemperature: botConfig.aiTemperature,
     aiMaxTokens: botConfig.aiMaxTokens,
     openaiApiKey: botConfig.openaiApiKey ?? null,
+    botIsAlwaysActive: botConfig.botIsAlwaysActive,
     botActiveStart: botConfig.botActiveStart,
     botActiveEnd: botConfig.botActiveEnd,
     timezone: botConfig.timezone,
@@ -195,12 +190,9 @@ export async function upsertBotConfig(
     where: { tenantId },
     update: {
       botName: input.botName,
-      systemPrompt: input.systemPrompt,
       greetingMessage: input.greetingMessage || null,
       fallbackMessage: input.fallbackMessage || null,
-      aiModel: input.aiModel,
-      aiTemperature: input.aiTemperature,
-      aiMaxTokens: input.aiMaxTokens,
+      botIsAlwaysActive: input.botIsAlwaysActive,
       botActiveStart: input.botActiveStart,
       botActiveEnd: input.botActiveEnd,
       timezone: input.timezone,
@@ -208,12 +200,9 @@ export async function upsertBotConfig(
     create: {
       ...getDefaultBotConfigCreateData(tenantId),
       botName: input.botName,
-      systemPrompt: input.systemPrompt,
       greetingMessage: input.greetingMessage || null,
       fallbackMessage: input.fallbackMessage || null,
-      aiModel: input.aiModel,
-      aiTemperature: input.aiTemperature,
-      aiMaxTokens: input.aiMaxTokens,
+      botIsAlwaysActive: input.botIsAlwaysActive,
       botActiveStart: input.botActiveStart,
       botActiveEnd: input.botActiveEnd,
       timezone: input.timezone,

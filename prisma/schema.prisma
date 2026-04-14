@@ -85,11 +85,12 @@ model BotConfig {
   fallbackMessage  String?  @db.Text
   aiProvider       String   @default("openai")
   aiModel          String   @default("gpt-4o-mini")
-  aiTemperature    Float    @default(0.7)
+  aiTemperature    Float    @default(0.4)
   aiMaxTokens      Int      @default(500)
   openaiApiKey     String?
 
   // ── Horário de funcionamento do bot ─────────────────────────
+  botIsAlwaysActive Boolean @default(false)
   botActiveStart   String   @default("08:00")
   botActiveEnd     String   @default("20:00")
   timezone         String   @default("America/Sao_Paulo")

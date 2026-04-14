@@ -2,14 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Clock3, MessageSquareText, Save, Sparkles } from "lucide-react";
+import { Bot, Clock3, MessageSquareText, Save } from "lucide-react";
 import { toast } from "sonner";
 import { updateBotConfigAction } from "@/actions/bot-config.actions";
-import {
-  BOT_AI_MODEL_OPTIONS,
-  BOT_TIMEZONE_OPTIONS,
-  maskPhoneNumberId,
-} from "@/lib/bot-config";
+import { BOT_TIMEZONE_OPTIONS, maskPhoneNumberId } from "@/lib/bot-config";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,11 +27,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { BotSettingsRecord } from "@/services/bot-config.service";
 
-const aiModelOptions = BOT_AI_MODEL_OPTIONS.map((value) => ({
-  value,
-  label: value,
-}));
-
 const timezoneOptions = BOT_TIMEZONE_OPTIONS.map((option) => ({
   value: option.value,
   label: option.label,
@@ -49,24 +40,18 @@ export function BotSettingsPanel({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [botName, setBotName] = useState(settings.botName);
-  const [systemPrompt, setSystemPrompt] = useState(settings.systemPrompt);
   const [greetingMessage, setGreetingMessage] = useState(settings.greetingMessage ?? "");
   const [fallbackMessage, setFallbackMessage] = useState(settings.fallbackMessage ?? "");
-  const [aiModel, setAiModel] = useState(settings.aiModel);
-  const [aiTemperature, setAiTemperature] = useState(settings.aiTemperature);
-  const [aiMaxTokens, setAiMaxTokens] = useState(String(settings.aiMaxTokens));
+  const [botIsAlwaysActive, setBotIsAlwaysActive] = useState(settings.botIsAlwaysActive);
   const [botActiveStart, setBotActiveStart] = useState(settings.botActiveStart);
   const [botActiveEnd, setBotActiveEnd] = useState(settings.botActiveEnd);
   const [timezone, setTimezone] = useState(settings.timezone);
 
   useEffect(() => {
     setBotName(settings.botName);
-    setSystemPrompt(settings.systemPrompt);
     setGreetingMessage(settings.greetingMessage ?? "");
     setFallbackMessage(settings.fallbackMessage ?? "");
-    setAiModel(settings.aiModel);
-    setAiTemperature(settings.aiTemperature);
-    setAiMaxTokens(String(settings.aiMaxTokens));
+    setBotIsAlwaysActive(settings.botIsAlwaysActive);
     setBotActiveStart(settings.botActiveStart);
     setBotActiveEnd(settings.botActiveEnd);
     setTimezone(settings.timezone);
@@ -76,12 +61,9 @@ export function BotSettingsPanel({
     startTransition(async () => {
       const result = await updateBotConfigAction({
         botName,
-        systemPrompt,
         greetingMessage,
         fallbackMessage,
-        aiModel,
-        aiTemperature,
-        aiMaxTokens: Number(aiMaxTokens),
+        botIsAlwaysActive,
         botActiveStart,
         botActiveEnd,
         timezone,
@@ -106,8 +88,8 @@ export function BotSettingsPanel({
             Atendente IA
           </CardTitle>
           <CardDescription>
-            Personalize a atendente virtual do WhatsApp, ajuste o comportamento da IA e
-            defina o horário em que o bot pode responder automaticamente.
+            Personalize a atendente virtual do WhatsApp e defina o horário em que o
+            bot pode responder automaticamente.
           </CardDescription>
         </CardHeader>
 
@@ -116,8 +98,8 @@ export function BotSettingsPanel({
             <div>
               <h3 className="text-sm font-semibold">Personalidade da Atendente</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Defina como a atendente se apresenta, quais regras deve seguir e como
-                deve lidar com o primeiro contato do cliente.
+                Defina como a atendente se apresenta e como deve lidar com o primeiro
+                contato do cliente.
               </p>
             </div>
 
@@ -131,15 +113,17 @@ export function BotSettingsPanel({
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="bot-system-prompt">Prompt de personalidade</Label>
-              <Textarea
-                id="bot-system-prompt"
-                rows={12}
-                value={systemPrompt}
-                onChange={(event) => setSystemPrompt(event.target.value)}
-                placeholder="Descreva como a atendente deve se comportar, o tom de voz e regras especiais."
-              />
+            <div className="space-y-2">
+              <Label>Prompt de personalidade</Label>
+              <p className="text-sm text-muted-foreground">
+                Para ajustar a personalidade da sua atendente, converse com um de
+                nossos atendentes.
+              </p>
+              <div className="max-h-64 overflow-auto rounded-xl border bg-muted/30 p-4">
+                <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/90">
+                  {settings.systemPrompt}
+                </p>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -171,73 +155,6 @@ export function BotSettingsPanel({
 
           <section className="space-y-4 rounded-2xl border bg-muted/20 p-4">
             <div>
-              <h3 className="text-sm font-semibold">Modelo de IA</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Escolha o modelo, ajuste o nível de criatividade e limite o tamanho das
-                respostas do bot.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="bot-ai-model">Modelo</Label>
-                <Select value={aiModel} onValueChange={(value) => setAiModel(value ?? aiModel)}>
-                  <SelectTrigger id="bot-ai-model" className="w-full">
-                    <SelectValueLabel
-                      value={aiModel}
-                      options={aiModelOptions}
-                      placeholder="Selecione o modelo"
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {aiModelOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="bot-ai-max-tokens">
-                  Tamanho máximo da resposta (tokens)
-                </Label>
-                <Input
-                  id="bot-ai-max-tokens"
-                  type="number"
-                  min={100}
-                  max={4000}
-                  value={aiMaxTokens}
-                  onChange={(event) => setAiMaxTokens(event.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="bot-ai-temperature">Criatividade</Label>
-                <Badge variant="outline">{aiTemperature.toFixed(1)}</Badge>
-              </div>
-              <input
-                id="bot-ai-temperature"
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={aiTemperature}
-                onChange={(event) => setAiTemperature(Number(event.target.value))}
-                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-border accent-primary"
-              />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Mais precisa</span>
-                <span>Mais criativa</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-4 rounded-2xl border bg-muted/20 p-4">
-            <div>
               <h3 className="text-sm font-semibold">Horário de Funcionamento do Bot</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Fora desse intervalo o bot responde com uma mensagem automática de fora
@@ -245,7 +162,32 @@ export function BotSettingsPanel({
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border bg-background p-4">
+              <label
+                htmlFor="bot-always-active"
+                className="flex cursor-pointer items-start gap-3"
+              >
+                <input
+                  id="bot-always-active"
+                  type="checkbox"
+                  checked={botIsAlwaysActive}
+                  onChange={(event) => setBotIsAlwaysActive(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Atender 24 horas</p>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    O bot responde automaticamente a qualquer horário do dia.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div
+              className={`grid gap-4 md:grid-cols-3 ${
+                botIsAlwaysActive ? "opacity-60" : ""
+              }`}
+            >
               <div className="space-y-1.5">
                 <Label htmlFor="bot-active-start">Início do atendimento</Label>
                 <Input
@@ -253,6 +195,7 @@ export function BotSettingsPanel({
                   type="time"
                   value={botActiveStart}
                   onChange={(event) => setBotActiveStart(event.target.value)}
+                  disabled={botIsAlwaysActive}
                 />
               </div>
 
@@ -263,6 +206,7 @@ export function BotSettingsPanel({
                   type="time"
                   value={botActiveEnd}
                   onChange={(event) => setBotActiveEnd(event.target.value)}
+                  disabled={botIsAlwaysActive}
                 />
               </div>
 
@@ -271,6 +215,7 @@ export function BotSettingsPanel({
                 <Select
                   value={timezone}
                   onValueChange={(value) => setTimezone(value ?? timezone)}
+                  disabled={botIsAlwaysActive}
                 >
                   <SelectTrigger id="bot-timezone" className="w-full">
                     <SelectValueLabel
@@ -339,7 +284,7 @@ export function BotSettingsPanel({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+              <Clock3 className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               Resumo Operacional
             </CardTitle>
             <CardDescription>
@@ -349,10 +294,12 @@ export function BotSettingsPanel({
           <CardContent className="space-y-4">
             <div className="rounded-2xl border bg-background p-4">
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Nome & modelo
+                Nome da atendente
               </p>
               <p className="mt-2 text-xl font-semibold">{botName || "Ana"}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{aiModel}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Identidade exibida para os clientes no WhatsApp.
+              </p>
             </div>
 
             <div className="rounded-2xl border bg-background p-4">
@@ -360,22 +307,9 @@ export function BotSettingsPanel({
                 Expediente do bot
               </p>
               <p className="mt-2 text-xl font-semibold tabular-nums">
-                {botActiveStart} às {botActiveEnd}
+                {botIsAlwaysActive ? "24 horas" : `${botActiveStart} às ${botActiveEnd}`}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">{timezone}</p>
-            </div>
-
-            <div className="rounded-2xl border bg-background p-4">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Criatividade
-              </p>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-xl font-semibold">{aiTemperature.toFixed(1)}</p>
-                <Clock3 className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Respostas limitadas a {aiMaxTokens || "--"} tokens.
-              </p>
             </div>
           </CardContent>
         </Card>

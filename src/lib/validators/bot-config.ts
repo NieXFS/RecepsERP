@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BOT_AI_MODEL_OPTIONS, BOT_TIMEZONE_OPTIONS } from "@/lib/bot-config";
+import { BOT_TIMEZONE_OPTIONS } from "@/lib/bot-config";
 
 const optionalTextField = z.string().trim().optional().or(z.literal(""));
 const timeField = z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido.");
@@ -7,24 +7,9 @@ const timeField = z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido
 export const botConfigSettingsSchema = z
   .object({
     botName: z.string().trim().min(2, "Informe o nome da atendente."),
-    systemPrompt: z
-      .string()
-      .trim()
-      .min(20, "Informe instruções mais completas para a atendente."),
     greetingMessage: optionalTextField,
     fallbackMessage: optionalTextField,
-    aiModel: z.enum(BOT_AI_MODEL_OPTIONS, {
-      error: "Selecione um modelo de IA válido.",
-    }),
-    aiTemperature: z.coerce
-      .number()
-      .min(0, "A criatividade mínima é 0.")
-      .max(1, "A criatividade máxima é 1."),
-    aiMaxTokens: z.coerce
-      .number()
-      .int("Informe um número inteiro de tokens.")
-      .min(100, "Use pelo menos 100 tokens.")
-      .max(4000, "Use no máximo 4000 tokens."),
+    botIsAlwaysActive: z.coerce.boolean(),
     botActiveStart: timeField,
     botActiveEnd: timeField,
     timezone: z.enum(
@@ -37,7 +22,7 @@ export const botConfigSettingsSchema = z
       }
     ),
   })
-  .refine((data) => data.botActiveEnd > data.botActiveStart, {
+  .refine((data) => data.botIsAlwaysActive || data.botActiveEnd > data.botActiveStart, {
     path: ["botActiveEnd"],
     message: "O fim do atendimento deve ser posterior ao início.",
   });
