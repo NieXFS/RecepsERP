@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Building2, MailPlus, UsersRound } from "lucide-react";
+import { BarChart3, Building2, CreditCard, MailPlus, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigationItems = [
@@ -29,6 +29,12 @@ const navigationItems = [
     label: "Convites",
     icon: MailPlus,
     match: (pathname: string) => pathname.startsWith("/painel-receps/convites"),
+  },
+  {
+    href: "/painel-receps/planos",
+    label: "Planos",
+    icon: CreditCard,
+    match: (pathname: string) => pathname.startsWith("/painel-receps/planos"),
   },
 ];
 

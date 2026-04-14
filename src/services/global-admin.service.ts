@@ -294,6 +294,48 @@ export async function getTenantDetail(tenantId: string) {
           createdAt: true,
         },
       },
+      subscription: {
+        include: {
+          plan: true,
+          invoices: {
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 5,
+          },
+        },
+      },
+      referral: {
+        include: {
+          rewards: {
+            include: {
+              referredTenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          },
+        },
+      },
+      referredByTenant: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      referredTenants: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          referredByCode: true,
+          createdAt: true,
+        },
+      },
       _count: {
         select: {
           users: true,
@@ -328,6 +370,53 @@ export async function getTenantDetail(tenantId: string) {
       hasAcceptedInvitation: tenant.invitations.some(
         (invitation) => invitation.status === "ACCEPTED"
       ),
+    },
+  };
+}
+
+/**
+ * Controla a exceção manual de billing para tenants específicos,
+ * sem alterar o estado real da assinatura Stripe.
+ */
+export async function setTenantBillingBypass(
+  tenantId: string,
+  input: {
+    enabled: boolean;
+    reason?: string | null;
+  }
+): Promise<ActionResult<{ tenantId: string; enabled: boolean }>> {
+  const tenant = await db.tenant.findFirst({
+    where: {
+      id: tenantId,
+      users: {
+        none: {
+          globalRole: "SUPER_ADMIN",
+        },
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!tenant) {
+    return { success: false, error: "Tenant não encontrado." };
+  }
+
+  await db.tenant.update({
+    where: { id: tenant.id },
+    data: {
+      billingBypassEnabled: input.enabled,
+      billingBypassReason: input.enabled ? input.reason?.trim() || null : null,
+      billingBypassUpdatedAt: new Date(),
+    },
+  });
+
+  return {
+    success: true,
+    data: {
+      tenantId: tenant.id,
+      enabled: input.enabled,
     },
   };
 }

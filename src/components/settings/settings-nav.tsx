@@ -4,7 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Role, TenantModule } from "@/generated/prisma/enums";
-import { Palette, Users, Scissors, Building2, Landmark, Store, Bot } from "lucide-react";
+import {
+  Palette,
+  Users,
+  Scissors,
+  Building2,
+  Landmark,
+  Store,
+  Bot,
+  CreditCard,
+  Gift,
+} from "lucide-react";
 
 const tabs = [
   {
@@ -51,6 +61,18 @@ const tabs = [
     icon: Bot,
     module: "CONFIGURACOES" as TenantModule,
     adminOnly: true,
+  },
+  {
+    href: "/configuracoes/assinatura",
+    label: "Assinatura",
+    icon: CreditCard,
+    module: "CONFIGURACOES" as TenantModule,
+  },
+  {
+    href: "/configuracoes/indicacoes",
+    label: "Indicações",
+    icon: Gift,
+    module: "CONFIGURACOES" as TenantModule,
   },
 ];
 

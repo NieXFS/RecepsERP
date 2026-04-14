@@ -2,6 +2,7 @@ import { Sidebar, type SidebarProps } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { TenantAccentThemeSync } from "@/components/layout/tenant-accent-theme-sync";
 import { getAuthUserWithAccess } from "@/lib/session";
+import { enforceSubscriptionAccess } from "@/lib/subscription-guard";
 import { db } from "@/lib/db";
 import { DEFAULT_TENANT_ACCENT_THEME } from "@/lib/tenant-accent-theme";
 
@@ -17,6 +18,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getAuthUserWithAccess();
+  await enforceSubscriptionAccess(user);
 
   // Busca o nome do tenant para exibir na Sidebar
   const tenant = await db.tenant.findUnique({

@@ -17,6 +17,8 @@ import {
   AdminBotConfigInitializer,
   AdminBotConfigPanel,
 } from "@/components/admin/admin-bot-config-panel";
+import { TenantBillingBypassControls } from "@/components/internal/tenant-billing-bypass-controls";
+import { getStripeCustomerDashboardUrl } from "@/lib/stripe";
 
 /**
  * Detalhe global do tenant para acompanhamento operacional da base Receps.
@@ -135,6 +137,166 @@ export default async function RecepsTenantDetailPage({
                   ))
                 )}
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader>
+            <CardTitle>Assinatura</CardTitle>
+            <CardDescription>
+              Situação atual de billing, plano vinculado e invoices recentes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <TenantBillingBypassControls
+              tenantId={tenant.id}
+              subscriptionStatus={tenant.subscription?.status ?? null}
+              billingBypassEnabled={tenant.billingBypassEnabled}
+              billingBypassReason={tenant.billingBypassReason}
+              billingBypassUpdatedAt={tenant.billingBypassUpdatedAt}
+            />
+
+            {tenant.subscription ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <InfoItem label="Plano atual" value={tenant.subscription.plan.name} />
+                  <InfoItem label="Status" value={tenant.subscription.status} />
+                  <InfoItem
+                    label="Bypass manual"
+                    value={tenant.billingBypassEnabled ? "Habilitado" : "Desabilitado"}
+                  />
+                  <InfoItem
+                    label="Próxima cobrança"
+                    value={formatDateTime(tenant.subscription.currentPeriodEnd)}
+                  />
+                  <InfoItem
+                    label="Customer Stripe"
+                    value={tenant.subscription.stripeCustomerId}
+                  />
+                  <InfoItem
+                    label="Motivo do bypass"
+                    value={tenant.billingBypassReason || "-"}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  {tenant.subscription.invoices.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma invoice sincronizada ainda.
+                    </p>
+                  ) : (
+                    tenant.subscription.invoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="grid gap-3 rounded-xl border border-border/70 p-4 md:grid-cols-[0.8fr_0.8fr_1fr_auto]"
+                      >
+                        <InfoItem label="Status" value={invoice.status} />
+                        <InfoItem
+                          label="Pago"
+                          value={formatCurrency(Number(invoice.amountPaid), invoice.currency)}
+                        />
+                        <InfoItem
+                          label="Período"
+                          value={`${formatDateTime(invoice.periodStart)} até ${formatDateTime(invoice.periodEnd)}`}
+                        />
+                        <div className="flex items-center md:justify-end">
+                          {invoice.hostedInvoiceUrl ? (
+                            <a
+                              href={invoice.hostedInvoiceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm font-medium text-primary hover:underline"
+                            >
+                              Abrir
+                            </a>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Sem link</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <a
+                  href={getStripeCustomerDashboardUrl(tenant.subscription.stripeCustomerId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex text-sm font-medium text-primary hover:underline"
+                >
+                  Abrir customer no Stripe Dashboard
+                </a>
+              </>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <InfoItem label="Plano atual" value="-" />
+                <InfoItem label="Status" value="SEM ASSINATURA" />
+                <InfoItem
+                  label="Bypass manual"
+                  value={tenant.billingBypassEnabled ? "Habilitado" : "Desabilitado"}
+                />
+                <InfoItem
+                  label="Motivo do bypass"
+                  value={tenant.billingBypassReason || "-"}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader>
+            <CardTitle>Indicações</CardTitle>
+            <CardDescription>
+              Código do tenant, origem da indicação e fila de rewards.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <InfoItem label="Código do tenant" value={tenant.referral?.code ?? "-"} />
+              <InfoItem
+                label="Quem indicou"
+                value={tenant.referredByTenant?.name ?? "-"}
+              />
+              <InfoItem
+                label="Rewards pendentes"
+                value={String(
+                  tenant.referral?.rewards.filter(
+                    (reward) => reward.status === "PENDING" || reward.status === "RESERVED"
+                  ).length ?? 0
+                )}
+              />
+              <InfoItem
+                label="Rewards aplicados"
+                value={String(
+                  tenant.referral?.rewards.filter((reward) => reward.status === "APPLIED")
+                    .length ?? 0
+                )}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Indicados gerados por este tenant</p>
+              {tenant.referredTenants.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum tenant indicado por este cliente até agora.
+                </p>
+              ) : (
+                tenant.referredTenants.map((referredTenant) => (
+                  <div
+                    key={referredTenant.id}
+                    className="rounded-xl border border-border/70 p-4 text-sm"
+                  >
+                    <p className="font-medium">{referredTenant.name}</p>
+                    <p className="text-muted-foreground">
+                      {referredTenant.slug} • criado em {formatDateTime(referredTenant.createdAt)}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -290,6 +452,13 @@ function formatDateTime(value: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
+  }).format(value);
+}
+
+function formatCurrency(value: number, currency: string) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: currency.toUpperCase(),
   }).format(value);
 }
 

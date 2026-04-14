@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { TenantLifecycleStatus } from "@/generated/prisma/enums";
+import { tenantBillingBypassSchema } from "@/lib/validators/billing";
 import { createTenantAdminInvitationSchema } from "@/lib/validators/onboarding";
 import { requireSuperAdmin } from "@/lib/session";
 import type { ActionResult } from "@/types";
@@ -11,6 +12,7 @@ import {
   reactivateTenant,
   regenerateTenantInvitation,
   rejectAccessRequest,
+  setTenantBillingBypass,
   suspendTenant,
 } from "@/services/global-admin.service";
 
@@ -145,6 +147,40 @@ export async function createTenantAdminInvitationAction(input: {
 
   if (result.success) {
     revalidateRecepsAdminPaths(result.data.tenantId);
+  }
+
+  return result;
+}
+
+/**
+ * Ativa ou remove a liberação manual de billing para um tenant específico.
+ */
+export async function setTenantBillingBypassAction(input: {
+  tenantId: string;
+  enabled: boolean;
+  reason?: string;
+}): Promise<ActionResult<{ tenantId: string; enabled: boolean }>> {
+  await requireSuperAdmin();
+
+  const parsed = tenantBillingBypassSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+
+  const result = await setTenantBillingBypass(parsed.data.tenantId, {
+    enabled: parsed.data.enabled,
+    reason: parsed.data.reason,
+  });
+
+  if (result.success) {
+    revalidateRecepsAdminPaths(result.data.tenantId);
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/configuracoes/assinatura");
+    revalidatePath("/assinatura/bloqueada");
   }
 
   return result;

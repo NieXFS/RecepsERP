@@ -67,6 +67,93 @@ async function main() {
   });
   console.log(`✅ Super admin: ${superAdmin.email} / 123456`);
 
+  const billingPlans = [
+    {
+      slug: "somente-atendente-ia",
+      name: "Somente Atendente IA",
+      description: "Plano dedicado ao atendimento automatizado com IA.",
+      priceMonthly: 149.99,
+      currency: "brl",
+      trialDays: 7,
+      maxUsers: 3,
+      maxAppointmentsMonth: null,
+      features: ["Atendente IA", "Fluxos de atendimento", "Portal de billing"],
+      isFeatured: false,
+      sortOrder: 10,
+    },
+    {
+      slug: "somente-erp",
+      name: "Somente ERP",
+      description: "Plano focado na operação diária da clínica no Receps ERP.",
+      priceMonthly: 219.99,
+      currency: "brl",
+      trialDays: 7,
+      maxUsers: 10,
+      maxAppointmentsMonth: 2000,
+      features: ["Agenda", "CRM", "Financeiro", "Portal de billing"],
+      isFeatured: true,
+      sortOrder: 20,
+    },
+    {
+      slug: "erp-atendente-ia",
+      name: "ERP + Atendente IA",
+      description: "Plano completo com operação e camada comercial com IA.",
+      priceMonthly: 299.99,
+      currency: "brl",
+      trialDays: 7,
+      maxUsers: 20,
+      maxAppointmentsMonth: 5000,
+      features: [
+        "Agenda",
+        "CRM",
+        "Financeiro",
+        "Estoque",
+        "Atendente IA",
+        "Referral program",
+      ],
+      isFeatured: true,
+      sortOrder: 30,
+    },
+  ] as const;
+
+  for (const plan of billingPlans) {
+    await prisma.plan.upsert({
+      where: { slug: plan.slug },
+      update: {
+        name: plan.name,
+        description: plan.description,
+        priceMonthly: plan.priceMonthly,
+        currency: plan.currency,
+        trialDays: plan.trialDays,
+        maxUsers: plan.maxUsers,
+        maxAppointmentsMonth: plan.maxAppointmentsMonth,
+        features: plan.features,
+        isActive: true,
+        isFeatured: plan.isFeatured,
+        sortOrder: plan.sortOrder,
+        stripeProductId: null,
+        stripePriceId: null,
+      },
+      create: {
+        slug: plan.slug,
+        name: plan.name,
+        description: plan.description,
+        priceMonthly: plan.priceMonthly,
+        currency: plan.currency,
+        trialDays: plan.trialDays,
+        maxUsers: plan.maxUsers,
+        maxAppointmentsMonth: plan.maxAppointmentsMonth,
+        features: plan.features,
+        isActive: true,
+        isFeatured: plan.isFeatured,
+        sortOrder: plan.sortOrder,
+        stripeProductId: null,
+        stripePriceId: null,
+      },
+    });
+  }
+  console.log("✅ Planos de billing seedados (placeholders Stripe nulos)");
+
   // --- 1. TENANT ---
   const tenant = await prisma.tenant.upsert({
     where: { slug: "clinica-bella" },
