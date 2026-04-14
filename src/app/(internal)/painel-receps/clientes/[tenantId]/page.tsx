@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Wallet } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireSuperAdmin } from "@/lib/session";
 import { getTenantDetail } from "@/services/global-admin.service";
+import { getBotConfigByTenantIdAdmin } from "@/services/bot-config.service";
 import {
   InvitationStatusBadge,
   TenantSourceBadge,
@@ -11,6 +13,10 @@ import {
 import { InvitationActionButtons } from "@/components/internal/invitation-action-buttons";
 import { TenantStateActions } from "@/components/internal/tenant-state-actions";
 import { TenantAdminInvitationForm } from "@/components/internal/tenant-admin-invitation-form";
+import {
+  AdminBotConfigInitializer,
+  AdminBotConfigPanel,
+} from "@/components/admin/admin-bot-config-panel";
 
 /**
  * Detalhe global do tenant para acompanhamento operacional da base Receps.
@@ -20,10 +26,14 @@ export default async function RecepsTenantDetailPage({
 }: {
   params: Promise<{ tenantId: string }>;
 }) {
+  const user = await requireSuperAdmin();
   const { tenantId } = await params;
-  const tenant = await getTenantDetail(tenantId);
+  const [tenant, botConfig] = await Promise.all([
+    getTenantDetail(tenantId),
+    getBotConfigByTenantIdAdmin(tenantId, user.id),
+  ]);
 
-  if (!tenant) {
+  if (!tenant || !botConfig) {
     notFound();
   }
 
@@ -129,6 +139,12 @@ export default async function RecepsTenantDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {botConfig.exists ? (
+        <AdminBotConfigPanel config={botConfig} />
+      ) : (
+        <AdminBotConfigInitializer tenantId={tenant.id} />
+      )}
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
