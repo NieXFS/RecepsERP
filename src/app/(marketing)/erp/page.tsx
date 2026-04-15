@@ -27,6 +27,7 @@ import { ErpDashboardMockup } from "@/components/marketing/erp-dashboard-mockup"
 import { ForceLightTheme } from "@/components/marketing/force-light-theme";
 import { ReferralCtaLink } from "@/components/marketing/referral-cta-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { PLAN_SLUGS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -203,7 +204,7 @@ export default function ErpLandingPage() {
               <ScrollReveal delay={140}>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <ReferralCtaLink
-                    planSlug="somente-erp"
+                    planSlug={PLAN_SLUGS.ERP}
                     dataCta="erp-hero"
                     magnetic
                     className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-violet-500 px-7 py-4 text-base font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition-all hover:bg-violet-600 sm:min-w-72"
@@ -543,7 +544,7 @@ export default function ErpLandingPage() {
                   </div>
 
                   <ReferralCtaLink
-                    planSlug="erp-atendente-ia"
+                    planSlug={PLAN_SLUGS.COMBO}
                     dataCta="erp-upsell-combo"
                     className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-[#E5E5E5] bg-white px-6 py-4 text-base font-semibold text-[#0A0A0A] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
                   >
@@ -574,7 +575,7 @@ export default function ErpLandingPage() {
 
                 <div className="mt-8 flex justify-center">
                   <ReferralCtaLink
-                    planSlug="somente-erp"
+                    planSlug={PLAN_SLUGS.ERP}
                     dataCta="erp-final"
                     magnetic
                     className="inline-flex min-h-[3.75rem] items-center justify-center gap-2 rounded-2xl bg-violet-500 px-8 py-4 text-base font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition-all hover:bg-violet-600 sm:min-w-[21.5rem]"

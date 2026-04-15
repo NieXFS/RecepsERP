@@ -5,6 +5,7 @@ import type {
   SubscriptionStatus,
 } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { getPlanSlugCandidates } from "@/lib/plans";
 import {
   getAppUrl,
   getStripe,
@@ -333,10 +334,21 @@ export async function listActivePlans() {
 }
 
 export async function getActivePlanBySlug(slug: string) {
+  const slugCandidates = getPlanSlugCandidates(slug);
+
+  if (slugCandidates.length === 0) {
+    return null;
+  }
+
   return db.plan.findFirst({
     where: {
-      slug: slug.trim(),
+      slug: {
+        in: slugCandidates,
+      },
       isActive: true,
+    },
+    orderBy: {
+      createdAt: "asc",
     },
   });
 }

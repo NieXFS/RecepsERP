@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { normalizePlanSlug } from "@/lib/plans";
 import { getReferralCookie, setReferralCookie } from "@/lib/referral-cookie";
 
 type PublicPlan = {
@@ -65,12 +66,17 @@ export function SubscribePlansPanel({
   const [isPending, startTransition] = useTransition();
 
   const highlightedPlanId = useMemo(() => {
+    const normalizedSelectedPlan = normalizePlanSlug(selectedPlan);
+
     if (!selectedPlan) {
       return plans.find((plan) => plan.isFeatured)?.id ?? plans[0]?.id ?? null;
     }
 
     const directMatch = plans.find(
-      (plan) => plan.id === selectedPlan || plan.slug === selectedPlan
+      (plan) =>
+        plan.id === selectedPlan ||
+        plan.slug === selectedPlan ||
+        normalizePlanSlug(plan.slug) === normalizedSelectedPlan
     );
 
     return directMatch?.id ?? plans[0]?.id ?? null;
@@ -92,8 +98,9 @@ export function SubscribePlansPanel({
       const resolvedReferralCode = referralCode ?? getReferralCookie() ?? undefined;
 
       if (!isAuthenticated) {
+        const resolvedPlanSlug = normalizePlanSlug(plan.slug) ?? plan.slug;
         const params = new URLSearchParams({
-          plan: plan.slug,
+          plan: resolvedPlanSlug,
           ...(resolvedReferralCode ? { ref: resolvedReferralCode } : {}),
         });
 

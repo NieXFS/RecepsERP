@@ -13,9 +13,10 @@ import {
   WalletCards,
 } from "lucide-react";
 import { AuroraBackground } from "@/components/marketing/aurora-background";
+import { isValidPlanSlug, PLAN_SLUGS, type PlanSlug } from "@/lib/plans";
 
 export type SignupPlan = {
-  slug: string;
+  slug: PlanSlug | string;
   name: string;
   priceMonthly: number;
   currency: string;
@@ -92,6 +93,23 @@ export const PLAN_PAYOFF_CONTENT = {
   },
 } as const satisfies Record<string, PlanPayoffEntry>;
 
+const DEFAULT_PAYOFF_CONTENT: PlanPayoffEntry = {
+  badge: "Receps",
+  headline: "Sua operação começa organizada desde o primeiro acesso.",
+  subheadline:
+    "Escolha um plano válido para ver os benefícios específicos do que você está contratando.",
+  benefits: [
+    "Cadastro rápido e seguro",
+    "Trial grátis para começar sem travar a decisão",
+    "Plano certo para cada etapa do seu negócio",
+  ],
+  previewTitle: "O que você libera ao entrar",
+  previewItems: [
+    { icon: Building2, label: "Receps", value: "Estrutura pronta para começar" },
+    { icon: ShieldCheck, label: "Conta", value: "Acesso seguro desde o primeiro dia" },
+  ],
+};
+
 function formatCurrency(value: number, currency: string) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -100,8 +118,11 @@ function formatCurrency(value: number, currency: string) {
 }
 
 export function resolvePlanPayoffContent(plan: SignupPlan) {
-  return PLAN_PAYOFF_CONTENT[plan.slug as keyof typeof PLAN_PAYOFF_CONTENT]
-    ?? PLAN_PAYOFF_CONTENT["erp-atendente-ia"];
+  if (!isValidPlanSlug(plan.slug)) {
+    return DEFAULT_PAYOFF_CONTENT;
+  }
+
+  return PLAN_PAYOFF_CONTENT[plan.slug];
 }
 
 function SignupPlanBadge({
@@ -115,7 +136,18 @@ function SignupPlanBadge({
   const sizeClassName = compact ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm";
   const iconClassName = compact ? "h-3.5 w-3.5" : "h-4 w-4";
 
-  if (plan.slug === "somente-atendente-ia") {
+  if (!isValidPlanSlug(plan.slug)) {
+    return (
+      <div
+        className={`inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/8 ${sizeClassName} font-medium text-white/82 backdrop-blur`}
+      >
+        <Building2 className={iconClassName} />
+        <span>{content.badge}</span>
+      </div>
+    );
+  }
+
+  if (plan.slug === PLAN_SLUGS.ATENDENTE_IA) {
     return (
       <div
         className={`inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-500/10 ${sizeClassName} font-medium text-emerald-200 backdrop-blur`}
@@ -126,7 +158,7 @@ function SignupPlanBadge({
     );
   }
 
-  if (plan.slug === "somente-erp") {
+  if (plan.slug === PLAN_SLUGS.ERP) {
     return (
       <div
         className={`inline-flex items-center gap-2 rounded-full border border-violet-300/35 bg-violet-500/10 ${sizeClassName} font-medium text-violet-100 backdrop-blur`}

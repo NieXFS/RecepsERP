@@ -24,6 +24,7 @@ import { PricingCombo } from "@/components/marketing/combo/pricing-combo";
 import { ForceLightTheme } from "@/components/marketing/force-light-theme";
 import { ReferralCtaLink } from "@/components/marketing/referral-cta-link";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { PLAN_SLUGS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -217,7 +218,7 @@ export default function ComboLandingPage() {
               <ScrollReveal delay={160}>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <ReferralCtaLink
-                    planSlug="erp-atendente-ia"
+                    planSlug={PLAN_SLUGS.COMBO}
                     dataCta="combo-hero"
                     magnetic
                     className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-violet-500 px-8 py-4 text-base font-semibold text-white shadow-[0_24px_60px_rgba(139,92,246,0.32)] animate-glow-breathe transition-all hover:bg-violet-600 sm:min-w-[22rem]"
@@ -483,7 +484,7 @@ export default function ComboLandingPage() {
 
                 <div className="mt-8 flex justify-center">
                   <ReferralCtaLink
-                    planSlug="erp-atendente-ia"
+                    planSlug={PLAN_SLUGS.COMBO}
                     dataCta="combo-final"
                     magnetic
                     className="inline-flex min-h-[3.75rem] items-center justify-center gap-2 rounded-2xl bg-violet-500 px-8 py-4 text-base font-semibold text-white shadow-[0_24px_60px_rgba(139,92,246,0.32)] animate-glow-breathe transition-all hover:bg-violet-600 sm:min-w-[22rem]"

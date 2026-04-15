@@ -1,5 +1,6 @@
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { ReferralCtaLink } from "@/components/marketing/referral-cta-link";
+import { PLAN_SLUGS } from "@/lib/plans";
 
 const included = [
   "WhatsApp 24h com a Ana",
@@ -59,7 +60,7 @@ export function PricingCombo() {
             </div>
 
             <ReferralCtaLink
-              planSlug="erp-atendente-ia"
+              planSlug={PLAN_SLUGS.COMBO}
               dataCta="combo-pricing"
               magnetic
               className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-violet-500 px-8 py-4 text-base font-semibold text-white shadow-[0_24px_60px_rgba(139,92,246,0.28)] animate-glow-breathe transition-all hover:bg-violet-600 sm:min-w-[22rem]"

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PlanSlug } from "@/lib/plans";
 import { getReferralCookie, setReferralCookie } from "@/lib/referral-cookie";
 import { cn } from "@/lib/utils";
 
 type ReferralCtaLinkProps = {
-  planSlug: string;
+  planSlug: PlanSlug;
   children: React.ReactNode;
   className?: string;
   dataCta?: string;

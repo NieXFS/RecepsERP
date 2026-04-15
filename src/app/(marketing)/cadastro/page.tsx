@@ -7,6 +7,7 @@ import {
   SignupPayoffPanel,
 } from "@/components/auth/signup-payoff-panel";
 import { ForceLightTheme } from "@/components/marketing/force-light-theme";
+import { normalizePlanSlug } from "@/lib/plans";
 import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { getOptionalSession } from "@/lib/session";
 import { getActivePlanBySlug, getSubscriptionStatus } from "@/services/billing.service";
@@ -18,9 +19,9 @@ export default async function SignupPage({
   searchParams: Promise<{ plan?: string; ref?: string }>;
 }) {
   const params = await searchParams;
-  const planSlug = params.plan?.trim();
+  const normalizedPlanSlug = normalizePlanSlug(params.plan);
 
-  if (!planSlug) {
+  if (!normalizedPlanSlug) {
     redirect("/assinar");
   }
 
@@ -29,7 +30,7 @@ export default async function SignupPage({
 
   const [session, plan, referral] = await Promise.all([
     getOptionalSession(),
-    getActivePlanBySlug(planSlug),
+    getActivePlanBySlug(normalizedPlanSlug),
     referralCandidate ? getReferralByCode(referralCandidate) : null,
   ]);
 
@@ -38,7 +39,7 @@ export default async function SignupPage({
   }
 
   const resolvedPlan = {
-    slug: plan.slug,
+    slug: normalizedPlanSlug,
     name: plan.name,
     priceMonthly: Number(plan.priceMonthly),
     currency: plan.currency,

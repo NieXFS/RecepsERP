@@ -7,8 +7,10 @@ import { startUserSession } from "@/lib/auth-session";
 import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { TENANT_MODULE_VALUES } from "@/lib/tenant-modules";
 import { getDefaultCustomPermissions } from "@/lib/tenant-permissions";
+import { normalizePlanSlug } from "@/lib/plans";
 import { signupSchema, type SignupInput } from "@/lib/validators/signup";
 import {
+  getActivePlanBySlug,
   createStripeCustomer,
   createTrialSubscription,
 } from "@/services/billing.service";
@@ -71,7 +73,19 @@ export async function signupAction(input: {
   planSlug: string;
   referralCode?: string;
 }): Promise<SignupResult> {
-  const parsed = signupSchema.safeParse(input);
+  const normalizedPlanSlug = normalizePlanSlug(input.planSlug);
+
+  if (!normalizedPlanSlug) {
+    return {
+      success: false,
+      error: "Plano inválido. Escolha um plano válido.",
+    };
+  }
+
+  const parsed = signupSchema.safeParse({
+    ...input,
+    planSlug: normalizedPlanSlug,
+  });
 
   if (!parsed.success) {
     return {
@@ -85,17 +99,7 @@ export async function signupAction(input: {
 
   try {
     const [plan, existingUser, existingTenantByCnpj, validatedReferral] = await Promise.all([
-      db.plan.findFirst({
-        where: {
-          slug: data.planSlug,
-          isActive: true,
-        },
-        select: {
-          id: true,
-          slug: true,
-          stripePriceId: true,
-        },
-      }),
+      getActivePlanBySlug(data.planSlug),
       db.user.findUnique({
         where: { email: data.email },
         select: { id: true },
