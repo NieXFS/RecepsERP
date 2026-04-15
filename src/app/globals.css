@@ -244,6 +244,73 @@
   }
 }
 
+@keyframes aurora-pan {
+  0% {
+    transform: translate3d(-6%, -4%, 0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(6%, 3%, 0) scale(1.08) rotate(10deg);
+  }
+  100% {
+    transform: translate3d(-2%, 6%, 0) scale(0.98) rotate(-8deg);
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 18px 40px rgba(139, 92, 246, 0.28),
+      0 0 0 rgba(139, 92, 246, 0);
+  }
+  50% {
+    box-shadow:
+      0 24px 60px rgba(139, 92, 246, 0.38),
+      0 0 60px rgba(139, 92, 246, 0.24);
+  }
+}
+
+@keyframes highlight-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(139, 92, 246, 0),
+      0 20px 40px rgba(15, 23, 42, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(139, 92, 246, 0.12),
+      0 24px 50px rgba(139, 92, 246, 0.18);
+  }
+}
+
+@keyframes toast-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* ── Utility Classes ─────────────────────────────────────────── */
 .animate-fade-in {
   animation: fade-in 0.25s cubic-bezier(0.2, 0, 0, 1) both;
@@ -271,6 +338,26 @@
 
 .animate-expand-in {
   animation: expand-from-trigger 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-aurora-pan {
+  animation: aurora-pan 18s ease-in-out infinite alternate;
+}
+
+.animate-twinkle {
+  animation: twinkle 3.8s ease-in-out infinite;
+}
+
+.animate-glow-breathe {
+  animation: glow-breathe 2.6s ease-in-out infinite;
+}
+
+.animate-highlight-pulse {
+  animation: highlight-pulse 2.2s ease-in-out infinite;
+}
+
+.animate-toast-pop {
+  animation: toast-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ── Reduced Motion: desabilitar TUDO ────────────────────────── */

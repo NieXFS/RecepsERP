@@ -8,6 +8,7 @@ export function MarketingHeaderActions() {
   const pathname = usePathname();
   const isAtendentesIaPage = pathname === "/atendentes-ia";
   const isErpPage = pathname === "/erp";
+  const isComboPage = pathname === "/erp-atendente-ia";
 
   return (
     <div className="flex items-center gap-3">
@@ -24,6 +25,13 @@ export function MarketingHeaderActions() {
           className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
         >
           Assinar Atendente IA
+        </ReferralCtaLink>
+      ) : isComboPage ? (
+        <ReferralCtaLink
+          planSlug="erp-atendente-ia"
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+        >
+          Começar teste grátis
         </ReferralCtaLink>
       ) : isErpPage ? (
         <ReferralCtaLink
