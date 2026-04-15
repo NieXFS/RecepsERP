@@ -52,7 +52,7 @@ export function LoginForm({
       <div className="mb-6 space-y-2 text-center">
         <h1 className="text-2xl font-semibold">Entrar no app Receps ERP</h1>
         <p className="text-sm text-muted-foreground">
-          Use as credenciais já liberadas para sua operação ou um convite ativado.
+          Use o email e a senha da sua clínica para continuar no Receps.
         </p>
       </div>
 
@@ -94,9 +94,9 @@ export function LoginForm({
 
       <div className="mt-5 space-y-2 text-center text-sm text-muted-foreground">
         <p>
-          Ainda não tem acesso?{" "}
-          <Link href="/solicitar-acesso" className="font-medium text-primary hover:underline">
-            Solicitar acesso
+          Ainda não tem conta?{" "}
+          <Link href="/assinar" className="font-medium text-primary hover:underline">
+            Ver planos e criar conta
           </Link>
         </p>
         <p>

@@ -21,16 +21,50 @@ function formatDate(value: Date | null | undefined) {
   }).format(value);
 }
 
-export default async function BillingSettingsPage() {
+function getNoticeConfig(notice?: string) {
+  switch (notice) {
+    case "already-active":
+      return {
+        className: "border-emerald-500/20 bg-emerald-500/5 text-emerald-900 dark:text-emerald-200",
+        message: "Sua assinatura já está ativa. Você pode gerenciar seu plano por aqui.",
+      };
+    case "billing-in-progress":
+      return {
+        className: "border-sky-500/20 bg-sky-500/5 text-sky-900 dark:text-sky-200",
+        message: "Já existe uma assinatura em andamento para este tenant. Aguarde a confirmação do pagamento para liberar o acesso.",
+      };
+    case "checkout-error":
+      return {
+        className: "border-destructive/20 bg-destructive/5 text-destructive",
+        message: "Não conseguimos iniciar o pagamento agora. Tente novamente em instantes.",
+      };
+    default:
+      return null;
+  }
+}
+
+export default async function BillingSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getAuthUserWithAccess();
   const { tenant, access, defaultPaymentMethod } = await getTenantBillingDashboardData(
     user.tenantId
   );
   const subscription = tenant.subscription;
+  const notice = getNoticeConfig(params.notice);
 
   if (!subscription) {
     return (
       <div className="space-y-6">
+        {notice ? (
+          <Card className={notice.className}>
+            <CardContent className="py-4 text-sm">{notice.message}</CardContent>
+          </Card>
+        ) : null}
+
         {access.billingBypassEnabled ? (
           <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm">
             <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">
@@ -65,6 +99,12 @@ export default async function BillingSettingsPage() {
 
   return (
     <div className="space-y-6">
+      {notice ? (
+        <Card className={notice.className}>
+          <CardContent className="py-4 text-sm">{notice.message}</CardContent>
+        </Card>
+      ) : null}
+
       {access.billingBypassEnabled ? (
         <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm">
           <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">

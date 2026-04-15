@@ -51,7 +51,7 @@ const features = [
 
 /**
  * Landing comercial dedicada ao ERP dentro da marca Receps.
- * Mantém a proposta de valor do produto, mas substitui auto-cadastro por onboarding controlado.
+ * Mantém a proposta de valor do produto e reforça o novo fluxo self-service.
  */
 export default function ErpLandingPage() {
   return (
@@ -71,15 +71,15 @@ export default function ErpLandingPage() {
 
             <p className="mt-6 text-lg leading-8 text-muted-foreground sm:text-xl">
               Agenda, clientes, prontuário, estoque e financeiro conectados em um fluxo único.
-              O acesso agora acontece de forma controlada para garantir implantação mais segura.
+              Escolha o plano ideal, teste grátis por 7 dias e assine sem burocracia.
             </p>
 
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/solicitar-acesso"
+                href="/assinar"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:bg-primary/90"
               >
-                Solicitar acesso
+                Ver planos
                 <ChevronRight className="h-4 w-4" />
               </Link>
               <Link
@@ -133,30 +133,29 @@ export default function ErpLandingPage() {
           <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center">
             <div className="space-y-4">
               <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">
-                Onboarding controlado
+                Self-service completo
               </p>
               <h2 className="text-3xl font-semibold tracking-tight">
-                Sem signup público, com implantação mais consistente.
+                Sem fila de aprovação, com entrada rápida no ERP.
               </h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                O fluxo agora é simples: sua empresa solicita acesso, nosso time aprova, gera o
-                convite e a ativação final acontece por link seguro. Isso preserva qualidade de
-                implantação e evita tenants criados sem contexto comercial.
+                O fluxo agora é simples: você escolhe o plano, cria sua conta, segue para o
+                pagamento e volta para o onboarding já autenticado para liberar o ambiente.
               </p>
             </div>
 
             <div className="space-y-3 rounded-[1.5rem] border border-border/70 bg-background p-6">
               <p className="text-sm font-medium">Como funciona</p>
               <ol className="space-y-3 text-sm text-muted-foreground">
-                <li>1. Você envia a solicitação comercial do ERP.</li>
-                <li>2. O time Receps valida o contexto e aprova a implantação.</li>
-                <li>3. Um convite seguro ativa o tenant e a conta principal.</li>
+                <li>1. Você escolhe o plano ideal para sua operação.</li>
+                <li>2. Cria sua conta com os dados principais da clínica.</li>
+                <li>3. Conclui o pagamento e entra no ERP em seguida.</li>
               </ol>
               <Link
-                href="/solicitar-acesso"
+                href="/assinar"
                 className="inline-flex items-center gap-2 pt-2 text-sm font-medium text-primary hover:underline"
               >
-                Quero implantar o ERP
+                Quero começar agora
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </div>

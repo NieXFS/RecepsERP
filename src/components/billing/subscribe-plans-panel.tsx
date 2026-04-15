@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getReferralCookie, setReferralCookie } from "@/lib/referral-cookie";
 
 type PublicPlan = {
   id: string;
@@ -80,21 +81,23 @@ export function SubscribePlansPanel({
       return;
     }
 
-    document.cookie = `receps_referral_code=${encodeURIComponent(referralCode)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+    setReferralCookie(referralCode);
   }, [referralCode]);
 
-  function handlePlanCheckout(planId: string) {
+  function handlePlanCheckout(plan: PublicPlan) {
     setError("");
-    setPendingPlanId(planId);
+    setPendingPlanId(plan.id);
 
     startTransition(async () => {
+      const resolvedReferralCode = referralCode ?? getReferralCookie() ?? undefined;
+
       if (!isAuthenticated) {
         const params = new URLSearchParams({
-          plan: planId,
-          ...(referralCode ? { ref: referralCode } : {}),
+          plan: plan.slug,
+          ...(resolvedReferralCode ? { ref: resolvedReferralCode } : {}),
         });
 
-        router.push(`/solicitar-acesso?${params.toString()}`);
+        router.push(`/cadastro?${params.toString()}`);
         return;
       }
 
@@ -105,8 +108,8 @@ export function SubscribePlansPanel({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            planId,
-            referralCode,
+            planId: plan.id,
+            referralCode: resolvedReferralCode,
           }),
         });
 
@@ -139,7 +142,7 @@ export function SubscribePlansPanel({
 
       {canceled ? (
         <div className="rounded-[1.25rem] border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-900 dark:text-amber-200">
-          O checkout foi cancelado. Você pode escolher um plano e tentar novamente.
+          O pagamento foi cancelado. Você pode escolher um plano e tentar novamente.
         </div>
       ) : null}
 
@@ -198,13 +201,13 @@ export function SubscribePlansPanel({
                 className="mt-8 w-full"
                 variant={isHighlighted ? "default" : "outline"}
                 disabled={isLoading}
-                onClick={() => handlePlanCheckout(plan.id)}
+                onClick={() => handlePlanCheckout(plan)}
               >
                 {isLoading
                   ? "Redirecionando..."
-                  : isAuthenticated
-                    ? "Assinar com Checkout"
-                    : "Continuar para solicitar acesso"}
+                  : plan.isFeatured
+                    ? "Começar teste grátis"
+                    : "Assinar agora"}
               </Button>
             </article>
           );

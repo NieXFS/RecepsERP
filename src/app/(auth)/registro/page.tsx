@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 
 /**
  * Rota legada de compatibilidade.
- * O cadastro público foi descontinuado e agora redireciona para o fluxo comercial controlado.
+ * Redireciona para a vitrine de planos antes do novo cadastro self-service.
  */
 export default function RegistroRedirectPage() {
-  redirect("/solicitar-acesso");
+  redirect("/assinar");
 }

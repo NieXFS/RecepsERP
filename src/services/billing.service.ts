@@ -41,6 +41,8 @@ export type TenantSubscriptionAccess = {
   billingBypassEnabled: boolean;
   billingBypassReason: string | null;
   billingBypassUpdatedAt: Date | null;
+  isProcessing: boolean;
+  shouldPoll: boolean;
 };
 
 function getStripeObjectId<T extends { id: string }>(
@@ -329,6 +331,15 @@ export async function listActivePlans() {
   });
 }
 
+export async function getActivePlanBySlug(slug: string) {
+  return db.plan.findFirst({
+    where: {
+      slug: slug.trim(),
+      isActive: true,
+    },
+  });
+}
+
 export async function listAdminPlans() {
   return db.plan.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -429,6 +440,49 @@ export async function createStripeCustomer(tenant: TenantForCustomerCreation) {
   }
 
   const stripe = getStripe();
+  const existingCustomerByEmail =
+    tenant.email
+      ? (
+          await stripe.customers.list({
+            email: tenant.email,
+            limit: 10,
+          })
+        ).data.find((customer) => !customer.deleted)
+      : null;
+
+  if (existingCustomerByEmail) {
+    const customerAlreadyLinked = await db.tenant.findFirst({
+      where: {
+        stripeCustomerId: existingCustomerByEmail.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!customerAlreadyLinked || customerAlreadyLinked.id === tenant.id) {
+      await stripe.customers.update(existingCustomerByEmail.id, {
+        name: tenant.name,
+        email: tenant.email ?? undefined,
+        phone: tenant.phone ?? undefined,
+        metadata: {
+          ...existingCustomerByEmail.metadata,
+          tenantId: tenant.id,
+          tenantSlug: tenant.slug,
+        },
+      });
+
+      await db.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          stripeCustomerId: existingCustomerByEmail.id,
+        },
+      });
+
+      return existingCustomerByEmail.id;
+    }
+  }
+
   const customer = await stripe.customers.create({
     name: tenant.name,
     email: tenant.email ?? undefined,
@@ -575,6 +629,7 @@ export async function syncSubscriptionFromStripe(stripeSubscription: Stripe.Subs
   const stripeCustomerId = getStripeObjectId(stripeSubscription.customer);
   const stripePriceId = stripeSubscription.items.data[0]?.price?.id;
   const currentPeriod = getStripeSubscriptionCurrentPeriod(stripeSubscription);
+  const mappedStatus = mapStripeSubscriptionStatus(stripeSubscription.status);
 
   if (!tenantId) {
     throw new Error(
@@ -611,6 +666,12 @@ export async function syncSubscriptionFromStripe(stripeSubscription: Stripe.Subs
     where: { id: tenantId },
     data: {
       stripeCustomerId,
+      ...(mappedStatus === "TRIALING" || mappedStatus === "ACTIVE"
+        ? {
+            isActive: true,
+            lifecycleStatus: "ACTIVE",
+          }
+        : {}),
     },
   });
 
@@ -620,7 +681,7 @@ export async function syncSubscriptionFromStripe(stripeSubscription: Stripe.Subs
       planId: plan.id,
       stripeCustomerId,
       stripeSubscriptionId: stripeSubscription.id,
-      status: mapStripeSubscriptionStatus(stripeSubscription.status),
+      status: mappedStatus,
       currentPeriodStart: currentPeriod.start,
       currentPeriodEnd: currentPeriod.end,
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
@@ -634,7 +695,7 @@ export async function syncSubscriptionFromStripe(stripeSubscription: Stripe.Subs
       planId: plan.id,
       stripeCustomerId,
       stripeSubscriptionId: stripeSubscription.id,
-      status: mapStripeSubscriptionStatus(stripeSubscription.status),
+      status: mappedStatus,
       currentPeriodStart: currentPeriod.start,
       currentPeriodEnd: currentPeriod.end,
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
@@ -710,6 +771,7 @@ export async function syncInvoiceFromStripe(stripeInvoice: Stripe.Invoice) {
 export async function getSubscriptionStatus(
   tenantId: string
 ): Promise<TenantSubscriptionAccess> {
+  const incompleteGraceWindowMs = 5 * 60 * 1000;
   const tenant = await db.tenant.findUnique({
     where: { id: tenantId },
     select: {
@@ -719,6 +781,8 @@ export async function getSubscriptionStatus(
       subscription: {
         select: {
           status: true,
+          createdAt: true,
+          updatedAt: true,
         },
       },
     },
@@ -744,17 +808,30 @@ export async function getSubscriptionStatus(
       billingBypassEnabled: tenant.billingBypassEnabled,
       billingBypassReason: tenant.billingBypassReason,
       billingBypassUpdatedAt: tenant.billingBypassUpdatedAt,
+      isProcessing: false,
+      shouldPoll: false,
     };
   }
 
   const resolvedSubscriptionStatus = tenant.subscription.status;
+  const lastSubscriptionChangeAt =
+    tenant.subscription.updatedAt ?? tenant.subscription.createdAt;
+  const isRecentIncomplete =
+    resolvedSubscriptionStatus === "INCOMPLETE" &&
+    Date.now() - lastSubscriptionChangeAt.getTime() <= incompleteGraceWindowMs;
+  const hasBlockingIncomplete = resolvedSubscriptionStatus === "INCOMPLETE" && !isRecentIncomplete;
 
   return {
     hasAccess,
     status: resolvedSubscriptionStatus,
-    reason: tenant.billingBypassEnabled && !hasSubscriptionAccess
-      ? "Acesso sem cobrança habilitado manualmente pela Receps."
-      : getActiveSubscriptionReason(resolvedSubscriptionStatus),
+    reason:
+      tenant.billingBypassEnabled && !hasSubscriptionAccess
+        ? "Acesso sem cobrança habilitado manualmente pela Receps."
+        : isRecentIncomplete
+          ? "Estamos processando o seu pagamento. Isso costuma levar só alguns instantes."
+          : hasBlockingIncomplete
+            ? "Não conseguimos confirmar seu pagamento. Entre em contato para continuar."
+            : getActiveSubscriptionReason(resolvedSubscriptionStatus),
     accessSource: hasSubscriptionAccess
       ? "SUBSCRIPTION"
       : tenant.billingBypassEnabled
@@ -763,6 +840,8 @@ export async function getSubscriptionStatus(
     billingBypassEnabled: tenant.billingBypassEnabled,
     billingBypassReason: tenant.billingBypassReason,
     billingBypassUpdatedAt: tenant.billingBypassUpdatedAt,
+    isProcessing: isRecentIncomplete,
+    shouldPoll: isRecentIncomplete,
   };
 }
 

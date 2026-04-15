@@ -154,3 +154,25 @@ Se uma invoice reservada falhar, for anulada ou marcada como incobrável:
 - Bloqueio: `PAST_DUE`, `UNPAID`, `CANCELED`, `INCOMPLETE`, `INCOMPLETE_EXPIRED`, `PAUSED`
 - Eventos Stripe processados localmente com `StripeEvent`
 - Rewards do indicador aplicados em fila mensal, sem empilhamento na mesma invoice
+
+## Fluxo de Self-Service
+
+1. Visitante chega em `receps.com.br`.
+2. Clica em `Assinar` e vai para `app.receps.com.br/assinar?plan=X` ou `app.receps.com.br/cadastro?plan=X`.
+3. Preenche o cadastro curto com nome da clínica, nome do responsável, email, senha e telefone.
+4. O sistema cria `Tenant` com status `INCOMPLETE`, `User` ADMIN e `Stripe Customer`.
+5. O app redireciona para o Stripe Checkout com o plano e o referral, se houver.
+6. O usuário paga com cartão, Pix ou boleto conforme a conta Stripe configurada.
+7. A Stripe retorna para `/onboarding`.
+8. O webhook sincroniza a `Subscription` como `TRIALING` ou `ACTIVE`.
+9. O usuário entra no `/dashboard`.
+
+Campos opcionais, preenchidos depois em `/configuracoes/negocio`:
+
+- CNPJ
+- Endereço completo
+- Logo
+- Configurações de horário
+
+`AccessRequest` continua existindo, mas não faz mais parte do fluxo de assinatura.
+Ele fica mantido como fluxo legado para leads frios e solicitações manuais.

@@ -33,6 +33,9 @@ export default async function RecepsLeadsPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-primary">
+            Fluxo legado. Novos assinantes self-service aparecem direto em Clientes.
+          </div>
           <form className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr_auto]">
             <div className="space-y-1.5">
               <label htmlFor="lead-search" className="text-sm font-medium">

@@ -37,7 +37,7 @@ const differentiators = [
   {
     title: "Entrada controlada no ERP",
     description:
-      "O onboarding do ERP deixa de ser signup aberto e passa a operar por solicitação, aprovação e convite.",
+      "O ERP agora opera em self-service: escolha o plano, crie a conta e siga direto para o pagamento.",
     icon: ShieldCheck,
   },
   {
@@ -166,20 +166,20 @@ export default function HomePage() {
                 Próximo passo
               </p>
               <h2 className="text-3xl font-semibold tracking-tight">
-                Se o ERP fizer sentido para sua operação, o acesso agora passa pelo time Receps.
+                Se o ERP fizer sentido para sua operação, você já pode começar hoje.
               </h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                Mantemos o app preparado para virar subdomínio no futuro, mas já reorganizamos o
-                funil comercial desde agora.
+                Escolha o plano ideal, crie sua conta e entre no fluxo de assinatura sem depender
+                de aprovação manual.
               </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/solicitar-acesso"
+                href="/assinar"
                 className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
               >
-                Solicitar acesso
+                Ver planos
               </Link>
               <Link
                 href="/login"

@@ -3,8 +3,11 @@ import { redirect } from "next/navigation";
 import { getSubscriptionStatus as getBillingSubscriptionStatus } from "@/services/billing.service";
 
 const ALWAYS_ACCESSIBLE_PATH_PREFIXES = [
+  "/assinar",
   "/assinatura/bloqueada",
+  "/cadastro",
   "/logout",
+  "/onboarding",
 ] as const;
 
 function isAlwaysAccessiblePath(pathname: string) {

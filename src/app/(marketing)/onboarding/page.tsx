@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { OnboardingStatusCard } from "@/components/billing/onboarding-status-card";
 import { db } from "@/lib/db";
-import { getCheckoutSession } from "@/services/billing.service";
+import { getCheckoutSession, getSubscriptionStatus } from "@/services/billing.service";
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -42,12 +42,27 @@ export default async function OnboardingPage({
       trialEnd: true,
     },
   });
+  const access = await getSubscriptionStatus(tenantId);
+  const checkoutCreatedAt = new Date(checkoutSession.created * 1000);
+  const isRecentCheckout = Date.now() - checkoutCreatedAt.getTime() <= 5 * 60 * 1000;
+  const mode = access.hasAccess
+    ? "success"
+    : !subscription && isRecentCheckout
+      ? "waiting"
+      : access.shouldPoll
+        ? "waiting"
+        : "failed";
+  const waitingMessage =
+    !subscription && isRecentCheckout
+      ? "Estamos confirmando o seu pagamento. Isso costuma levar só alguns instantes."
+      : access.reason;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
       <OnboardingStatusCard
-        mode={subscription ? "success" : "waiting"}
+        mode={mode}
         trialEndsAt={subscription?.trialEnd ? formatDate(subscription.trialEnd) : null}
+        message={mode === "waiting" ? waitingMessage : access.reason}
       />
     </div>
   );

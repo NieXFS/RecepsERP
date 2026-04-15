@@ -20,14 +20,14 @@ export default async function SubscribePage({
     <div className="mx-auto max-w-6xl px-6 py-16">
       <section className="max-w-3xl space-y-4">
         <p className="text-sm font-medium uppercase tracking-[0.24em] text-primary">
-          Assinatura
+          Planos
         </p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Escolha o plano do Receps ERP e siga no Checkout hospedado da Stripe.
+          Comece a transformar sua clínica hoje
         </h1>
         <p className="text-base leading-7 text-muted-foreground">
-          O fluxo inicial prioriza cartão, trial de 7 dias, portal de cobrança e
-          sincronização por webhook para liberar o ERP com segurança.
+          Escolha o plano ideal, teste grátis por 7 dias e cancele quando quiser.
+          Sem fidelidade, sem burocracia.
         </p>
       </section>
 

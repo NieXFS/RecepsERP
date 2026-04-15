@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
+import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { createCheckoutSessionSchema } from "@/lib/validators/billing";
 import { createCheckoutSession } from "@/services/billing.service";
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const referralCode =
-      parsedBody.data.referralCode ?? cookieStore.get("receps_referral_code")?.value;
+      parsedBody.data.referralCode ?? cookieStore.get(REFERRAL_COOKIE_NAME)?.value;
     const session = await createCheckoutSession({
       tenantId: user.tenantId,
       planId: parsedBody.data.planId,

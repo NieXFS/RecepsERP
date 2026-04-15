@@ -49,10 +49,10 @@ export default function MarketingLayout({
               Entrar
             </Link>
             <Link
-              href="/solicitar-acesso"
+              href="/assinar"
               className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
             >
-              Solicitar acesso
+              Assinar
             </Link>
           </div>
         </div>
@@ -90,8 +90,8 @@ export default function MarketingLayout({
             <p className="text-sm font-semibold">Acesso</p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
-                <Link href="/solicitar-acesso" className="hover:text-foreground">
-                  Solicitar acesso ao ERP
+                <Link href="/assinar" className="hover:text-foreground">
+                  Ver planos do ERP
                 </Link>
               </p>
               <p>

@@ -1,11 +1,28 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LockKeyhole } from "lucide-react";
+import { CreditCard, LoaderCircle, LockKeyhole } from "lucide-react";
 import { BillingPortalButton } from "@/components/billing/billing-portal-button";
+import { SubscriptionStatusPoller } from "@/components/billing/subscription-status-poller";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getAuthUser } from "@/lib/session";
 import { getSubscriptionStatus } from "@/lib/subscription-guard";
+
+function getStatusLabel(status: string) {
+  return (
+    {
+      TRIALING: "Trial",
+      ACTIVE: "Assinatura ativa",
+      PAST_DUE: "Pagamento pendente",
+      CANCELED: "Assinatura cancelada",
+      INCOMPLETE: "Pagamento em processamento",
+      INCOMPLETE_EXPIRED: "Pagamento expirado",
+      UNPAID: "Inadimplente",
+      PAUSED: "Pausada",
+      NONE: "Sem assinatura",
+    }[status] ?? status
+  );
+}
 
 export default async function SubscriptionBlockedPage() {
   const user = await getAuthUser();
@@ -15,42 +32,55 @@ export default async function SubscriptionBlockedPage() {
     redirect("/dashboard");
   }
 
-  const showPortalCta = ["PAST_DUE", "UNPAID", "INCOMPLETE"].includes(status.status);
+  const isProcessing = status.shouldPoll;
+  const showPortalCta = !isProcessing && ["PAST_DUE", "UNPAID", "INCOMPLETE"].includes(status.status);
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#e2e8f0,transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-6 py-10 dark:bg-[radial-gradient(circle_at_top,#1e293b,transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-4xl items-center justify-center">
         <Card className="w-full max-w-3xl border-border/70 bg-background/95 shadow-2xl shadow-primary/10 backdrop-blur">
+          {isProcessing ? <SubscriptionStatusPoller /> : null}
           <CardHeader className="space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <LockKeyhole className="h-8 w-8" />
+              {isProcessing ? (
+                <LoaderCircle className="h-8 w-8 animate-spin" />
+              ) : (
+                <LockKeyhole className="h-8 w-8" />
+              )}
             </div>
             <div className="space-y-3">
-              <Badge className="bg-amber-500 text-white hover:bg-amber-500">
-                Acesso bloqueado
+              <Badge className={isProcessing ? "bg-sky-600 text-white hover:bg-sky-600" : "bg-amber-500 text-white hover:bg-amber-500"}>
+                {isProcessing ? "Processando pagamento" : "Acesso bloqueado"}
               </Badge>
               <CardTitle className="text-3xl tracking-tight">
-                Este tenant precisa de uma assinatura para usar o ERP
+                {isProcessing
+                  ? "Estamos confirmando o seu pagamento"
+                  : "Este tenant precisa de uma assinatura para usar o ERP"}
               </CardTitle>
               <CardDescription className="mx-auto max-w-2xl text-sm leading-6">
-                O acesso fica liberado apenas com assinatura em trial ou ativa, ou com uma
-                liberação manual da Receps.
+                {isProcessing
+                  ? "Você já está logado e seu pagamento está em análise final. Esta tela atualiza automaticamente até o acesso ser liberado."
+                  : "O acesso fica liberado apenas com assinatura em trial ou ativa, ou com uma liberação manual da Receps."}
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 text-center">
               <p className="text-sm font-medium">Status atual</p>
-              <p className="mt-2 text-lg font-semibold">{status.status}</p>
+              <p className="mt-2 text-lg font-semibold">{getStatusLabel(status.status)}</p>
               <p className="mt-2 text-sm text-muted-foreground">{status.reason}</p>
             </div>
 
             <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/assinar"
-                className="inline-flex h-10 min-w-52 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
-              >
-                Ativar assinatura
-              </Link>
+              {!isProcessing ? (
+                <Link
+                  href="/assinar"
+                  className="inline-flex h-10 min-w-52 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Ativar assinatura
+                </Link>
+              ) : null}
 
               {showPortalCta ? (
                 <BillingPortalButton
@@ -59,6 +89,13 @@ export default async function SubscriptionBlockedPage() {
                   variant="outline"
                 />
               ) : null}
+
+              <Link
+                href="/logout"
+                className="inline-flex h-10 min-w-40 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                Sair
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -38,6 +38,17 @@ export default function SolicitarAcessoPage() {
           </p>
         </div>
 
+        <div className="rounded-[1.5rem] border border-primary/20 bg-primary/5 p-5 text-sm leading-6 text-primary">
+          <p className="font-medium">Essa página é para solicitações manuais.</p>
+          <p className="mt-2 text-muted-foreground">
+            Para assinar o Receps agora em self-service, siga para{" "}
+            <Link href="/assinar" className="font-medium text-primary hover:underline">
+              /assinar
+            </Link>
+            .
+          </p>
+        </div>
+
         <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-5 text-sm leading-6 text-muted-foreground">
           <p className="font-medium text-foreground">O que acontece depois</p>
           <p className="mt-2">1. Seu pedido entra como lead pendente.</p>

@@ -81,10 +81,10 @@ export default async function InvitationPage({
           Ir para o login
         </Link>
         <Link
-          href="/solicitar-acesso"
+          href="/assinar"
           className="inline-flex items-center justify-center rounded-xl border border-border px-6 py-3 text-sm font-medium transition-colors hover:bg-muted"
         >
-          Solicitar novo acesso
+          Ver planos do Receps
         </Link>
       </div>
     </div>
