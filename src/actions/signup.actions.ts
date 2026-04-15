@@ -2,24 +2,18 @@
 
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { z } from "zod";
 import { db } from "@/lib/db";
-import { TENANT_MODULE_VALUES } from "@/lib/tenant-modules";
-import { getDefaultCustomPermissions } from "@/lib/tenant-permissions";
 import { startUserSession } from "@/lib/auth-session";
 import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
-import { createCheckoutSession, createStripeCustomer } from "@/services/billing.service";
+import { TENANT_MODULE_VALUES } from "@/lib/tenant-modules";
+import { getDefaultCustomPermissions } from "@/lib/tenant-permissions";
+import { signupSchema, type SignupInput } from "@/lib/validators/signup";
+import {
+  createStripeCustomer,
+  createTrialSubscription,
+} from "@/services/billing.service";
 import { ensureDefaultFinancialAccount } from "@/services/onboarding.service";
-
-const signupSchema = z.object({
-  clinicName: z.string().trim().min(3, "Informe o nome da clínica."),
-  ownerName: z.string().trim().min(2, "Informe o seu nome."),
-  email: z.email("Informe um email válido.").transform((value) => value.trim().toLowerCase()),
-  phone: z.string().trim().min(10, "Informe um telefone válido."),
-  password: z.string().min(8, "A senha deve ter no mínimo 8 caracteres."),
-  planSlug: z.string().trim().min(1, "Plano inválido."),
-  referralCode: z.string().trim().max(64, "Código de indicação inválido.").optional(),
-});
+import { getReferralByCode } from "@/services/referral.service";
 
 function getReferralCookieOptions() {
   const secure =
@@ -31,28 +25,6 @@ function getReferralCookieOptions() {
     secure,
     httpOnly: false,
   };
-}
-
-function normalizePhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-
-  if (!digits) {
-    throw new Error("Informe um telefone válido.");
-  }
-
-  if (digits.startsWith("55")) {
-    if (digits.length !== 12 && digits.length !== 13) {
-      throw new Error("Informe um telefone brasileiro válido.");
-    }
-
-    return `+${digits}`;
-  }
-
-  if (digits.length !== 10 && digits.length !== 11) {
-    throw new Error("Informe um telefone brasileiro válido.");
-  }
-
-  return `+55${digits}`;
 }
 
 function slugify(value: string) {
@@ -85,15 +57,20 @@ async function generateUniqueTenantSlug(businessName: string) {
   return candidate;
 }
 
-export async function signupAndCreateCheckoutAction(input: {
-  clinicName: string;
+type SignupResult =
+  | { success: true; redirectUrl: string }
+  | { success: false; error: string };
+
+export async function signupAction(input: {
+  businessName: string;
+  cnpj: string;
   ownerName: string;
   email: string;
   phone: string;
   password: string;
   planSlug: string;
   referralCode?: string;
-}): Promise<{ success: true; checkoutUrl: string } | { success: false; error: string }> {
+}): Promise<SignupResult> {
   const parsed = signupSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -104,31 +81,31 @@ export async function signupAndCreateCheckoutAction(input: {
   }
 
   const data = parsed.data;
-  let normalizedPhone: string;
-
-  try {
-    normalizedPhone = normalizePhone(data.phone);
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Informe um telefone válido.",
-    };
-  }
-
-  const referralCode = data.referralCode?.trim() || undefined;
   let createdTenantId: string | null = null;
 
   try {
-    const plan = await db.plan.findFirst({
-      where: {
-        slug: data.planSlug,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        stripePriceId: true,
-      },
-    });
+    const [plan, existingUser, existingTenantByCnpj, validatedReferral] = await Promise.all([
+      db.plan.findFirst({
+        where: {
+          slug: data.planSlug,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          slug: true,
+          stripePriceId: true,
+        },
+      }),
+      db.user.findUnique({
+        where: { email: data.email },
+        select: { id: true },
+      }),
+      db.tenant.findFirst({
+        where: { cnpj: data.cnpj },
+        select: { id: true },
+      }),
+      data.referralCode ? getReferralByCode(data.referralCode) : null,
+    ]);
 
     if (!plan) {
       return {
@@ -140,14 +117,9 @@ export async function signupAndCreateCheckoutAction(input: {
     if (!plan.stripePriceId) {
       return {
         success: false,
-        error: "Este plano ainda não está pronto para checkout.",
+        error: "Este plano ainda não está pronto para assinatura.",
       };
     }
-
-    const existingUser = await db.user.findUnique({
-      where: { email: data.email },
-      select: { id: true },
-    });
 
     if (existingUser) {
       return {
@@ -156,22 +128,14 @@ export async function signupAndCreateCheckoutAction(input: {
       };
     }
 
-    const validatedReferral =
-      referralCode
-        ? await db.referral.findFirst({
-            where: {
-              code: {
-                equals: referralCode,
-                mode: "insensitive",
-              },
-            },
-            select: {
-              code: true,
-            },
-          })
-        : null;
+    if (existingTenantByCnpj) {
+      return {
+        success: false,
+        error: "Esse CNPJ já tem conta no Receps. Faça login pra continuar.",
+      };
+    }
 
-    if (referralCode && !validatedReferral) {
+    if (data.referralCode && !validatedReferral) {
       return {
         success: false,
         error: "Código de indicação inválido.",
@@ -180,23 +144,25 @@ export async function signupAndCreateCheckoutAction(input: {
 
     const passwordHash = await bcrypt.hash(data.password, 10);
     const customPermissions = getDefaultCustomPermissions("ADMIN");
-    const tenantSlug = await generateUniqueTenantSlug(data.clinicName);
+    const tenantSlug = await generateUniqueTenantSlug(data.businessName);
 
     const result = await db.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
-          name: data.clinicName.trim(),
+          name: data.businessName.trim(),
           slug: tenantSlug,
-          source: "MANUAL_INVITE",
+          source: "LEAD",
           lifecycleStatus: "INCOMPLETE",
           isActive: true,
+          cnpj: data.cnpj,
           email: data.email,
-          phone: normalizedPhone,
+          phone: data.phone,
         },
         select: {
           id: true,
           name: true,
           slug: true,
+          cnpj: true,
           email: true,
           phone: true,
           stripeCustomerId: true,
@@ -210,7 +176,7 @@ export async function signupAndCreateCheckoutAction(input: {
           tenantId: tenant.id,
           name: data.ownerName.trim(),
           email: data.email,
-          phone: normalizedPhone,
+          phone: data.phone,
           passwordHash,
           role: "ADMIN",
           customPermissions,
@@ -247,16 +213,12 @@ export async function signupAndCreateCheckoutAction(input: {
 
     await createStripeCustomer(result.tenant);
 
-    const checkoutSession = await createCheckoutSession({
+    await createTrialSubscription({
       tenantId: result.tenant.id,
       planId: result.planId,
       referralCode: result.referralCode,
       customerEmail: result.user.email,
     });
-
-    if (!checkoutSession.url) {
-      throw new Error("Não foi possível gerar o link de pagamento.");
-    }
 
     await startUserSession(result.user);
 
@@ -268,10 +230,10 @@ export async function signupAndCreateCheckoutAction(input: {
 
     return {
       success: true,
-      checkoutUrl: checkoutSession.url,
+      redirectUrl: "/onboarding",
     };
   } catch (error) {
-    console.error("[signupAndCreateCheckoutAction]", error);
+    console.error("[signupAction]", error);
 
     if (createdTenantId) {
       try {
@@ -279,7 +241,7 @@ export async function signupAndCreateCheckoutAction(input: {
           where: { id: createdTenantId },
         });
       } catch (cleanupError) {
-        console.error("[signupAndCreateCheckoutAction][cleanup]", cleanupError);
+        console.error("[signupAction][cleanup]", cleanupError);
       }
     }
 
@@ -291,4 +253,12 @@ export async function signupAndCreateCheckoutAction(input: {
           : "Não foi possível criar sua conta agora. Tente novamente em instantes.",
     };
   }
+}
+
+export async function signupAndCreateCheckoutAction(
+  input: SignupInput & {
+    businessName: string;
+  }
+) {
+  return signupAction(input);
 }

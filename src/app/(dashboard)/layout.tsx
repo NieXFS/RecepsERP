@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { Sidebar, type SidebarProps } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { TrialStatusBanner } from "@/components/billing/trial-status-banner";
 import { TenantAccentThemeSync } from "@/components/layout/tenant-accent-theme-sync";
 import { getAuthUserWithAccess } from "@/lib/session";
 import { enforceSubscriptionAccess } from "@/lib/subscription-guard";
@@ -65,6 +66,7 @@ export default async function DashboardLayout({
           sidebarProps={sidebarProps}
         />
         <main className="flex-1 overflow-y-auto bg-muted/30 p-6">
+          <TrialStatusBanner tenantId={user.tenantId} />
           {children}
         </main>
       </div>

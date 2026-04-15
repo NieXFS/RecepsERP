@@ -233,6 +233,15 @@ async function handleStripeEvent(event: Stripe.Event) {
     case "invoice.voided":
     case "invoice.marked_uncollectible":
       return handleInvoiceFailure(event);
+    case "customer.subscription.trial_will_end": {
+      const subscription = event.data.object as Stripe.Subscription;
+
+      return {
+        action: "trial_will_end_logged",
+        tenantId: subscription.metadata?.tenantId ?? null,
+        stripeSubscriptionId: subscription.id,
+      };
+    }
     default:
       return {
         action: "ignored",

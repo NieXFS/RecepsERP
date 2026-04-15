@@ -22,6 +22,7 @@ model Tenant {
   source              TenantSource          @default(MANUAL_INVITE)
   lifecycleStatus     TenantLifecycleStatus @default(INCOMPLETE)
   accentTheme         TenantAccentTheme     @default(RECEPS_SIGNATURE)
+  cnpj                String?               @unique
   document            String? // CNPJ ou CPF do responsável
   phone               String?
   email               String?

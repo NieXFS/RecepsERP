@@ -15,6 +15,7 @@ import {
   createReferralForTenant,
   getGuestReferralDiscountPercent,
   getReferralByCode,
+  registerReferralUse,
   releaseReservedReward,
   reserveOldestPendingRewardForInvoice,
 } from "@/services/referral.service";
@@ -276,7 +277,7 @@ function getActiveSubscriptionReason(status: SubscriptionStatus) {
     case "PAST_DUE":
       return "Pagamento pendente. Atualize a forma de pagamento para liberar o acesso.";
     case "CANCELED":
-      return "Assinatura cancelada.";
+      return "Seu trial acabou ou a assinatura foi cancelada. Adicione uma forma de pagamento para continuar.";
     case "INCOMPLETE":
       return "Pagamento inicial incompleto.";
     case "INCOMPLETE_EXPIRED":
@@ -586,6 +587,97 @@ export async function createCheckoutSession({
   return {
     id: session.id,
     url: session.url,
+    guestDiscountPercent: resolvedReferral ? getGuestReferralDiscountPercent() : null,
+  };
+}
+
+export async function createTrialSubscription({
+  tenantId,
+  planId,
+  referralCode,
+  customerEmail,
+}: {
+  tenantId: string;
+  planId: string;
+  referralCode?: string;
+  customerEmail?: string;
+}) {
+  const [tenant, plan] = await Promise.all([
+    getTenantForBilling(tenantId),
+    db.plan.findUnique({
+      where: { id: planId },
+    }),
+  ]);
+
+  if (!plan || !plan.isActive) {
+    throw new Error("Plano indisponível para assinatura.");
+  }
+
+  if (!plan.stripePriceId) {
+    throw new Error("Este plano ainda não foi configurado no Stripe.");
+  }
+
+  if (
+    tenant.subscription &&
+    !["CANCELED", "INCOMPLETE_EXPIRED"].includes(tenant.subscription.status)
+  ) {
+    throw new Error(
+      "Este tenant já possui uma assinatura em andamento. Use o portal de cobrança para gerenciar alterações."
+    );
+  }
+
+  const resolvedReferral = await resolveCheckoutReferral(tenant, referralCode);
+  const stripeCustomerId =
+    tenant.stripeCustomerId || (await createStripeCustomer(tenant));
+
+  await ensureStripeCustomerEmail(stripeCustomerId, customerEmail ?? tenant.email);
+
+  const stripe = getStripe();
+  const stripeSubscription = await stripe.subscriptions.create({
+    customer: stripeCustomerId,
+    items: [
+      {
+        price: plan.stripePriceId,
+        quantity: 1,
+      },
+    ],
+    trial_period_days: plan.trialDays,
+    payment_behavior: "default_incomplete",
+    payment_settings: {
+      save_default_payment_method: "on_subscription",
+    },
+    trial_settings: {
+      end_behavior: {
+        missing_payment_method: "cancel",
+      },
+    },
+    metadata: {
+      tenantId: tenant.id,
+      planId: plan.id,
+      planSlug: plan.slug,
+      ...(resolvedReferral ? { referralCode: resolvedReferral.code } : {}),
+    },
+    discounts: resolvedReferral?.stripeCouponId
+      ? [
+          {
+            coupon: resolvedReferral.stripeCouponId,
+          },
+        ]
+      : undefined,
+  });
+
+  const localSubscription = await syncSubscriptionFromStripe(stripeSubscription);
+
+  if (resolvedReferral) {
+    await registerReferralUse({
+      referralCode: resolvedReferral.code,
+      referredTenantId: tenant.id,
+    });
+  }
+
+  return {
+    subscription: localSubscription,
+    onboardingUrl: `${getAppUrl()}/onboarding`,
     guestDiscountPercent: resolvedReferral ? getGuestReferralDiscountPercent() : null,
   };
 }

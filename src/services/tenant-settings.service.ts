@@ -31,7 +31,7 @@ export async function getTenantBusinessSettings(tenantId: string) {
     select: {
       id: true,
       name: true,
-      document: true,
+      cnpj: true,
       phone: true,
       email: true,
       openingTime: true,
@@ -73,7 +73,6 @@ export async function updateTenantBusinessSettings(
     where: { id: tenantId },
     data: {
       name: input.name,
-      document: input.document || null,
       phone: input.phone || null,
       email: input.email || null,
       openingTime: normalizedSchedule.openingTime,

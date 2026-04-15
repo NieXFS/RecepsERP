@@ -16,8 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { CountUpStat } from "@/components/marketing/count-up-stat";
+import { AuroraBackground } from "@/components/marketing/aurora-background";
 import { DayComparison } from "@/components/marketing/combo/day-comparison";
-import { AuroraBackground } from "@/components/marketing/combo/aurora-background";
 import { HeroDualMockup } from "@/components/marketing/combo/hero-dual-mockup";
 import { IntegrationTimeline } from "@/components/marketing/combo/integration-timeline";
 import { PricingCombo } from "@/components/marketing/combo/pricing-combo";

@@ -9,7 +9,6 @@ const optionalTextField = z.string().trim().optional().or(z.literal(""));
 export const tenantBusinessSettingsSchema = z
   .object({
     name: z.string().trim().min(2, "Informe o nome do estabelecimento."),
-    document: optionalTextField,
     phone: optionalTextField,
     email: optionalTextField.refine((value) => {
       if (!value) {

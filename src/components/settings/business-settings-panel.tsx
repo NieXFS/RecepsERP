@@ -20,7 +20,7 @@ import { TENANT_SLOT_INTERVAL_OPTIONS } from "@/lib/tenant-schedule";
 
 type BusinessSettings = {
   name: string;
-  document: string | null;
+  cnpj: string | null;
   phone: string | null;
   email: string | null;
   openingTime: string;
@@ -41,7 +41,6 @@ export function BusinessSettingsPanel({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState(settings.name);
-  const [document, setDocument] = useState(settings.document ?? "");
   const [phone, setPhone] = useState(settings.phone ?? "");
   const [email, setEmail] = useState(settings.email ?? "");
   const [openingTime, setOpeningTime] = useState(settings.openingTime);
@@ -52,7 +51,6 @@ export function BusinessSettingsPanel({
 
   useEffect(() => {
     setName(settings.name);
-    setDocument(settings.document ?? "");
     setPhone(settings.phone ?? "");
     setEmail(settings.email ?? "");
     setOpeningTime(settings.openingTime);
@@ -72,7 +70,6 @@ export function BusinessSettingsPanel({
     startTransition(async () => {
       const result = await updateTenantSettingsAction({
         name,
-        document,
         phone,
         email,
         openingTime,
@@ -116,13 +113,17 @@ export function BusinessSettingsPanel({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tenant-document">Documento</Label>
+                <Label htmlFor="tenant-cnpj">CNPJ</Label>
                 <Input
-                  id="tenant-document"
-                  value={document}
-                  onChange={(event) => setDocument(event.target.value)}
-                  placeholder="CNPJ ou CPF"
+                  id="tenant-cnpj"
+                  value={settings.cnpj ?? ""}
+                  readOnly
+                  disabled
+                  placeholder="CNPJ cadastrado no onboarding"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Para alterar o CNPJ, fale com o suporte da Receps.
+                </p>
               </div>
             </div>
 

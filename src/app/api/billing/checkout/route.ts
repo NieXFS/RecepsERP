@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { createCheckoutSessionSchema } from "@/lib/validators/billing";
-import { createCheckoutSession } from "@/services/billing.service";
+import { createTrialSubscription } from "@/services/billing.service";
 
 export async function POST(request: Request) {
   let user;
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const referralCode =
       parsedBody.data.referralCode ?? cookieStore.get(REFERRAL_COOKIE_NAME)?.value;
-    const session = await createCheckoutSession({
+    const subscription = await createTrialSubscription({
       tenantId: user.tenantId,
       planId: parsedBody.data.planId,
       referralCode,
@@ -46,8 +46,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        id: session.id,
-        url: session.url,
+        url: subscription.onboardingUrl,
       },
       { status: 200 }
     );
@@ -57,7 +56,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Não foi possível iniciar o checkout.",
+            : "Não foi possível iniciar seu trial.",
       },
       { status: 400 }
     );

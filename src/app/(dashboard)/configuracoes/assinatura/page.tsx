@@ -116,8 +116,20 @@ export default async function BillingSettingsPage({
 
       {subscription.status === "TRIALING" && subscription.trialEnd ? (
         <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm">
-          <CardContent className="py-4 text-sm text-emerald-900 dark:text-emerald-200">
-            Trial ativo até {formatDate(subscription.trialEnd)}.
+          <CardContent className="flex flex-col gap-3 py-4 text-sm text-emerald-900 dark:text-emerald-200 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Trial ativo até {formatDate(subscription.trialEnd)}.
+              {defaultPaymentMethod
+                ? " Sua forma de pagamento já está salva."
+                : " Adicione uma forma de pagamento para continuar depois do período grátis."}
+            </span>
+            {!defaultPaymentMethod ? (
+              <BillingPortalButton
+                returnUrl="/configuracoes/assinatura"
+                label="Adicionar forma de pagamento"
+                variant="outline"
+              />
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -126,6 +138,22 @@ export default async function BillingSettingsPage({
         <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm">
           <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">
             Há pagamentos pendentes. Atualize a forma de pagamento para manter o acesso ao ERP.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {subscription.status === "CANCELED" ? (
+        <Card className="border-destructive/20 bg-destructive/5 shadow-sm">
+          <CardContent className="flex flex-col gap-3 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Sua assinatura está cancelada. Adicione uma forma de pagamento ou escolha um novo
+              plano para reativar o acesso.
+            </span>
+            <BillingPortalButton
+              returnUrl="/configuracoes/assinatura"
+              label="Abrir portal de cobrança"
+              variant="outline"
+            />
           </CardContent>
         </Card>
       ) : null}

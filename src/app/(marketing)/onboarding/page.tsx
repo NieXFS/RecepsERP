@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { OnboardingStatusCard } from "@/components/billing/onboarding-status-card";
 import { db } from "@/lib/db";
+import { getOptionalSession } from "@/lib/session";
 import { getCheckoutSession, getSubscriptionStatus } from "@/services/billing.service";
 
 function formatDate(value: Date) {
@@ -15,9 +16,39 @@ export default async function OnboardingPage({
   searchParams: Promise<{ session_id?: string }>;
 }) {
   const params = await searchParams;
+  const session = await getOptionalSession();
 
   if (!params.session_id) {
-    notFound();
+    if (!session) {
+      notFound();
+    }
+
+    const [subscription, access] = await Promise.all([
+      db.subscription.findUnique({
+        where: { tenantId: session.tenantId },
+        select: {
+          id: true,
+          trialEnd: true,
+        },
+      }),
+      getSubscriptionStatus(session.tenantId),
+    ]);
+
+    const mode = access.hasAccess
+      ? "success"
+      : access.shouldPoll
+        ? "waiting"
+        : "failed";
+
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <OnboardingStatusCard
+          mode={mode}
+          trialEndsAt={subscription?.trialEnd ? formatDate(subscription.trialEnd) : null}
+          message={mode === "waiting" ? access.reason : access.reason}
+        />
+      </div>
+    );
   }
 
   let checkoutSession;
@@ -33,6 +64,10 @@ export default async function OnboardingPage({
 
   if (!tenantId) {
     notFound();
+  }
+
+  if (!session) {
+    redirect("/login");
   }
 
   const subscription = await db.subscription.findUnique({

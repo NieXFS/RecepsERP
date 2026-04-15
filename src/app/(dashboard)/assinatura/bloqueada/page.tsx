@@ -24,16 +24,41 @@ function getStatusLabel(status: string) {
   );
 }
 
+function getBlockedStateCopy(status: string) {
+  if (status === "CANCELED") {
+    return {
+      title: "Seu trial acabou",
+      description:
+        "Adicione uma forma de pagamento para reativar sua assinatura e voltar a usar o ERP.",
+    };
+  }
+
+  if (status === "PAST_DUE" || status === "UNPAID") {
+    return {
+      title: "Seu acesso está pausado por pagamento pendente",
+      description:
+        "Atualize sua forma de pagamento para liberar o ERP novamente sem perder a configuração do seu negócio.",
+    };
+  }
+
+  return {
+    title: "Este tenant precisa de uma assinatura para usar o ERP",
+    description:
+      "O acesso fica liberado apenas com assinatura em trial ou ativa, ou com uma liberação manual da Receps.",
+  };
+}
+
 export default async function SubscriptionBlockedPage() {
   const user = await getAuthUser();
   const status = await getSubscriptionStatus(user.tenantId);
+  const blockedCopy = getBlockedStateCopy(status.status);
 
   if (status.hasAccess) {
     redirect("/dashboard");
   }
 
   const isProcessing = status.shouldPoll;
-  const showPortalCta = !isProcessing && ["PAST_DUE", "UNPAID", "INCOMPLETE"].includes(status.status);
+  const showPortalCta = !isProcessing && ["PAST_DUE", "UNPAID", "INCOMPLETE", "CANCELED"].includes(status.status);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#e2e8f0,transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-6 py-10 dark:bg-[radial-gradient(circle_at_top,#1e293b,transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]">
@@ -55,12 +80,12 @@ export default async function SubscriptionBlockedPage() {
               <CardTitle className="text-3xl tracking-tight">
                 {isProcessing
                   ? "Estamos confirmando o seu pagamento"
-                  : "Este tenant precisa de uma assinatura para usar o ERP"}
+                  : blockedCopy.title}
               </CardTitle>
               <CardDescription className="mx-auto max-w-2xl text-sm leading-6">
                 {isProcessing
                   ? "Você já está logado e seu pagamento está em análise final. Esta tela atualiza automaticamente até o acesso ser liberado."
-                  : "O acesso fica liberado apenas com assinatura em trial ou ativa, ou com uma liberação manual da Receps."}
+                  : blockedCopy.description}
               </CardDescription>
             </div>
           </CardHeader>
@@ -78,13 +103,17 @@ export default async function SubscriptionBlockedPage() {
                   className="inline-flex h-10 min-w-52 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Ativar assinatura
+                  {status.status === "CANCELED" ? "Escolher plano novamente" : "Ver planos"}
                 </Link>
               ) : null}
 
               {showPortalCta ? (
                 <BillingPortalButton
-                  label="Atualizar pagamento"
+                  label={
+                    status.status === "CANCELED"
+                      ? "Adicionar forma de pagamento"
+                      : "Atualizar pagamento"
+                  }
                   returnUrl="/assinatura/bloqueada"
                   variant="outline"
                 />

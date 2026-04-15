@@ -116,13 +116,13 @@ export function SubscribePlansPanel({
         const data = (await response.json()) as { url?: string; error?: string };
 
         if (!response.ok || !data.url) {
-          throw new Error(data.error || "Não foi possível iniciar o checkout.");
+          throw new Error(data.error || "Não foi possível iniciar seu trial.");
         }
 
         window.location.href = data.url;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Não foi possível iniciar o checkout.";
+          error instanceof Error ? error.message : "Não foi possível iniciar seu trial.";
         setError(message);
         toast.error(message);
       } finally {
@@ -204,7 +204,7 @@ export function SubscribePlansPanel({
                 onClick={() => handlePlanCheckout(plan)}
               >
                 {isLoading
-                  ? "Redirecionando..."
+                  ? "Preparando acesso..."
                   : plan.isFeatured
                     ? "Começar teste grátis"
                     : "Assinar agora"}
