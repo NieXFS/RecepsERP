@@ -14,6 +14,7 @@ import {
   createStripeCustomer,
   createTrialSubscription,
 } from "@/services/billing.service";
+import { sendWelcomeEmail } from "@/services/email.service";
 import { ensureDefaultFinancialAccount } from "@/services/onboarding.service";
 import { getReferralByCode } from "@/services/referral.service";
 
@@ -71,6 +72,7 @@ export async function signupAction(input: {
   phone: string;
   password: string;
   planSlug: string;
+  acceptLegal: boolean;
   referralCode?: string;
 }): Promise<SignupResult> {
   const normalizedPlanSlug = normalizePlanSlug(input.planSlug);
@@ -226,6 +228,10 @@ export async function signupAction(input: {
 
     await startUserSession(result.user);
 
+    void sendWelcomeEmail(result.tenant.id).catch((emailError) => {
+      console.error("[signupAction][welcomeEmail]", emailError);
+    });
+
     const cookieStore = await cookies();
     cookieStore.set(REFERRAL_COOKIE_NAME, "", {
       ...getReferralCookieOptions(),
@@ -234,7 +240,7 @@ export async function signupAction(input: {
 
     return {
       success: true,
-      redirectUrl: "/onboarding",
+      redirectUrl: "/bem-vindo",
     };
   } catch (error) {
     console.error("[signupAction]", error);

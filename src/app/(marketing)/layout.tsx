@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { CookieConsentBanner } from "@/components/marketing/cookie-consent-banner";
 import { MarketingHeaderActions } from "@/components/marketing/marketing-header-actions";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { WhatsAppFab } from "@/components/support/whatsapp-fab";
 
 const navigation = [
   { href: "/", label: "Receps" },
@@ -48,49 +51,9 @@ export default function MarketingLayout({
 
       <main>{children}</main>
 
-      <footer className="border-t border-border/70 bg-muted/20">
-        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
-          <div className="space-y-3">
-            <p className="text-lg font-semibold">Receps</p>
-            <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              Marca principal da operação. Centralizamos aquisição, implantação e evolução
-              dos produtos que atendem clínicas, salões, barbearias e operações de estética.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">Produtos</p>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                <Link href="/atendentes-ia" className="hover:text-foreground">
-                  Atendentes IA
-                </Link>
-              </p>
-              <p>
-                <Link href="/erp" className="hover:text-foreground">
-                  ERP Receps
-                </Link>
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">Acesso</p>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                <Link href="/assinar" className="hover:text-foreground">
-                  Ver planos do ERP
-                </Link>
-              </p>
-              <p>
-                <Link href="/login" className="hover:text-foreground">
-                  Entrar no app
-                </Link>
-              </p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
+      <CookieConsentBanner />
+      <WhatsAppFab prefilledMessage="Oi! Vim do site do Receps e queria tirar uma dúvida." />
     </div>
   );
 }

@@ -3,6 +3,26 @@ import { requireAuth } from "@/lib/session";
 import { createBillingPortalSessionSchema } from "@/lib/validators/billing";
 import { createBillingPortalSession } from "@/services/billing.service";
 
+export async function GET(request: Request) {
+  let user;
+
+  try {
+    user = await requireAuth();
+  } catch {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const returnUrl = searchParams.get("returnUrl") || "/configuracoes/assinatura";
+    const session = await createBillingPortalSession(user.tenantId, returnUrl);
+
+    return NextResponse.redirect(session.url);
+  } catch {
+    return NextResponse.redirect(new URL("/configuracoes/assinatura", request.url));
+  }
+}
+
 export async function POST(request: Request) {
   let user;
 

@@ -28,6 +28,9 @@ export const signupSchema = z.object({
     .transform((value) => normalizeBrazilPhone(value)),
   password: z.string().min(8, "A senha deve ter no mínimo 8 caracteres."),
   planSlug: z.string().trim().min(1, "Plano inválido."),
+  acceptLegal: z
+    .boolean()
+    .refine((value) => value, "Você precisa aceitar os termos."),
   referralCode: z
     .string()
     .trim()

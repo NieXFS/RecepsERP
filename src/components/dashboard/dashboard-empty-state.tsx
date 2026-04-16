@@ -35,10 +35,9 @@ export function DashboardEmptyState() {
   return (
     <div className="flex flex-col items-center gap-8 py-12">
       <div className="max-w-md text-center">
-        <h2 className="text-2xl font-bold tracking-tight">Bem-vindo ao Receps!</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Seu dashboard ainda está vazio</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Seu dashboard aparecerá aqui assim que você começar a registrar
-          atendimentos. Siga os passos abaixo para configurar seu espaço.
+          Os indicadores aparecem aqui assim que você registrar o primeiro atendimento. Use os atalhos abaixo para avançar.
         </p>
       </div>
 

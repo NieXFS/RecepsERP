@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LogOut, Menu } from "lucide-react";
@@ -70,6 +71,12 @@ export function Header({
         className="flex items-center gap-3 pl-4"
         title={`${userName} • ${roleLabel(userRole)}`}
       >
+        <Link
+          href="/ajuda"
+          className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground md:inline"
+        >
+          Ajuda
+        </Link>
         <span className="text-xs text-muted-foreground hidden sm:inline">
           {userEmail}
         </span>

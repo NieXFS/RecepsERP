@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics/events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { normalizePlanSlug } from "@/lib/plans";
@@ -96,6 +97,7 @@ export function SubscribePlansPanel({
 
     startTransition(async () => {
       const resolvedReferralCode = referralCode ?? getReferralCookie() ?? undefined;
+      trackEvent("plan_selected", { plan_slug: normalizePlanSlug(plan.slug) ?? plan.slug });
 
       if (!isAuthenticated) {
         const resolvedPlanSlug = normalizePlanSlug(plan.slug) ?? plan.slug;

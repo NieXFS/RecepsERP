@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { formatCnpj, isValidCnpj } from "@/lib/cnpj";
 import { formatBrazilPhone, isValidBrazilPhone } from "@/lib/phone";
 import { getReferralCookie, setReferralCookie } from "@/lib/referral-cookie";
+import { trackEvent } from "@/lib/analytics/events";
 
 type SignupFormProps = {
   plan: SignupPlan;
@@ -98,6 +99,7 @@ export function SignupForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptLegal, setAcceptLegal] = useState(false);
   const [error, setError] = useState("");
   const [emailStatus, setEmailStatus] = useState<AsyncFieldStatus>({
     state: "idle",
@@ -108,6 +110,7 @@ export function SignupForm({
     message: "Precisamos do CNPJ pra emitir notas e ativar recursos fiscais. Fica entre nós.",
   });
   const [isPending, startTransition] = useTransition();
+  const signupStartedTrackedRef = useRef(false);
 
   useEffect(() => {
     if (referralCode) {
@@ -295,6 +298,11 @@ export function SignupForm({
     event.preventDefault();
     setError("");
 
+    if (!acceptLegal) {
+      setError("Você precisa aceitar os termos.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await signupAction({
         businessName,
@@ -304,6 +312,7 @@ export function SignupForm({
         phone,
         password,
         planSlug: plan.slug,
+        acceptLegal,
         referralCode: referralCode ?? getReferralCookie() ?? undefined,
       });
 
@@ -312,8 +321,18 @@ export function SignupForm({
         return;
       }
 
+      trackEvent("signup_completed");
       window.location.href = result.redirectUrl;
     });
+  }
+
+  function trackSignupStartedOnce() {
+    if (signupStartedTrackedRef.current) {
+      return;
+    }
+
+    signupStartedTrackedRef.current = true;
+    trackEvent("signup_started");
   }
 
   return (
@@ -353,7 +372,10 @@ export function SignupForm({
             <Input
               id="businessName"
               value={businessName}
-              onChange={(event) => setBusinessName(event.target.value)}
+              onChange={(event) => {
+                trackSignupStartedOnce();
+                setBusinessName(event.target.value);
+              }}
               placeholder="Ex: Studio Bella"
               minLength={3}
               required
@@ -373,7 +395,10 @@ export function SignupForm({
             <Input
               id="cnpj"
               value={cnpj}
-              onChange={(event) => setCnpj(formatCnpj(event.target.value))}
+              onChange={(event) => {
+                trackSignupStartedOnce();
+                setCnpj(formatCnpj(event.target.value));
+              }}
               placeholder="00.000.000/0000-00"
               inputMode="numeric"
               required
@@ -396,7 +421,10 @@ export function SignupForm({
               <Input
                 id="ownerName"
                 value={ownerName}
-                onChange={(event) => setOwnerName(event.target.value)}
+                onChange={(event) => {
+                  trackSignupStartedOnce();
+                  setOwnerName(event.target.value);
+                }}
                 placeholder="Ex: Fernanda Souza"
                 minLength={2}
                 required
@@ -417,7 +445,10 @@ export function SignupForm({
                 id="email"
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  trackSignupStartedOnce();
+                  setEmail(event.target.value);
+                }}
                 placeholder="voce@seunegocio.com.br"
                 required
                 disabled={isPending}
@@ -443,7 +474,10 @@ export function SignupForm({
                 id="phone"
                 type="tel"
                 value={phone}
-                onChange={(event) => setPhone(formatBrazilPhone(event.target.value))}
+                onChange={(event) => {
+                  trackSignupStartedOnce();
+                  setPhone(formatBrazilPhone(event.target.value));
+                }}
                 placeholder="(11) 99999-9999"
                 required
                 disabled={isPending}
@@ -468,7 +502,10 @@ export function SignupForm({
                 id="password"
                 type="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  trackSignupStartedOnce();
+                  setPassword(event.target.value);
+                }}
                 placeholder="No mínimo 8 caracteres"
                 minLength={8}
                 required
@@ -486,6 +523,37 @@ export function SignupForm({
               ) : null}
             </div>
           </div>
+
+          <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={acceptLegal}
+              onChange={(event) => setAcceptLegal(event.target.checked)}
+              disabled={isPending}
+              className="mt-1 h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <span className="text-sm leading-6 text-muted-foreground">
+              Li e aceito os{" "}
+              <Link
+                href="/termos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Termos de Uso
+              </Link>{" "}
+              e a{" "}
+              <Link
+                href="/privacidade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Política de Privacidade
+              </Link>
+              .
+            </span>
+          </label>
 
           {error ? (
             <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">

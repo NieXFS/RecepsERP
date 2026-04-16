@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { buildAppEventUrl, trackServerEvent } from "@/lib/analytics/server-events";
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe";
 import {
   markReservedRewardAsApplied,
@@ -14,6 +15,10 @@ import {
   registerReferralUse,
   releaseReservedReward,
 } from "@/services/referral.service";
+import {
+  sendPaymentFailedEmail,
+  sendTrialEndingEmail,
+} from "@/services/email.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -200,6 +205,10 @@ async function handleInvoiceFailure(event: Stripe.Event) {
     releaseReservedReward(stripeInvoice.id),
   ]);
 
+  if (event.type === "invoice.payment_failed" && localInvoice?.subscription.tenant.id) {
+    await sendPaymentFailedEmail(localInvoice.subscription.tenant.id);
+  }
+
   return {
     action: releasedReward ? "reserved_reward_released" : "invoice_synced",
     tenantId: localInvoice?.subscription.tenant.id ?? null,
@@ -216,7 +225,47 @@ async function handleStripeEvent(event: Stripe.Event) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
+      const previousSubscription = await db.subscription.findUnique({
+        where: { stripeSubscriptionId: subscription.id },
+        select: {
+          status: true,
+          defaultPaymentMethod: true,
+          tenantId: true,
+        },
+      });
       const localSubscription = await syncSubscriptionFromStripe(subscription);
+
+      if (
+        event.type === "customer.subscription.updated" &&
+        !previousSubscription?.defaultPaymentMethod &&
+        localSubscription.defaultPaymentMethod
+      ) {
+        await trackServerEvent({
+          eventName: "payment_method_added",
+          tenantId: localSubscription.tenant.id,
+          eventSourceUrl: buildAppEventUrl("/configuracoes/assinatura"),
+          customData: {
+            plan_slug: localSubscription.plan.slug,
+          },
+        });
+      }
+
+      if (
+        event.type === "customer.subscription.updated" &&
+        previousSubscription?.status !== "ACTIVE" &&
+        localSubscription.status === "ACTIVE"
+      ) {
+        await trackServerEvent({
+          eventName: "subscription_active",
+          tenantId: localSubscription.tenant.id,
+          eventSourceUrl: buildAppEventUrl("/configuracoes/assinatura"),
+          customData: {
+            plan_slug: localSubscription.plan.slug,
+            value: Number(localSubscription.plan.priceMonthly),
+            currency: "BRL",
+          },
+        });
+      }
 
       return {
         action: "subscription_synced",
@@ -235,6 +284,10 @@ async function handleStripeEvent(event: Stripe.Event) {
       return handleInvoiceFailure(event);
     case "customer.subscription.trial_will_end": {
       const subscription = event.data.object as Stripe.Subscription;
+
+      if (subscription.metadata?.tenantId) {
+        await sendTrialEndingEmail(subscription.metadata.tenantId);
+      }
 
       return {
         action: "trial_will_end_logged",

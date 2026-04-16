@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Receps ERP
 
-## Getting Started
+ERP multitenant em pt-BR para clínicas de estética, consultórios odontológicos,
+barbearias, salões, centros estéticos e studios de beleza.
 
-First, run the development server:
+## Ambiente local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variáveis principais
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+- `NEXT_PUBLIC_APP_URL`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `EMAIL_REPLY_TO`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Analytics
 
-## Learn More
+O projeto suporta Meta Pixel, Meta Conversions API e GA4.
 
-To learn more about Next.js, take a look at the following resources:
+### Variáveis
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NEXT_PUBLIC_META_PIXEL_ID`
+- `META_CONVERSIONS_API_TOKEN`
+- `META_CONVERSIONS_API_DATASET_ID`
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID`
+- `GA4_API_SECRET`
+- `NEXT_PUBLIC_ANALYTICS_DEBUG`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Como obter
 
-## Deploy on Vercel
+#### Meta Pixel / Conversions API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. No Meta Events Manager, crie ou selecione o dataset/pixel do projeto.
+2. Copie o ID para `NEXT_PUBLIC_META_PIXEL_ID`.
+3. Gere um token de Conversions API e salve em `META_CONVERSIONS_API_TOKEN`.
+4. Copie o ID do dataset em `META_CONVERSIONS_API_DATASET_ID`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+#### Google Analytics 4
+
+1. Crie uma propriedade GA4.
+2. Copie o Measurement ID no formato `G-XXXXXXX` para `NEXT_PUBLIC_GA_MEASUREMENT_ID`.
+3. Em **Admin > Data Streams > Measurement Protocol API secrets**, gere um secret.
+4. Salve esse valor em `GA4_API_SECRET`.
+
+### Debug
+
+Em ambiente local, defina `NEXT_PUBLIC_ANALYTICS_DEBUG=true` para testar eventos
+sem depender de `NODE_ENV=production`.
+
+## Stripe local
+
+Para testar webhooks:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+## Seed
+
+```bash
+npx prisma generate
+npm run db:seed
+```

@@ -3,8 +3,10 @@ import { Sidebar, type SidebarProps } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { TrialStatusBanner } from "@/components/billing/trial-status-banner";
 import { TenantAccentThemeSync } from "@/components/layout/tenant-accent-theme-sync";
+import { WhatsAppFab } from "@/components/support/whatsapp-fab";
 import { getAuthUserWithAccess } from "@/lib/session";
 import { enforceSubscriptionAccess } from "@/lib/subscription-guard";
+import { enforceSetupCompleted } from "@/lib/setup-guard";
 import { db } from "@/lib/db";
 import { DEFAULT_TENANT_ACCENT_THEME } from "@/lib/tenant-accent-theme";
 
@@ -23,6 +25,9 @@ export default async function DashboardLayout({
   const pathname = requestHeaders.get("x-receps-pathname") ?? "";
   const user = await getAuthUserWithAccess();
   await enforceSubscriptionAccess(user);
+  // Gate do setup inicial: tenant sem setup concluído/pulado é redirecionado
+  // pro wizard /bem-vindo antes de entrar em qualquer tela do dashboard.
+  await enforceSetupCompleted(user.tenantId, pathname);
 
   if (pathname === "/assinatura/bloqueada") {
     return <div className="min-h-screen bg-muted/20">{children}</div>;
@@ -31,7 +36,7 @@ export default async function DashboardLayout({
   // Busca o nome do tenant para exibir na Sidebar
   const tenant = await db.tenant.findUnique({
     where: { id: user.tenantId },
-    select: { name: true, accentTheme: true },
+    select: { name: true, slug: true, accentTheme: true },
   });
 
   const sidebarProps = {
@@ -69,6 +74,9 @@ export default async function DashboardLayout({
           <TrialStatusBanner tenantId={user.tenantId} />
           {children}
         </main>
+        <WhatsAppFab
+          prefilledMessage={`Oi! Sou usuário do Receps (tenant: ${tenant?.slug ?? "sem-slug"}) e preciso de ajuda.`}
+        />
       </div>
     </div>
   );

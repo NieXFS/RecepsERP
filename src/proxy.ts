@@ -5,6 +5,7 @@ import { getSubscriptionStatus } from "@/services/billing.service";
 const BILLING_EXEMPT_PATH_PREFIXES = [
   "/assinatura/bloqueada",
   "/logout",
+  "/bem-vindo",
 ] as const;
 
 function isBillingExemptPath(pathname: string) {
@@ -80,5 +81,6 @@ export const config = {
     "/configuracoes/:path*",
     "/assinatura/:path*",
     "/painel-receps/:path*",
+    "/bem-vindo/:path*",
   ],
 };

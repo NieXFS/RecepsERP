@@ -41,6 +41,9 @@ model Tenant {
   referredByCode      String?
   referredByTenantId  String?
   notes               String?               @db.Text
+  businessSegment     TenantBusinessSegment?
+  setupCompletedAt    DateTime?
+  setupSkippedAt      DateTime?
   isActive            Boolean               @default(true)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
@@ -70,6 +73,7 @@ model Tenant {
   media                Media[]
   botConfig            BotConfig?
   subscription         Subscription?
+  emailLogs            EmailLog[]
   referral             Referral?             @relation("TenantReferral")
   referredReward       ReferralReward?       @relation("TenantReferredBy")
   referredByTenant     Tenant?               @relation("TenantReferrals", fields: [referredByTenantId], references: [id], onDelete: SetNull)
@@ -228,6 +232,22 @@ model StripeEvent {
   @@map("stripe_events")
 }
 
+model EmailLog {
+  id         String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template    String
+  recipient   String
+  status      String
+  providerId  String?
+  error       String?  @db.Text
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, template, createdAt])
+  @@map("email_logs")
+}
+
 model BotConfig {
   id       String @id @default(cuid())
   tenantId String @unique
@@ -285,6 +305,18 @@ enum TenantAccentTheme {
   LAVENDER_PREMIUM
   EXECUTIVE_BLUE
   TITANIUM_GRAPHITE
+}
+
+/// Segmento de atuação do tenant — usado para pré-popular o catálogo
+/// e personalizar copy do fluxo de setup inicial.
+enum TenantBusinessSegment {
+  CLINICA_ESTETICA
+  BARBEARIA
+  SALAO_BELEZA
+  ODONTOLOGIA
+  CENTRO_ESTETICO
+  STUDIO_BELEZA
+  OUTRO
 }
 
 // ============================================================

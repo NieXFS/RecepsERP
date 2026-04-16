@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { trackEvent } from "@/lib/analytics/events";
 import type { PlanSlug } from "@/lib/plans";
 import { getReferralCookie, setReferralCookie } from "@/lib/referral-cookie";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,9 @@ export function ReferralCtaLink({
       href={href}
       data-cta={dataCta}
       className={cn(className)}
+      onClick={() => {
+        trackEvent("plan_selected", { plan_slug: planSlug });
+      }}
     >
       {children}
     </Link>

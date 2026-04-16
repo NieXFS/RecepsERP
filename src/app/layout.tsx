@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { AnalyticsScripts } from "@/components/analytics/analytics-scripts";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import "./globals.css";
@@ -23,6 +25,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Providers>
           {children}
+          <Suspense fallback={null}>
+            <AnalyticsScripts />
+          </Suspense>
           <Toaster richColors position="top-right" />
         </Providers>
       </body>

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { buildAppEventUrl, trackServerEvent } from "@/lib/analytics/server-events";
 import {
   formatCivilDateToQuery,
   getCivilDayRange,
@@ -27,6 +28,10 @@ export async function createAppointment(
   tenantId: string,
   input: CreateAppointmentInput
 ): Promise<ActionResult<{ appointmentId: string }>> {
+  const existingAppointmentsCount = await db.appointment.count({
+    where: { tenantId },
+  });
+
   // --- Busca os serviços para calcular duração total e preço ---
   const services = await db.service.findMany({
     where: {
@@ -195,6 +200,14 @@ export async function createAppointment(
 
       return newAppointment;
     });
+
+    if (existingAppointmentsCount === 0) {
+      await trackServerEvent({
+        eventName: "first_appointment_created",
+        tenantId,
+        eventSourceUrl: buildAppEventUrl("/agenda"),
+      });
+    }
 
     return { success: true, data: { appointmentId: appointment.id } };
   } catch (error) {

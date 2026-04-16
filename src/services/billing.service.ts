@@ -5,6 +5,7 @@ import type {
   SubscriptionStatus,
 } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { buildAppEventUrl, trackServerEvent } from "@/lib/analytics/server-events";
 import { getPlanSlugCandidates } from "@/lib/plans";
 import {
   getAppUrl,
@@ -679,6 +680,18 @@ export async function createTrialSubscription({
   });
 
   const localSubscription = await syncSubscriptionFromStripe(stripeSubscription);
+
+  await trackServerEvent({
+    eventName: "trial_started",
+    tenantId: tenant.id,
+    email: customerEmail ?? tenant.email,
+    eventSourceUrl: buildAppEventUrl(`/cadastro?plan=${plan.slug}`),
+    customData: {
+      plan_slug: plan.slug,
+      value: Number(plan.priceMonthly),
+      currency: "BRL",
+    },
+  });
 
   if (resolvedReferral) {
     await registerReferralUse({
