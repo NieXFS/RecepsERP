@@ -1,4 +1,5 @@
 import type { TenantModule } from "@/generated/prisma/enums";
+import { normalizePlanSlug } from "@/lib/plans";
 
 /**
  * Módulos sempre visíveis independente do plano.
@@ -30,7 +31,9 @@ const ERP_MODULES: readonly TenantModule[] = [
  * Se `planSlug` for null (billing bypass, super admin, etc.), libera tudo.
  */
 export function getModulesForPlanSlug(planSlug: string | null): TenantModule[] {
-  switch (planSlug) {
+  const normalizedPlanSlug = normalizePlanSlug(planSlug);
+
+  switch (normalizedPlanSlug) {
     case "somente-atendente-ia":
       return [...ALWAYS_VISIBLE, ...BOT_MODULES];
     case "somente-erp":
@@ -52,16 +55,24 @@ export function hasPlanProduct(
   planSlug: string | null,
   product: PlanProductModule
 ): boolean {
+  const normalizedPlanSlug = normalizePlanSlug(planSlug);
+
   if (!planSlug) {
     return true; // billing bypass
   }
 
   if (product === "bot") {
-    return planSlug === "somente-atendente-ia" || planSlug === "erp-atendente-ia";
+    return (
+      normalizedPlanSlug === "somente-atendente-ia" ||
+      normalizedPlanSlug === "erp-atendente-ia"
+    );
   }
 
   if (product === "erp") {
-    return planSlug === "somente-erp" || planSlug === "erp-atendente-ia";
+    return (
+      normalizedPlanSlug === "somente-erp" ||
+      normalizedPlanSlug === "erp-atendente-ia"
+    );
   }
 
   return false;

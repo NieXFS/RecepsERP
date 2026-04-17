@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getAuthUserWithAccess } from "@/lib/session";
 import { SetupWizard, type SetupWizardInitialState } from "@/components/setup/setup-wizard";
 import { getTenantSetupState } from "@/lib/setup-guard";
-import { PLAN_SLUGS } from "@/lib/plans";
+import { normalizePlanSlug, PLAN_SLUGS } from "@/lib/plans";
 
 /**
  * Fluxo de setup inicial (/bem-vindo).
@@ -56,7 +56,8 @@ export default async function WelcomePage() {
     redirect("/logout");
   }
 
-  const planSlug = subscription?.plan?.slug ?? null;
+  const planSlug =
+    normalizePlanSlug(subscription?.plan?.slug) ?? subscription?.plan?.slug ?? null;
   const hasWhatsAppProduct =
     planSlug === PLAN_SLUGS.ATENDENTE_IA || planSlug === PLAN_SLUGS.COMBO;
 

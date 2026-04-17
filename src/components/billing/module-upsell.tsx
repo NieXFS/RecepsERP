@@ -9,12 +9,12 @@ const UPSELL_COPY: Record<
   erp: {
     title: "Esse módulo faz parte do plano ERP",
     description:
-      "Agenda, clientes, financeiro, prontuários e toda a gestão do seu estabelecimento fazem parte do plano ERP.",
+      "Agenda, clientes, financeiro e mais. Faça upgrade para desbloquear — ou combine os dois no combo com desconto.",
   },
   bot: {
     title: "Esse módulo faz parte do plano Atendente IA",
     description:
-      "A Atendente IA cuida do seu WhatsApp 24h, agenda clientes automaticamente e nunca perde uma mensagem.",
+      "A Atendente IA cuida do seu WhatsApp 24h, agenda clientes automaticamente e nunca perde uma mensagem. Faça upgrade para desbloquear — ou combine os dois no combo com desconto.",
   },
 };
 
@@ -34,9 +34,6 @@ export function ModuleUpsell({ product }: { product: PlanProductModule }) {
       <div className="flex flex-col gap-2 max-w-md">
         <h2 className="text-2xl font-bold tracking-tight">{copy.title}</h2>
         <p className="text-muted-foreground">{copy.description}</p>
-        <p className="text-muted-foreground text-sm">
-          Faça upgrade para desbloquear — ou combine os dois no combo com desconto.
-        </p>
       </div>
 
       <Link

@@ -8,6 +8,7 @@ import {
   type PermissionAction,
   type PermissionPath,
 } from "@/lib/tenant-permissions";
+import { normalizePlanSlug } from "@/lib/plans";
 import { getEffectivePermissionSnapshot } from "@/services/user-permission.service";
 import type { SessionUser, SessionUserWithAccess } from "@/types";
 import type { GlobalRole, Role, TenantModule } from "@/generated/prisma/enums";
@@ -35,7 +36,7 @@ export async function getTenantPlanSlug(tenantId: string): Promise<string | null
     return null; // billing bypass = tudo liberado
   }
 
-  return tenant.subscription?.plan?.slug ?? null;
+  return normalizePlanSlug(tenant.subscription?.plan?.slug) ?? tenant.subscription?.plan?.slug ?? null;
 }
 
 /**

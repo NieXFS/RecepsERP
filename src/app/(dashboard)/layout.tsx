@@ -10,7 +10,12 @@ import { enforceSubscriptionAccess } from "@/lib/subscription-guard";
 import { enforceSetupCompleted } from "@/lib/setup-guard";
 import { db } from "@/lib/db";
 import { DEFAULT_TENANT_ACCENT_THEME } from "@/lib/tenant-accent-theme";
-import { getModulesForPlanSlug, type PlanProductModule } from "@/lib/plan-modules";
+import {
+  getModulesForPlanSlug,
+  hasPlanProduct,
+  type PlanProductModule,
+} from "@/lib/plan-modules";
+import { normalizePlanSlug } from "@/lib/plans";
 
 /**
  * Rotas de ERP — quando o tenant não tem o produto "erp" no plano,
@@ -50,18 +55,14 @@ function getBlockedProduct(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
   );
   if (isErpRoute) {
-    const hasErp =
-      planSlug === "somente-erp" || planSlug === "erp-atendente-ia";
-    return hasErp ? null : "erp";
+    return hasPlanProduct(planSlug, "erp") ? null : "erp";
   }
 
   const isBotRoute = BOT_ROUTE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
   );
   if (isBotRoute) {
-    const hasBot =
-      planSlug === "somente-atendente-ia" || planSlug === "erp-atendente-ia";
-    return hasBot ? null : "bot";
+    return hasPlanProduct(planSlug, "bot") ? null : "bot";
   }
 
   return null;
@@ -111,7 +112,9 @@ export default async function DashboardLayout({
   // Módulos liberados pelo plano do tenant (null = billing bypass → tudo liberado)
   const planSlug = tenant?.billingBypassEnabled
     ? null
-    : tenant?.subscription?.plan?.slug ?? null;
+    : normalizePlanSlug(tenant?.subscription?.plan?.slug) ??
+      tenant?.subscription?.plan?.slug ??
+      null;
   const planModules = new Set(getModulesForPlanSlug(planSlug));
   const filteredModules = user.allowedModules.filter((m) => planModules.has(m));
 
