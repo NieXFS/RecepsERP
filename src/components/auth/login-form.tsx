@@ -105,12 +105,16 @@ export function LoginForm({
             <label htmlFor="password" className="text-sm font-medium text-foreground">
               Senha
             </label>
-            <span
-              className="cursor-not-allowed text-xs text-muted-foreground/70"
-              title="Em breve"
+            <Link
+              href={
+                email
+                  ? `/recuperar-senha?email=${encodeURIComponent(email)}`
+                  : "/recuperar-senha"
+              }
+              className="text-xs font-medium text-primary hover:underline"
             >
               Esqueceu a senha?
-            </span>
+            </Link>
           </div>
           <div className="relative">
             <Lock

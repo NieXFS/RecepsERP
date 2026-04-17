@@ -8,11 +8,12 @@ import {
   getResendClient,
   isEmailConfigured,
 } from "@/lib/email/client";
+import { PasswordResetEmail } from "@/lib/email/templates/password-reset";
 import { PaymentFailedEmail } from "@/lib/email/templates/payment-failed";
 import { TrialEndingEmail } from "@/lib/email/templates/trial-ending";
 import { WelcomeEmail } from "@/lib/email/templates/welcome";
 
-type EmailTemplateName = "welcome" | "trial-ending" | "payment-failed";
+type EmailTemplateName = "welcome" | "trial-ending" | "payment-failed" | "password-reset";
 
 type RecipientContext = {
   tenantId: string;
@@ -115,6 +116,9 @@ async function sendEmail(options: {
   react: React.ReactElement;
 }) {
   if (!isEmailConfigured()) {
+    console.warn(
+      `[email] Resend não configurado — pulando envio do template "${options.template}".`
+    );
     await createEmailLog({
       tenantId: options.tenantId,
       template: options.template,
@@ -256,6 +260,34 @@ export async function sendPaymentFailedEmail(tenantId: string) {
     react: React.createElement(PaymentFailedEmail, {
       userName: context.userName,
       tenantName: context.tenantName,
+    }),
+  });
+}
+
+type SendPasswordResetInput = {
+  tenantId: string;
+  userName: string;
+  recipient: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+};
+
+export async function sendPasswordResetEmail({
+  tenantId,
+  userName,
+  recipient,
+  resetUrl,
+  expiresInMinutes,
+}: SendPasswordResetInput) {
+  return sendEmail({
+    tenantId,
+    template: "password-reset",
+    subject: "Redefinir sua senha do Receps",
+    recipient,
+    react: React.createElement(PasswordResetEmail, {
+      userName,
+      resetUrl,
+      expiresInMinutes,
     }),
   });
 }

@@ -359,6 +359,7 @@ model User {
   sessions                   Session[]
   reviewedAccessRequests     AccessRequest[]        @relation("AccessRequestReviewer")
   createdInvitations         TenantInvitation[]     @relation("InvitationCreator")
+  passwordResetTokens        PasswordResetToken[]
 
   @@index([tenantId])
   @@index([email])
@@ -436,6 +437,23 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  ipAddress String?
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 enum AccessRequestStatus {
