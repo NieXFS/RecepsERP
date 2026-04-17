@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
-    "db:cleanup-plans": "tsx scripts/cleanup-plans.ts"
+    "db:cleanup-plans": "tsx scripts/cleanup-plans.ts",
+    "db:diagnose-admin-plan": "tsx scripts/diagnose-admin-plan.ts",
+    "db:repair-subscriptions": "tsx scripts/repair-subscription-plans.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
