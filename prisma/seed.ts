@@ -70,7 +70,7 @@ async function main() {
   const billingPlans = [
     {
       slug: "somente-atendente-ia",
-      name: "Somente Atendente IA",
+      name: "Atendente IA",
       description: "Plano dedicado ao atendimento automatizado com IA.",
       priceMonthly: 149.99,
       currency: "brl",
@@ -83,7 +83,7 @@ async function main() {
     },
     {
       slug: "somente-erp",
-      name: "Somente ERP",
+      name: "ERP",
       description: "Plano focado na operação diária da clínica no Receps ERP.",
       priceMonthly: 219.99,
       currency: "brl",
@@ -115,6 +115,8 @@ async function main() {
       sortOrder: 30,
     },
   ] as const;
+
+  const canonicalPlanSlugs = billingPlans.map((plan) => plan.slug);
 
   for (const plan of billingPlans) {
     await prisma.plan.upsert({
@@ -152,7 +154,19 @@ async function main() {
       },
     });
   }
-  console.log("✅ Planos de billing seedados (placeholders Stripe nulos)");
+
+  // Desativa qualquer plano fora dos 3 canônicos (evita cards duplicados em /assinar)
+  const deactivated = await prisma.plan.updateMany({
+    where: {
+      slug: { notIn: [...canonicalPlanSlugs] },
+      isActive: true,
+    },
+    data: { isActive: false },
+  });
+
+  console.log(
+    `✅ Planos de billing seedados (3 canônicos ativos; ${deactivated.count} legados desativados)`
+  );
 
   // --- 1. TENANT ---
   const tenant = await prisma.tenant.upsert({
