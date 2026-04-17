@@ -1,14 +1,9 @@
-import { getAuthUserForModule } from "@/lib/session";
-import { listTeamMembers } from "@/services/team.service";
-import { TeamPanel } from "@/components/settings/team-panel";
+import { redirect } from "next/navigation";
 
 /**
- * Página de Gestão de Equipe (Server Component).
- * Lista todos os usuários do tenant com dados de Professional quando aplicável.
+ * Redirect legado: a aba "Equipe" foi removida das Configurações.
+ * Redireciona para /profissionais (item próprio no menu lateral).
  */
-export default async function TeamPage() {
-  const user = await getAuthUserForModule("PROFISSIONAIS");
-  const members = await listTeamMembers(user.tenantId);
-
-  return <TeamPanel members={members} currentUserId={user.id} />;
+export default function TeamSettingsRedirect() {
+  redirect("/profissionais");
 }

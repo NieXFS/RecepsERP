@@ -11,6 +11,7 @@ export const TENANT_MODULE_VALUES = [
   "COMISSOES",
   "ESTOQUE",
   "PRONTUARIOS",
+  "ATENDENTE_IA",
   "CONFIGURACOES",
 ] as const satisfies readonly TenantModule[];
 
@@ -21,7 +22,7 @@ export type TenantModuleDefinition = {
   label: string;
   description: string;
   href: string;
-  group: "main" | "management" | "config";
+  group: "main" | "management" | "bot" | "config";
 };
 
 /**
@@ -98,6 +99,13 @@ export const TENANT_MODULE_DEFINITIONS: readonly TenantModuleDefinition[] = [
     description: "Notas clínicas, evolução e arquivos do cliente.",
     href: "/prontuarios",
     group: "config",
+  },
+  {
+    key: "ATENDENTE_IA",
+    label: "Atendente IA",
+    description: "Configure o atendimento automático pelo WhatsApp.",
+    href: "/atendente-ia",
+    group: "bot",
   },
   {
     key: "CONFIGURACOES",

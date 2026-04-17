@@ -13,6 +13,32 @@ import type { SessionUser, SessionUserWithAccess } from "@/types";
 import type { GlobalRole, Role, TenantModule } from "@/generated/prisma/enums";
 
 /**
+ * Retorna o slug do plano ativo do tenant, ou null se não houver assinatura
+ * (billing bypass, super admin, etc).
+ */
+export async function getTenantPlanSlug(tenantId: string): Promise<string | null> {
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      billingBypassEnabled: true,
+      subscription: {
+        select: {
+          plan: {
+            select: { slug: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!tenant || tenant.billingBypassEnabled) {
+    return null; // billing bypass = tudo liberado
+  }
+
+  return tenant.subscription?.plan?.slug ?? null;
+}
+
+/**
  * Extrai os campos customizados (id, tenantId, role) do objeto de sessão NextAuth.
  * Retorna null se a sessão não existir ou estiver incompleta.
  */
@@ -304,6 +330,8 @@ function getPermissionPathForModule(module: TenantModule): PermissionPath {
       return "estoque";
     case "PRONTUARIOS":
       return "prontuarios";
+    case "ATENDENTE_IA":
+      return "atendente_ia";
     case "CONFIGURACOES":
       return "configuracoes";
     default:

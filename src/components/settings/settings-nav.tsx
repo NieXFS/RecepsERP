@@ -6,12 +6,9 @@ import { cn } from "@/lib/utils";
 import type { Role, TenantModule } from "@/generated/prisma/enums";
 import {
   Palette,
-  Users,
-  Scissors,
   Building2,
   Landmark,
   Store,
-  Bot,
   CreditCard,
   Gift,
 } from "lucide-react";
@@ -31,18 +28,6 @@ const tabs = [
     module: "CONFIGURACOES" as TenantModule,
   },
   {
-    href: "/configuracoes/equipe",
-    label: "Equipe",
-    icon: Users,
-    module: "PROFISSIONAIS" as TenantModule,
-  },
-  {
-    href: "/configuracoes/servicos",
-    label: "Serviços",
-    icon: Scissors,
-    module: "SERVICOS" as TenantModule,
-  },
-  {
     href: "/configuracoes/recursos",
     label: "Salas & Equipamentos",
     icon: Building2,
@@ -52,13 +37,6 @@ const tabs = [
     href: "/configuracoes/contas",
     label: "Contas Bancárias",
     icon: Landmark,
-    module: "CONFIGURACOES" as TenantModule,
-    adminOnly: true,
-  },
-  {
-    href: "/configuracoes/bot",
-    label: "Atendente IA",
-    icon: Bot,
     module: "CONFIGURACOES" as TenantModule,
     adminOnly: true,
   },

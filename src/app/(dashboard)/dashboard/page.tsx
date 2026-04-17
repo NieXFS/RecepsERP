@@ -21,6 +21,11 @@ import {
 /**
  * Página principal do Dashboard (Server Component).
  * Exibe KPIs do dia e um resumo financeiro mensal com gráfico evolutivo.
+ *
+ * TODO: dashboard adaptativo por plano
+ * - Plano somente-atendente-ia → métricas da Ana (mensagens respondidas, agendamentos via bot, tempo médio de resposta, status online/offline)
+ * - Plano somente-erp → dashboard atual (métricas de ERP)
+ * - Plano erp-atendente-ia → dashboard completo com métricas dos dois
  */
 export default async function DashboardPage({
   searchParams,

@@ -28,6 +28,7 @@ export type PermissionModuleKey =
   | "financeiro"
   | "estoque"
   | "prontuarios"
+  | "atendente_ia"
   | "configuracoes";
 
 export type PermissionPath =
@@ -47,6 +48,7 @@ export type TenantCustomPermissions = {
   };
   estoque: PermissionScope;
   prontuarios: PermissionScope;
+  atendente_ia: PermissionScope;
   configuracoes: PermissionScope;
 };
 
@@ -87,6 +89,7 @@ export const customPermissionsSchema = z
       .optional(),
     estoque: permissionScopeInputSchema.optional(),
     prontuarios: permissionScopeInputSchema.optional(),
+    atendente_ia: permissionScopeInputSchema.optional(),
     configuracoes: permissionScopeInputSchema.optional(),
   })
   .partial();
@@ -140,6 +143,7 @@ export const MODULE_KEY_BY_TENANT_MODULE = {
   COMISSOES: "financeiro",
   ESTOQUE: "estoque",
   PRONTUARIOS: "prontuarios",
+  ATENDENTE_IA: "atendente_ia",
   CONFIGURACOES: "configuracoes",
 } as const satisfies Record<TenantModule, PermissionModuleKey>;
 
@@ -154,6 +158,7 @@ const ALL_MODULE_KEYS = [
   "financeiro",
   "estoque",
   "prontuarios",
+  "atendente_ia",
   "configuracoes",
 ] as const satisfies readonly PermissionModuleKey[];
 
@@ -193,6 +198,7 @@ function clonePermissions(permissions: TenantCustomPermissions): TenantCustomPer
     },
     estoque: clonePermissionScope(permissions.estoque),
     prontuarios: clonePermissionScope(permissions.prontuarios),
+    atendente_ia: clonePermissionScope(permissions.atendente_ia),
     configuracoes: clonePermissionScope(permissions.configuracoes),
   };
 }
@@ -218,6 +224,7 @@ function createEmptyPermissions(): TenantCustomPermissions {
     },
     estoque: createPermissionScope(),
     prontuarios: createPermissionScope(),
+    atendente_ia: createPermissionScope(),
     configuracoes: createPermissionScope(),
   };
 }
@@ -457,6 +464,7 @@ export function getModuleAccessMap(
     COMISSOES: financeVisible,
     ESTOQUE: permissions.estoque.view,
     PRONTUARIOS: permissions.prontuarios.view,
+    ATENDENTE_IA: permissions.atendente_ia.view,
     CONFIGURACOES: permissions.configuracoes.view,
   };
 }
@@ -525,6 +533,8 @@ export function getPreferredModuleHref(
       return "/produtos/estoque";
     case "PRONTUARIOS":
       return "/prontuarios";
+    case "ATENDENTE_IA":
+      return "/atendente-ia";
     case "CONFIGURACOES":
       return "/configuracoes";
     default:

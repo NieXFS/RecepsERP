@@ -17,6 +17,7 @@ import {
   Landmark,
   FileText,
   Settings,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -30,7 +31,7 @@ type NavItem = {
   icon: LucideIcon;
   activePrefixes?: readonly string[];
   /** Grupo visual para separadores */
-  group: "main" | "management" | "config";
+  group: "main" | "bot" | "management" | "config";
 };
 
 /**
@@ -67,6 +68,11 @@ const navItems: NavItem[] = [
 
   // --- Grupo clínico/config ---
   { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
+
+  // --- Atendente IA ---
+  { module: "ATENDENTE_IA", href: "/atendente-ia", label: "Atendente IA", icon: Bot, group: "bot" },
+
+  // --- Configurações ---
   { module: "CONFIGURACOES", href: "/configuracoes", label: "Configurações", icon: Settings, group: "config" },
 ];
 
@@ -105,6 +111,7 @@ export function Sidebar({
 
   // Agrupa os itens visíveis
   const mainItems = visibleItems.filter((i) => i.group === "main");
+  const botItems = visibleItems.filter((i) => i.group === "bot");
   const managementItems = visibleItems.filter((i) => i.group === "management");
   const configItems = visibleItems.filter((i) => i.group === "config");
 
@@ -154,6 +161,18 @@ export function Sidebar({
             )}
             <NavGroup
               items={managementItems}
+              pathname={pathname}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
+          </>
+        )}
+
+        {botItems.length > 0 && (
+          <>
+            <Separator className="my-3" />
+            <NavGroup
+              items={botItems}
               pathname={pathname}
               collapsed={collapsed}
               onNavigate={onNavigate}

@@ -1,30 +1,9 @@
-import { getAuthUserForModule } from "@/lib/session";
-import {
-  listServicesWithDetails,
-  listProductsForSelect,
-  listProfessionalsForSelect,
-} from "@/services/catalog.service";
-import { ServiceCatalogPanel } from "@/components/settings/service-catalog-panel";
+import { redirect } from "next/navigation";
 
 /**
- * Página de Catálogo de Serviços (Server Component).
- * Busca serviços com ficha técnica e profissionais, além das listas
- * de products e professionals para os selects do modal.
+ * Redirect legado: a aba "Serviços" foi removida das Configurações.
+ * Redireciona para /servicos (item próprio no menu lateral).
  */
-export default async function ServiceCatalogPage() {
-  const user = await getAuthUserForModule("SERVICOS");
-
-  const [services, products, professionals] = await Promise.all([
-    listServicesWithDetails(user.tenantId),
-    listProductsForSelect(user.tenantId),
-    listProfessionalsForSelect(user.tenantId),
-  ]);
-
-  return (
-    <ServiceCatalogPanel
-      services={services}
-      products={products}
-      professionals={professionals}
-    />
-  );
+export default function ServiceSettingsRedirect() {
+  redirect("/servicos");
 }

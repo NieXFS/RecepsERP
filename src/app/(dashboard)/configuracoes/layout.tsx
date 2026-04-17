@@ -24,7 +24,7 @@ export default async function SettingsLayout({
       <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
-          Gerencie negócio, aparência, equipe, serviços, recursos e contas financeiras do estabelecimento.
+          Gerencie negócio, aparência, recursos e contas financeiras do estabelecimento.
         </p>
       </div>
       <SettingsNav allowedModules={user.allowedModules} role={user.role} />
