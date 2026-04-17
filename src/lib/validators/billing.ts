@@ -19,7 +19,10 @@ export const createBillingPortalSessionSchema = z.object({
   returnUrl: z
     .string()
     .trim()
-    .url("URL de retorno inválida.")
+    .refine(
+      (value) => value === "" || value.startsWith("/") || /^https?:\/\//.test(value),
+      "URL de retorno inválida."
+    )
     .optional()
     .transform(normalizeOptionalText),
 });

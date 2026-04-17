@@ -735,10 +735,20 @@ export async function createBillingPortalSession(tenantId: string, returnUrl?: s
   const stripe = getStripe();
   const session = await stripe.billingPortal.sessions.create({
     customer: stripeCustomerId,
-    return_url: returnUrl || `${getAppUrl()}/configuracoes/assinatura`,
+    return_url: resolveBillingPortalReturnUrl(returnUrl),
   });
 
   return session;
+}
+
+function resolveBillingPortalReturnUrl(returnUrl?: string) {
+  const fallback = `${getAppUrl()}/configuracoes/assinatura`;
+  if (!returnUrl) return fallback;
+  const trimmed = returnUrl.trim();
+  if (!trimmed) return fallback;
+  if (/^https?:\/\//.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/")) return `${getAppUrl()}${trimmed}`;
+  return fallback;
 }
 
 export async function syncSubscriptionFromStripe(stripeSubscription: Stripe.Subscription) {
