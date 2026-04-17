@@ -1,4 +1,5 @@
 import { LoginForm } from "@/components/auth/login-form";
+import { LoginShell } from "@/components/auth/login-shell";
 
 /**
  * Página server-side de login.
@@ -12,9 +13,8 @@ export default async function LoginPage({
   const params = await searchParams;
 
   return (
-    <LoginForm
-      initialEmail={params.email}
-      callbackUrl={params.callbackUrl}
-    />
+    <LoginShell>
+      <LoginForm initialEmail={params.email} callbackUrl={params.callbackUrl} />
+    </LoginShell>
   );
 }
