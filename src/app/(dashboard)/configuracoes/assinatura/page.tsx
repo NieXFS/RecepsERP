@@ -1,46 +1,33 @@
 import Link from "next/link";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { BillingManagementCard } from "@/components/billing/billing-management-card";
 import { BillingPortalButton } from "@/components/billing/billing-portal-button";
+import { InvoicesTable } from "@/components/billing/invoices-table";
+import { PlanBenefitsGrid } from "@/components/billing/plan-benefits-grid";
+import {
+  SubscriptionNoticeBanner,
+  type SubscriptionNotice,
+} from "@/components/billing/subscription-notice-banner";
+import { SubscriptionHero } from "@/components/billing/subscription-hero";
+import { TrialCountdownCard } from "@/components/billing/trial-countdown-card";
+import { UpgradePathCard } from "@/components/billing/upgrade-path-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthUserWithAccess } from "@/lib/session";
-import { getTenantBillingDashboardData } from "@/services/billing.service";
+import { getTenantBillingDashboardData, listActivePlans } from "@/services/billing.service";
 
-function formatCurrency(value: number, currency: string) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(value);
-}
+const VALID_NOTICES: SubscriptionNotice[] = [
+  "already-active",
+  "billing-in-progress",
+  "checkout-error",
+];
 
-function formatDate(value: Date | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "medium",
-  }).format(value);
-}
-
-function getNoticeConfig(notice?: string) {
-  switch (notice) {
-    case "already-active":
-      return {
-        className: "border-emerald-500/20 bg-emerald-500/5 text-emerald-900 dark:text-emerald-200",
-        message: "Sua assinatura já está ativa. Você pode gerenciar seu plano por aqui.",
-      };
-    case "billing-in-progress":
-      return {
-        className: "border-sky-500/20 bg-sky-500/5 text-sky-900 dark:text-sky-200",
-        message: "Já existe uma assinatura em andamento para este tenant. Aguarde a confirmação do pagamento para liberar o acesso.",
-      };
-    case "checkout-error":
-      return {
-        className: "border-destructive/20 bg-destructive/5 text-destructive",
-        message: "Não conseguimos iniciar o pagamento agora. Tente novamente em instantes.",
-      };
-    default:
-      return null;
-  }
+function parseNotice(raw: string | undefined): SubscriptionNotice | null {
+  if (!raw) return null;
+  return VALID_NOTICES.includes(raw as SubscriptionNotice)
+    ? (raw as SubscriptionNotice)
+    : null;
 }
 
 export default async function BillingSettingsPage({
@@ -49,24 +36,21 @@ export default async function BillingSettingsPage({
   searchParams: Promise<{ notice?: string }>;
 }) {
   const params = await searchParams;
+  const notice = parseNotice(params.notice);
   const user = await getAuthUserWithAccess();
   const { tenant, access, defaultPaymentMethod } = await getTenantBillingDashboardData(
     user.tenantId
   );
   const subscription = tenant.subscription;
-  const notice = getNoticeConfig(params.notice);
+  const bypassEnabled = access.billingBypassEnabled;
 
   if (!subscription) {
     return (
-      <div className="space-y-6">
-        {notice ? (
-          <Card className={notice.className}>
-            <CardContent className="py-4 text-sm">{notice.message}</CardContent>
-          </Card>
-        ) : null}
+      <div className="flex flex-col gap-6">
+        {notice ? <SubscriptionNoticeBanner notice={notice} /> : null}
 
-        {access.billingBypassEnabled ? (
-          <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm">
+        {bypassEnabled ? (
+          <Card className="border-amber-500/25 bg-amber-500/5">
             <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">
               Acesso sem cobrança habilitado manualmente pela Receps.
               {access.billingBypassReason ? ` Motivo: ${access.billingBypassReason}` : ""}
@@ -74,14 +58,14 @@ export default async function BillingSettingsPage({
           </Card>
         ) : null}
 
-        <Card className="border-border/70 shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle>Assinatura</CardTitle>
             <CardDescription>Este tenant ainda não possui assinatura configurada.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {access.billingBypassEnabled
+              {bypassEnabled
                 ? "O ERP está liberado por uma exceção manual da Receps, mas não existe assinatura Stripe ativa."
                 : "Escolha um plano e conclua o checkout para liberar o ERP."}
             </p>
@@ -97,176 +81,143 @@ export default async function BillingSettingsPage({
     );
   }
 
+  const plan = subscription.plan;
+  const allPlans = await listActivePlans();
+  const cancelEnding =
+    subscription.cancelAtPeriodEnd || subscription.status === "CANCELED";
+  const needsPaymentAction =
+    subscription.status === "PAST_DUE" ||
+    subscription.status === "UNPAID" ||
+    subscription.status === "INCOMPLETE" ||
+    subscription.status === "INCOMPLETE_EXPIRED";
+  const showUpgradePath =
+    !bypassEnabled &&
+    subscription.status !== "CANCELED" &&
+    plan.slug !== "erp-atendente-ia";
+  const showTrialCard =
+    !bypassEnabled &&
+    subscription.status === "TRIALING" &&
+    !!subscription.trialEnd;
+
   return (
-    <div className="space-y-6">
-      {notice ? (
-        <Card className={notice.className}>
-          <CardContent className="py-4 text-sm">{notice.message}</CardContent>
-        </Card>
-      ) : null}
+    <div className="flex flex-col gap-6">
+      {notice ? <SubscriptionNoticeBanner notice={notice} /> : null}
 
-      {access.billingBypassEnabled ? (
-        <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm">
-          <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">
-            Acesso sem cobrança habilitado manualmente pela Receps.
-            {access.billingBypassReason ? ` Motivo: ${access.billingBypassReason}` : ""}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {subscription.status === "TRIALING" && subscription.trialEnd ? (
-        <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm">
-          <CardContent className="flex flex-col gap-3 py-4 text-sm text-emerald-900 dark:text-emerald-200 sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Trial ativo até {formatDate(subscription.trialEnd)}.
-              {defaultPaymentMethod
-                ? " Sua forma de pagamento já está salva."
-                : " Adicione uma forma de pagamento para continuar depois do período grátis."}
-            </span>
-            {!defaultPaymentMethod ? (
-              <BillingPortalButton
-                returnUrl="/configuracoes/assinatura"
-                label="Adicionar forma de pagamento"
-                variant="outline"
-              />
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {subscription.status === "PAST_DUE" ? (
-        <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm">
-          <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">
-            Há pagamentos pendentes. Atualize a forma de pagamento para manter o acesso ao ERP.
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {subscription.status === "CANCELED" ? (
-        <Card className="border-destructive/20 bg-destructive/5 shadow-sm">
-          <CardContent className="flex flex-col gap-3 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Sua assinatura está cancelada. Adicione uma forma de pagamento ou escolha um novo
-              plano para reativar o acesso.
-            </span>
-            <BillingPortalButton
-              returnUrl="/configuracoes/assinatura"
-              label="Abrir portal de cobrança"
-              variant="outline"
-            />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <Card className="border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>Resumo da assinatura</CardTitle>
-            <CardDescription>Plano atual, status e próxima cobrança.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <InfoItem label="Plano" value={subscription.plan.name} />
-            <InfoItem
-              label="Preço mensal"
-              value={formatCurrency(Number(subscription.plan.priceMonthly), subscription.plan.currency)}
-            />
-            <InfoItem label="Status" value={subscription.status} />
-            <InfoItem label="Acesso" value={access.hasAccess ? "Liberado" : "Bloqueado"} />
-            <InfoItem
-              label="Origem do acesso"
-              value={
-                access.accessSource === "BILLING_BYPASS"
-                  ? "Liberação manual da Receps"
-                  : access.accessSource === "SUBSCRIPTION"
-                    ? "Assinatura Stripe"
-                    : access.accessSource === "SUPER_ADMIN"
-                      ? "Bypass global"
-                      : "Sem liberação"
-              }
-            />
-            <InfoItem label="Próxima cobrança" value={formatDate(subscription.currentPeriodEnd)} />
-            <InfoItem
-              label="Método padrão"
-              value={defaultPaymentMethod?.label ?? subscription.defaultPaymentMethod ?? "-"}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>Gerenciamento</CardTitle>
-            <CardDescription>
-              Use o portal da Stripe para atualizar pagamento, cancelar ou reativar.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <BillingPortalButton returnUrl="/configuracoes/assinatura" />
-            <p className="text-sm text-muted-foreground">
-              O portal hospedado evita replicar uma UI de cobrança dentro do ERP e mantém o fluxo
-              oficial da Stripe.
+      {bypassEnabled ? (
+        <section className="flex items-start gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4 md:p-5">
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary"
+          >
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold leading-tight">
+              Acesso liberado internamente pela equipe Receps
             </p>
-          </CardContent>
-        </Card>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {access.billingBypassReason
+                ? `Motivo: ${access.billingBypassReason}`
+                : "Sem cobrança aplicada — cortesia/exceção manual."}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      {needsPaymentAction && !bypassEnabled ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 p-4 md:flex-row md:items-center md:justify-between md:p-5">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive/15 text-destructive"
+            >
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold leading-tight text-destructive">
+                Última cobrança falhou
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Atualize sua forma de pagamento para manter o acesso ao ERP.
+              </p>
+            </div>
+          </div>
+          <BillingPortalButton
+            returnUrl="/configuracoes/assinatura"
+            label="Atualizar pagamento"
+          />
+        </section>
+      ) : null}
+
+      {cancelEnding && !bypassEnabled ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 p-4 md:flex-row md:items-center md:justify-between md:p-5">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive/15 text-destructive"
+            >
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold leading-tight text-destructive">
+                {subscription.status === "CANCELED"
+                  ? "Sua assinatura está cancelada"
+                  : `Sua assinatura termina em ${format(subscription.currentPeriodEnd, "d 'de' MMMM yyyy", { locale: ptBR })}`}
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Reative pelo portal para manter o acesso ao ERP sem perder dados.
+              </p>
+            </div>
+          </div>
+          <BillingPortalButton
+            returnUrl="/configuracoes/assinatura"
+            label="Reativar"
+            variant="outline"
+          />
+        </section>
+      ) : null}
+
+      <SubscriptionHero
+        plan={plan}
+        subscription={{
+          status: subscription.status,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+          trialEnd: subscription.trialEnd,
+          cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        }}
+        bypassEnabled={bypassEnabled}
+      />
+
+      {showTrialCard ? (
+        <TrialCountdownCard
+          trialEnd={subscription.trialEnd!}
+          trialStart={subscription.trialStart}
+          hasPaymentMethod={!!defaultPaymentMethod}
+          defaultPaymentMethodLabel={defaultPaymentMethod?.label ?? null}
+        />
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+        <PlanBenefitsGrid plan={plan} />
+        <BillingManagementCard
+          currentPeriodEnd={subscription.currentPeriodEnd}
+          cancelAtPeriodEnd={subscription.cancelAtPeriodEnd}
+          defaultPaymentMethod={
+            defaultPaymentMethod
+              ? {
+                  label: defaultPaymentMethod.label,
+                  expiresAt: defaultPaymentMethod.expiresAt,
+                }
+              : null
+          }
+        />
       </div>
 
-      <Card className="border-border/70 shadow-sm">
-        <CardHeader>
-          <CardTitle>Invoices recentes</CardTitle>
-          <CardDescription>Histórico local sincronizado a partir do Stripe.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {subscription.invoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma invoice sincronizada ainda.</p>
-          ) : (
-            subscription.invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="grid gap-3 rounded-2xl border border-border/70 p-4 md:grid-cols-[0.7fr_0.7fr_0.7fr_0.9fr_auto]"
-              >
-                <InfoItem label="Status" value={invoice.status} />
-                <InfoItem
-                  label="Valor devido"
-                  value={formatCurrency(Number(invoice.amountDue), invoice.currency)}
-                />
-                <InfoItem
-                  label="Pago"
-                  value={formatCurrency(Number(invoice.amountPaid), invoice.currency)}
-                />
-                <InfoItem label="Período" value={`${formatDate(invoice.periodStart)} a ${formatDate(invoice.periodEnd)}`} />
-                <div className="flex items-center md:justify-end">
-                  {invoice.hostedInvoiceUrl ? (
-                    <a
-                      href={invoice.hostedInvoiceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Abrir invoice
-                    </a>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Sem link</span>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+      {showUpgradePath ? (
+        <UpgradePathCard currentSlug={plan.slug} allPlans={allPlans} />
+      ) : null}
 
-function InfoItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm font-medium">{label}</p>
-      <p className="text-sm text-muted-foreground">{value}</p>
+      {!bypassEnabled ? <InvoicesTable invoices={subscription.invoices} /> : null}
     </div>
   );
 }
