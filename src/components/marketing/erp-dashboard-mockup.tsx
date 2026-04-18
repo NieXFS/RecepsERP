@@ -40,15 +40,8 @@ const appointments = [
 export function ErpDashboardMockup() {
   return (
     <div className="relative mx-auto w-full max-w-[36rem]">
-      <div className="absolute left-5 top-5 z-10 hidden rounded-full border border-emerald-200 bg-white/95 px-4 py-2 text-sm font-medium text-emerald-700 shadow-lg backdrop-blur lg:block">
-        Caixa do dia fechado em 1 clique
-      </div>
-      <div className="absolute right-5 top-5 z-10 rounded-full border border-violet-200 bg-white/95 px-4 py-2 text-sm font-medium text-violet-700 shadow-lg backdrop-blur">
-        Agenda, clientes e financeiro
-      </div>
-
       <div className="rounded-[2rem] border border-white/80 bg-white/85 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.10)] backdrop-blur">
-        <div className="rounded-[1.6rem] border border-[#EFEFEF] bg-[#fdfdfd] p-4 pt-20 shadow-inner lg:pt-24">
+        <div className="rounded-[1.6rem] border border-[#EFEFEF] bg-[#fdfdfd] p-4 shadow-inner">
           <div className="mb-4 flex items-center justify-between rounded-[1.3rem] bg-[#f5f5f7] px-4 py-3">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-500/15 text-violet-700">

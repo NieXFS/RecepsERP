@@ -21,7 +21,7 @@ export function PricingCombo() {
           Preço
         </p>
         <h2 className="mt-4 text-4xl font-black tracking-[-0.04em] sm:text-5xl">
-          Menos que uma recepcionista. Faz mais que três.
+          Menos que uma recepcionista. Faz mais do que três.
         </h2>
       </div>
 

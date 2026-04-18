@@ -203,9 +203,7 @@ export function LoginForm({
         <span>Ver planos e criar conta</span>
       </Link>
 
-      <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-        Recebeu um link de ativação? Ele será aberto em{" "}
-        <span className="font-medium text-foreground">/convite/[token]</span>.
+      <p>
       </p>
     </div>
   );

@@ -174,10 +174,20 @@ export default function ErpLandingPage() {
       <ForceLightTheme />
 
       <div className="bg-white text-[#0A0A0A]">
-        <section className="relative overflow-x-clip bg-[linear-gradient(180deg,#f6f0ff_0%,#ffffff_22%,#ffffff_72%,#f8fffc_100%)]">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top,#c4b5fd_0%,rgba(196,181,253,0.30)_18%,rgba(255,255,255,0)_72%)]" />
-          <div className="pointer-events-none absolute left-1/2 top-16 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-violet-200/20 blur-[110px]" />
-          <div className="pointer-events-none absolute left-1/2 top-52 h-[24rem] w-[26rem] -translate-x-[15%] rounded-full bg-emerald-200/20 blur-[120px]" />
+        <section className="relative bg-white">
+          {/* Aurora ambiente — blobs que extravasam a section e se dissolvem no branco */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[-14rem] h-[36rem] w-[72rem] -translate-x-1/2 rounded-full bg-violet-300/22 blur-[160px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-[8%] top-[8rem] h-[28rem] w-[28rem] rounded-full bg-emerald-200/25 blur-[140px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute right-[-6rem] top-[1rem] h-[30rem] w-[30rem] rounded-full bg-violet-200/22 blur-[150px]"
+          />
 
           <div className="relative mx-auto grid max-w-7xl gap-14 px-6 py-[5rem] md:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(32rem,36rem)] lg:items-center lg:gap-24 lg:py-[8rem]">
             <div className="max-w-[42rem] space-y-8">

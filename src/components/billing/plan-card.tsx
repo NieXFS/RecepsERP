@@ -69,7 +69,7 @@ function renderPlanIcon(slug: string, className?: string) {
 export function PlanCard({ plan, isHighlighted, isLoading, onCheckout }: PlanCardProps) {
   const features = getPlanFeatureList(plan.features);
   const headingId = `plan-name-${plan.id}`;
-  const ctaLabel = plan.isFeatured ? "Começar teste grátis" : "Assinar agora";
+  const ctaLabel = plan.isFeatured ? "Começar teste grátis" : "Testar grátis";
 
   return (
     <article

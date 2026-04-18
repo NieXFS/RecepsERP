@@ -40,19 +40,28 @@ const TWINKLES: Array<{ top: string; left: string; size: string; delay: string }
  */
 export function LoginBrandPanel() {
   return (
-    <aside className="relative isolate hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-14">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-primary/5" />
-        <div className="animate-aurora-pan absolute -left-24 top-[-10%] h-[520px] w-[520px] rounded-full bg-primary/30 blur-3xl" />
+    <aside className="relative isolate hidden bg-background lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-14">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+        style={{
+          maskImage:
+            "linear-gradient(to right, black 0%, black 55%, transparent 92%)",
+          WebkitMaskImage:
+            "linear-gradient(to right, black 0%, black 55%, transparent 92%)",
+        }}
+      >
         <div
-          className="animate-aurora-pan absolute -right-20 bottom-[-15%] h-[460px] w-[460px] rounded-full bg-accent/40 blur-3xl"
+          className="animate-aurora-pan absolute -left-40 top-[-18%] h-[640px] w-[640px] rounded-full bg-primary/25 blur-[140px]"
+        />
+        <div
+          className="animate-aurora-pan absolute -left-16 bottom-[-20%] h-[520px] w-[520px] rounded-full bg-accent/30 blur-[150px]"
           style={{ animationDelay: "3s", animationDuration: "22s" }}
         />
         <div
-          className="animate-aurora-pan absolute left-[30%] top-[40%] h-[320px] w-[320px] rounded-full bg-ring/20 blur-3xl"
+          className="animate-aurora-pan absolute left-[20%] top-[38%] h-[360px] w-[360px] rounded-full bg-ring/18 blur-[140px]"
           style={{ animationDelay: "6s", animationDuration: "26s" }}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,oklch(0_0_0/0.35)_100%)] dark:bg-[radial-gradient(ellipse_at_center,transparent_40%,oklch(0_0_0/0.65)_100%)]" />
         {TWINKLES.map((t, i) => (
           <span
             key={i}

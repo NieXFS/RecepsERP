@@ -151,9 +151,20 @@ export default function AtendentesIaPage() {
       <ForceLightTheme />
 
       <div className="bg-white text-[#0A0A0A]">
-        <section className="relative overflow-hidden bg-[linear-gradient(180deg,#f6f0ff_0%,#ffffff_26%,#ffffff_100%)]">
-          <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,#c4b5fd_0%,rgba(196,181,253,0.28)_22%,rgba(255,255,255,0)_70%)]" />
-          <div className="absolute left-1/2 top-24 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-200/30 blur-3xl" />
+        <section className="relative bg-white">
+          {/* Aurora ambiente — blobs que extravasam a section e se dissolvem no branco */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[-14rem] h-[36rem] w-[72rem] -translate-x-1/2 rounded-full bg-violet-300/25 blur-[160px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-[10%] top-[6rem] h-[28rem] w-[28rem] rounded-full bg-emerald-200/25 blur-[140px]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute right-[-6rem] top-[2rem] h-[30rem] w-[30rem] rounded-full bg-fuchsia-200/20 blur-[150px]"
+          />
 
           <div className="relative mx-auto grid max-w-7xl gap-16 px-6 py-[4.5rem] md:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-[7.5rem]">
             <div className="space-y-8">
@@ -207,13 +218,6 @@ export default function AtendentesIaPage() {
 
             <ScrollReveal className="lg:justify-self-end" delay={180}>
               <div className="relative mx-auto w-full max-w-[34rem]">
-                <div className="absolute -left-6 top-12 hidden rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-medium text-emerald-700 shadow-lg lg:block">
-                  Atendente online agora
-                </div>
-                <div className="absolute -right-3 top-6 rounded-full border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 shadow-lg">
-                  Responde em segundos
-                </div>
-
                 <div className="rounded-[2rem] border border-white/80 bg-white/85 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.10)] backdrop-blur">
                   <div className="rounded-[1.6rem] border border-[#EFEFEF] bg-[#fdfdfd] p-4 shadow-inner">
                     <div className="mb-4 flex items-center justify-between rounded-[1.3rem] bg-[#f5f5f7] px-4 py-3">

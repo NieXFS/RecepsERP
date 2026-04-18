@@ -144,7 +144,7 @@ export function IntegrationTimeline() {
       <div className="mt-10 flex items-center justify-center gap-3 rounded-[1.8rem] border border-violet-100 bg-white px-6 py-4 text-center shadow-sm">
         <Calendar className="h-5 w-5 text-violet-600" />
         <p className="text-base font-semibold text-[#0A0A0A]">
-          Enquanto isso, você tava atendendo outro cliente. Ou almoçando. Ou dormindo.
+          Enquanto isso, você estava atendendo um cliente pessoalmente cliente, almoçando ou dormindo.
         </p>
       </div>
     </div>
