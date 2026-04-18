@@ -2,24 +2,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { AlertCircle, Gift, X } from "lucide-react";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics/events";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { normalizePlanSlug } from "@/lib/plans";
 import { getReferralCookie, setReferralCookie } from "@/lib/referral-cookie";
-
-type PublicPlan = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  priceMonthly: number;
-  currency: string;
-  trialDays: number;
-  isFeatured: boolean;
-  features: unknown;
-};
+import { PlanCard, type PublicPlan } from "@/components/billing/plan-card";
 
 type SubscribePlansPanelProps = {
   plans: PublicPlan[];
@@ -29,29 +17,6 @@ type SubscribePlansPanelProps = {
   isAuthenticated: boolean;
   canceled?: boolean;
 };
-
-function getPlanFeatureList(features: unknown) {
-  if (Array.isArray(features)) {
-    return features.map((feature) => String(feature));
-  }
-
-  if (features && typeof features === "object") {
-    return Object.entries(features).map(([key, value]) =>
-      typeof value === "boolean"
-        ? `${key}: ${value ? "Sim" : "Não"}`
-        : `${key}: ${String(value)}`
-    );
-  }
-
-  return [];
-}
-
-function formatCurrency(value: number, currency: string) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(value);
-}
 
 export function SubscribePlansPanel({
   plans,
@@ -143,84 +108,42 @@ export function SubscribePlansPanel({
   return (
     <div className="space-y-8">
       {referralCode && referralTenantName ? (
-        <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-900 dark:text-emerald-200">
-          Você ganhou 15% de desconto na sua primeira cobrança — indicado por{" "}
-          <span className="font-semibold">{referralTenantName}</span>.
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/20 border-l-4 border-l-emerald-500 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-900 dark:text-emerald-200">
+          <Gift aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
+          <span>
+            Você ganhou 15% de desconto na sua primeira cobrança — indicado por{" "}
+            <span className="font-semibold">{referralTenantName}</span>.
+          </span>
         </div>
       ) : null}
 
       {canceled ? (
-        <div className="rounded-[1.25rem] border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-900 dark:text-amber-200">
-          O pagamento foi cancelado. Você pode escolher um plano e tentar novamente.
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 border-l-4 border-l-amber-500 bg-amber-500/5 px-5 py-4 text-sm text-amber-900 dark:text-amber-200">
+          <X aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+          <span>O pagamento foi cancelado. Você pode escolher um plano e tentar novamente.</span>
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-[1.25rem] border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive">
-          {error}
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-2xl border border-destructive/20 border-l-4 border-l-destructive bg-destructive/5 px-5 py-4 text-sm text-destructive"
+        >
+          <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error}</span>
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {plans.map((plan) => {
-          const features = getPlanFeatureList(plan.features);
-          const isHighlighted = plan.id === highlightedPlanId;
-          const isLoading = isPending && pendingPlanId === plan.id;
-
-          return (
-            <article
-              key={plan.id}
-              className={[
-                "rounded-[2rem] border bg-background p-6 shadow-xl transition-all",
-                isHighlighted
-                  ? "border-primary shadow-primary/10"
-                  : "border-border/70 shadow-primary/5",
-              ].join(" ")}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">{plan.name}</h2>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {plan.description || "Plano mensal para operar o Receps ERP."}
-                  </p>
-                </div>
-
-                {plan.isFeatured ? <Badge>Destaque</Badge> : null}
-              </div>
-
-              <div className="mt-6">
-                <p className="text-3xl font-semibold">
-                  {formatCurrency(plan.priceMonthly, plan.currency)}
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  mensal • {plan.trialDays} dias de trial
-                </p>
-              </div>
-
-              {features.length > 0 ? (
-                <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-                  {features.map((feature) => (
-                    <p key={`${plan.id}-${feature}`}>• {feature}</p>
-                  ))}
-                </div>
-              ) : null}
-
-              <Button
-                type="button"
-                className="mt-8 w-full"
-                variant={isHighlighted ? "default" : "outline"}
-                disabled={isLoading}
-                onClick={() => handlePlanCheckout(plan)}
-              >
-                {isLoading
-                  ? "Preparando acesso..."
-                  : plan.isFeatured
-                    ? "Começar teste grátis"
-                    : "Assinar agora"}
-              </Button>
-            </article>
-          );
-        })}
+      <div className="grid items-stretch gap-6 lg:grid-cols-3 lg:gap-8">
+        {plans.map((plan) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            isHighlighted={plan.id === highlightedPlanId}
+            isLoading={isPending && pendingPlanId === plan.id}
+            onCheckout={handlePlanCheckout}
+          />
+        ))}
       </div>
     </div>
   );
