@@ -75,9 +75,9 @@ export function PlanCard({ plan, isHighlighted, isLoading, onCheckout }: PlanCar
     <article
       aria-labelledby={headingId}
       className={cn(
-        "group relative flex flex-col rounded-[2rem] border bg-background p-8 transition-all duration-300",
+        "group relative flex flex-col rounded-[2rem] border bg-background p-6 transition-all duration-300 sm:p-7",
         isHighlighted
-          ? "border-primary/40 shadow-2xl shadow-primary/15 ring-1 ring-primary/10 lg:-my-4 lg:scale-[1.02]"
+          ? "border-primary/40 shadow-2xl shadow-primary/15 ring-1 ring-primary/10"
           : "border-border/60 shadow-sm hover:-translate-y-0.5 hover:border-border hover:shadow-xl hover:shadow-primary/5"
       )}
     >
@@ -105,21 +105,21 @@ export function PlanCard({ plan, isHighlighted, isLoading, onCheckout }: PlanCar
         {renderPlanIcon(plan.slug, "h-6 w-6")}
       </span>
 
-      <h3 id={headingId} className="mt-6 text-xl font-semibold tracking-tight text-foreground">
+      <h3 id={headingId} className="mt-5 text-xl font-semibold tracking-tight text-foreground">
         {plan.name}
       </h3>
-      <p className="mt-2 min-h-[3rem] text-sm leading-6 text-muted-foreground">
+      <p className="mt-2 min-h-[2.5rem] text-sm leading-6 text-muted-foreground">
         {plan.description || "Plano mensal para operar o Receps ERP."}
       </p>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-5xl font-semibold tracking-tight text-foreground">
+          <span className="text-4xl font-semibold tracking-tight text-foreground">
             {formatCurrency(plan.priceMonthly, plan.currency)}
           </span>
-          <span className="text-base text-muted-foreground">/mês</span>
+          <span className="text-sm text-muted-foreground">/mês</span>
         </div>
-        <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
           <Gift aria-hidden="true" className="h-3.5 w-3.5" />
           {plan.trialDays} dias grátis para testar
         </span>
@@ -127,10 +127,10 @@ export function PlanCard({ plan, isHighlighted, isLoading, onCheckout }: PlanCar
 
       <div
         aria-hidden="true"
-        className="mt-6 h-px w-full bg-gradient-to-r from-transparent via-border to-transparent"
+        className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-border to-transparent"
       />
 
-      <ul className="mt-6 space-y-3 text-sm">
+      <ul className="mt-4 space-y-2.5 text-sm">
         {features.length > 0 ? (
           features.map((feature, index) => (
             <li
@@ -149,7 +149,7 @@ export function PlanCard({ plan, isHighlighted, isLoading, onCheckout }: PlanCar
         )}
       </ul>
 
-      <div className="mt-auto pt-8">
+      <div className="mt-auto pt-6">
         <Button
           type="button"
           size="lg"

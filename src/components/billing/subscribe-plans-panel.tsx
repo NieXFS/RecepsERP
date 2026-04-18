@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Gift, X } from "lucide-react";
+import { AlertCircle, CreditCard, Gift, Lock, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics/events";
 import { normalizePlanSlug } from "@/lib/plans";
@@ -106,7 +106,22 @@ export function SubscribePlansPanel({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/60 px-3 py-1 text-xs font-medium text-foreground/80 backdrop-blur">
+          <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+          7 dias grátis
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/60 px-3 py-1 text-xs font-medium text-foreground/80 backdrop-blur">
+          <Lock aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+          Cancele quando quiser
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/60 px-3 py-1 text-xs font-medium text-foreground/80 backdrop-blur">
+          <CreditCard aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+          Sem fidelidade
+        </span>
+      </div>
+
       {referralCode && referralTenantName ? (
         <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/20 border-l-4 border-l-emerald-500 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-900 dark:text-emerald-200">
           <Gift aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />

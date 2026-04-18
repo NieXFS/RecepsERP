@@ -21,9 +21,10 @@ export default async function SubscribePage({
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-14 px-6 py-12 sm:space-y-20 sm:py-16">
+    <div className="mx-auto max-w-6xl px-6 py-10">
       <SubscribeHero />
 
+      <div className="mt-6 sm:mt-8">
       {plans.length === 0 ? (
         <Card className="border-border/70 shadow-sm">
           <CardContent className="py-10 text-sm text-muted-foreground">
@@ -43,10 +44,13 @@ export default async function SubscribePage({
           canceled={params.canceled === "1"}
         />
       )}
+      </div>
 
-      <SubscribeTrustBar />
-      <SubscribeFaq />
-      <SubscribeFinalCta />
+      <div className="mt-20 space-y-20">
+        <SubscribeTrustBar />
+        <SubscribeFaq />
+        <SubscribeFinalCta />
+      </div>
     </div>
   );
 }
