@@ -1,7 +1,69 @@
 import { NextResponse } from "next/server";
+import type { NextRequest, NextFetchEvent } from "next/server";
 import { withAuth } from "next-auth/middleware";
 import { getSubscriptionStatus } from "@/services/billing.service";
 
+// -------------------------------------------------------------------
+// Marketing paths: quando acessadas via app.receps.com.br -> 308 para
+// receps.com.br (subdominio canonico).
+// -------------------------------------------------------------------
+const MARKETING_EXACT_PATHS = new Set<string>([
+  "/erp",
+  "/atendentes-ia",
+  "/erp-atendente-ia",
+  "/assinar",
+  "/cadastro",
+  "/termos",
+  "/privacidade",
+  "/solicitar-acesso",
+  "/aguarde-aprovacao",
+]);
+
+function isMarketingPath(pathname: string): boolean {
+  if (MARKETING_EXACT_PATHS.has(pathname)) return true;
+  if (pathname === "/ajuda" || pathname.startsWith("/ajuda/")) return true;
+  return false;
+}
+
+// -------------------------------------------------------------------
+// Auth-protected prefixes: identicos ao matcher original do withAuth.
+// -------------------------------------------------------------------
+const AUTH_PREFIXES = [
+  "/dashboard",
+  "/agenda",
+  "/appointments",
+  "/clientes",
+  "/profissionais",
+  "/servicos",
+  "/pacotes",
+  "/produtos",
+  "/comissoes",
+  "/prontuarios",
+  "/professionals",
+  "/services",
+  "/packages",
+  "/products",
+  "/financial",
+  "/financeiro",
+  "/inventory",
+  "/estoque",
+  "/records",
+  "/settings",
+  "/configuracoes",
+  "/assinatura",
+  "/painel-receps",
+  "/bem-vindo",
+];
+
+function isAuthProtectedPath(pathname: string): boolean {
+  return AUTH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+}
+
+// -------------------------------------------------------------------
+// Billing exemptions (identico ao original).
+// -------------------------------------------------------------------
 const BILLING_EXEMPT_PATH_PREFIXES = [
   "/assinatura/bloqueada",
   "/logout",
@@ -14,31 +76,30 @@ function isBillingExemptPath(pathname: string) {
   );
 }
 
-/**
- * Proxy do NextAuth — protege todas as rotas autenticadas da aplicação.
- * Redireciona para /login se o usuário não estiver autenticado.
- */
-export default withAuth(
-  async function proxy(request) {
+// -------------------------------------------------------------------
+// Handler do withAuth - mesma logica do arquivo original, so extraida
+// para ser chamada manualmente nos paths protegidos.
+// -------------------------------------------------------------------
+const authHandler = withAuth(
+  async function authProxy(request) {
     const pathname = request.nextUrl.pathname;
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-receps-pathname", pathname);
 
     const token = request.nextauth.token;
-
     if (
       token?.tenantId &&
       token.globalRole !== "SUPER_ADMIN" &&
       !isBillingExemptPath(pathname)
     ) {
-      const subscriptionStatus = await getSubscriptionStatus(String(token.tenantId));
-
+      const subscriptionStatus = await getSubscriptionStatus(
+        String(token.tenantId)
+      );
       if (!subscriptionStatus.hasAccess) {
         const blockedUrl = request.nextUrl.clone();
         blockedUrl.pathname = "/assinatura/bloqueada";
         blockedUrl.searchParams.set("status", subscriptionStatus.status);
         blockedUrl.searchParams.set("reason", subscriptionStatus.reason);
-
         return NextResponse.redirect(blockedUrl);
       }
     }
@@ -56,31 +117,55 @@ export default withAuth(
   }
 );
 
+// -------------------------------------------------------------------
+// Proxy principal:
+//  1. Se vier via app.receps.com.br e for rota de marketing -> 308
+//     para receps.com.br/<mesmo-path>.
+//  2. Se vier via app.receps.com.br e for "/" -> 307 para /login.
+//  3. Se path estiver em AUTH_PREFIXES -> delega pro withAuth
+//     (NextAuth + billing check).
+//  4. Qualquer outra coisa -> NextResponse.next() sem tocar.
+// -------------------------------------------------------------------
+export default async function proxy(
+  request: NextRequest,
+  event: NextFetchEvent
+) {
+  const host = (request.headers.get("host") ?? "").toLowerCase();
+  const isAppSubdomain = host.startsWith("app.");
+  const pathname = request.nextUrl.pathname;
+
+  if (isAppSubdomain) {
+    if (isMarketingPath(pathname)) {
+      const targetUrl = new URL(
+        pathname + request.nextUrl.search,
+        "https://receps.com.br"
+      );
+      return NextResponse.redirect(targetUrl, 308);
+    }
+    if (pathname === "/") {
+      const loginUrl = new URL(
+        "/login" + request.nextUrl.search,
+        "https://app.receps.com.br"
+      );
+      return NextResponse.redirect(loginUrl, 307);
+    }
+  }
+
+  if (isAuthProtectedPath(pathname)) {
+    return (
+      authHandler as unknown as (
+        req: NextRequest,
+        ev: NextFetchEvent
+      ) => Promise<Response>
+    )(request, event);
+  }
+
+  return NextResponse.next();
+}
+
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/agenda/:path*",
-    "/appointments/:path*",
-    "/clientes/:path*",
-    "/profissionais/:path*",
-    "/servicos/:path*",
-    "/pacotes/:path*",
-    "/produtos/:path*",
-    "/comissoes/:path*",
-    "/prontuarios/:path*",
-    "/professionals/:path*",
-    "/services/:path*",
-    "/packages/:path*",
-    "/products/:path*",
-    "/financial/:path*",
-    "/financeiro/:path*",
-    "/inventory/:path*",
-    "/estoque/:path*",
-    "/records/:path*",
-    "/settings/:path*",
-    "/configuracoes/:path*",
-    "/assinatura/:path*",
-    "/painel-receps/:path*",
-    "/bem-vindo/:path*",
+    // Todas as rotas exceto APIs, assets estaticos do Next e arquivos com extensao.
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };
