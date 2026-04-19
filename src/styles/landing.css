@@ -2083,3 +2083,111 @@
     font-size: 1.35rem;
   }
 }
+
+/* === Nav Dropdown "Produtos" === */
+.receps-landing .nav-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.receps-landing .nav-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.receps-landing .nav-dropdown-trigger svg {
+  transition: transform 0.2s ease;
+}
+
+.receps-landing .nav-dropdown:hover .nav-dropdown-trigger svg,
+.receps-landing .nav-dropdown:focus-within .nav-dropdown-trigger svg {
+  transform: rotate(180deg);
+}
+
+.receps-landing .nav-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  min-width: 280px;
+  padding: 8px;
+  background: var(--color-surface, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  z-index: 100;
+}
+
+.receps-landing .nav-dropdown:hover .nav-dropdown-menu,
+.receps-landing .nav-dropdown:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.receps-landing .nav-dropdown-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.receps-landing .nav-dropdown-item:hover {
+  background: var(--color-accent-subtle, #EEEAFD);
+}
+
+.receps-landing .nav-dropdown-item strong {
+  color: var(--color-text, #1A1A1A);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.receps-landing .nav-dropdown-item span {
+  color: var(--color-text-secondary, #6B6B6B);
+  font-size: 0.82rem;
+}
+
+/* Mobile sub-group */
+.receps-landing .mobile-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 8px;
+}
+
+.receps-landing .mobile-menu-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary, #9B9B9B);
+  font-weight: 600;
+  padding: 8px 16px 4px;
+}
+
+.receps-landing .mobile-sublink {
+  padding-left: 32px !important;
+  font-size: 0.95rem !important;
+}
+
+/* Esconder dropdown no mobile — mobile menu já lista os produtos */
+@media (max-width: 768px) {
+  .receps-landing .nav-dropdown {
+    display: none;
+  }
+}

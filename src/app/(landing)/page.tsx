@@ -25,6 +25,47 @@ export default function LandingPage() {
             />
           </a>
           <div className="nav-links" id="navLinks">
+            <div className="nav-dropdown">
+              <button
+                type="button"
+                className="nav-dropdown-trigger"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Produtos
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div className="nav-dropdown-menu" role="menu">
+                <a href="/atendentes-ia" role="menuitem" className="nav-dropdown-item">
+                  <strong>Atendente IA</strong>
+                  <span>IA que atende no WhatsApp 24h</span>
+                </a>
+                <a href="/erp" role="menuitem" className="nav-dropdown-item">
+                  <strong>ERP Financeiro</strong>
+                  <span>Gestão completa da clínica</span>
+                </a>
+                <a
+                  href="/erp-atendente-ia"
+                  role="menuitem"
+                  className="nav-dropdown-item"
+                >
+                  <strong>ERP + Atendente IA</strong>
+                  <span>Solução completa integrada</span>
+                </a>
+              </div>
+            </div>
             <a href="#features">Funcionalidades</a>
             <a href="#how-it-works">Como Funciona</a>
             <a href="#pricing">Planos</a>
@@ -34,11 +75,8 @@ export default function LandingPage() {
             <a href="https://app.receps.com.br/login" className="nav-login">
               Entrar
             </a>
-            <a
-              href="https://app.receps.com.br/assinar"
-              className="btn btn-primary btn-nav"
-            >
-              Assinar
+            <a href="/erp-atendente-ia" className="btn btn-primary btn-nav">
+              Começar
               <span className="btn-icon-wrap">
                 <svg
                   width="16"
@@ -64,6 +102,18 @@ export default function LandingPage() {
         {/* Mobile Menu */}
         <div className="mobile-menu" id="mobileMenu">
           <div className="mobile-menu-inner">
+            <div className="mobile-menu-group">
+              <span className="mobile-menu-label">Produtos</span>
+              <a href="/atendentes-ia" className="mobile-link mobile-sublink">
+                Atendente IA
+              </a>
+              <a href="/erp" className="mobile-link mobile-sublink">
+                ERP Financeiro
+              </a>
+              <a href="/erp-atendente-ia" className="mobile-link mobile-sublink">
+                ERP + Atendente IA
+              </a>
+            </div>
             <a href="#features" className="mobile-link">
               Funcionalidades
             </a>
@@ -79,11 +129,8 @@ export default function LandingPage() {
             <a href="https://app.receps.com.br/login" className="mobile-link">
               Entrar
             </a>
-            <a
-              href="https://app.receps.com.br/assinar"
-              className="btn btn-primary btn-mobile-cta"
-            >
-              Assinar
+            <a href="/erp-atendente-ia" className="btn btn-primary btn-mobile-cta">
+              Começar
             </a>
           </div>
         </div>
@@ -104,7 +151,7 @@ export default function LandingPage() {
           sem depender de planilha.
         </p>
         <div className="hero-ctas reveal">
-          <a href="#pricing" className="btn btn-primary btn-lg">
+          <a href="/erp-atendente-ia" className="btn btn-primary btn-lg">
             Testar grátis por 7 dias
             <span className="btn-icon-wrap">
               <svg
@@ -555,11 +602,8 @@ export default function LandingPage() {
                     Suporte prioritário
                   </li>
                 </ul>
-                <a
-                  href="https://app.receps.com.br/assinar"
-                  className="btn btn-outline btn-block"
-                >
-                  Assinar
+                <a href="/cadastro?plan=atendente-ia" className="btn btn-outline btn-block">
+                  Começar grátis
                   <span className="btn-icon-wrap">
                     <svg
                       width="16"
@@ -703,10 +747,10 @@ export default function LandingPage() {
                   </li>
                 </ul>
                 <a
-                  href="https://app.receps.com.br/assinar"
+                  href="/cadastro?plan=erp-atendente-ia"
                   className="btn btn-primary btn-block btn-glow"
                 >
-                  Testar grátis por 7 dias
+                  Começar grátis
                   <span className="btn-icon-wrap">
                     <svg
                       width="16"
@@ -833,11 +877,8 @@ export default function LandingPage() {
                     Suporte prioritário
                   </li>
                 </ul>
-                <a
-                  href="https://app.receps.com.br/assinar"
-                  className="btn btn-outline btn-block"
-                >
-                  Assinar
+                <a href="/cadastro?plan=erp" className="btn btn-outline btn-block">
+                  Começar grátis
                   <span className="btn-icon-wrap">
                     <svg
                       width="16"
@@ -878,11 +919,8 @@ export default function LandingPage() {
                 cartão de crédito, sem compromisso — cancele quando quiser.
               </p>
               <div className="cta-actions">
-                <a
-                  href="https://app.receps.com.br/assinar"
-                  className="btn btn-primary btn-lg btn-white"
-                >
-                  Assinar agora
+                <a href="/erp-atendente-ia" className="btn btn-primary btn-lg btn-white">
+                  Começar agora
                   <span className="btn-icon-wrap">
                     <svg
                       width="18"

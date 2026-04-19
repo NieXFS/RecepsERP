@@ -11,7 +11,6 @@ const MARKETING_EXACT_PATHS = new Set<string>([
   "/erp",
   "/atendentes-ia",
   "/erp-atendente-ia",
-  "/assinar",
   "/cadastro",
   "/termos",
   "/privacidade",
@@ -130,9 +129,17 @@ export default async function proxy(
   request: NextRequest,
   event: NextFetchEvent
 ) {
+  const pathname = request.nextUrl.pathname;
   const host = (request.headers.get("host") ?? "").toLowerCase();
   const isAppSubdomain = host.startsWith("app.");
-  const pathname = request.nextUrl.pathname;
+
+  if (pathname === "/assinar" || pathname === "/assinar/") {
+    const target = new URL(
+      "/erp-atendente-ia" + request.nextUrl.search,
+      "https://receps.com.br"
+    );
+    return NextResponse.redirect(target, 308);
+  }
 
   if (isAppSubdomain) {
     if (isMarketingPath(pathname)) {
