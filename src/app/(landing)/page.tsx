@@ -1,5 +1,107 @@
 import Image from "next/image";
 import Script from "next/script";
+import { ContactForm } from "./_contact-form";
+import { ArrowRightIcon, CheckIcon, ChevronDownIcon } from "./_icons";
+import { RoiCalculator } from "./_roi-calculator";
+
+type FaqItem = { q: string; a: string };
+
+const FAQ_ITEMS: ReadonlyArray<FaqItem> = [
+  {
+    q: "Preciso ter um WhatsApp Business separado?",
+    // TODO(victor): confirmar se usamos WhatsApp Cloud API oficial ou número pessoal/Business App. Ajustar copy conforme.
+    a: "Sim, recomendamos um número dedicado ao negócio para manter o histórico profissional separado do pessoal. A configuração é feita junto com nossa equipe no onboarding e funciona com WhatsApp Business normal — você não precisa trocar de número se o que usa hoje já é do negócio.",
+  },
+  {
+    q: "A IA aprende o jeito de atender da minha clínica?",
+    a: "Sim. No onboarding, a IA é treinada com seu cardápio de serviços, política de agendamento, horários, regras de confirmação, tom de voz e respostas para dúvidas comuns. Você pode ajustar a qualquer momento pelo painel e ver como ela responderia antes de entrar em produção.",
+  },
+  {
+    q: "Posso migrar dados do meu sistema atual?",
+    a: "Sim. Importamos clientes, serviços, profissionais, histórico de agendamentos e saldos financeiros via planilha ou integração direta. Nossa equipe faz a migração por você nos planos anuais e acompanha a primeira semana pra garantir que nada ficou para trás.",
+  },
+  {
+    q: "Meus dados e dos meus clientes estão seguros? LGPD?",
+    a: "Sim. O Receps segue a LGPD: dados criptografados em trânsito e em repouso, controle de acesso por perfil, trilha de auditoria nas ações críticas e possibilidade de exportação e exclusão a pedido do titular. Não vendemos dados e não usamos conversas dos seus clientes para treinar IAs de terceiros.",
+  },
+  {
+    q: "O que acontece depois dos 7 dias grátis?",
+    a: "Nada some de um dia pro outro. Você recebe lembretes antes do fim do período e, se decidir assinar, o plano entra ativo automaticamente. Se não quiser continuar, a conta fica em modo leitura por mais 30 dias pra você exportar tudo com calma.",
+  },
+  {
+    q: "Tem contrato de fidelidade ou multa?",
+    a: "Não. A assinatura é mensal e você cancela pelo próprio painel quando quiser, sem multa e sem burocracia. Planos anuais têm desconto, mas também aceitam cancelamento proporcional.",
+  },
+  {
+    q: "Funciona pra qual tipo de negócio?",
+    a: "Clínicas de estética, consultórios odontológicos, barbearias, salões de beleza, centros estéticos e estúdios de tattoo, pilates e fisioterapia. Qualquer negócio de serviços com agenda, profissionais e atendimento via WhatsApp se encaixa bem.",
+  },
+  {
+    q: "Como funciona o suporte?",
+    a: "Suporte por WhatsApp em horário comercial para todos os planos, com prioridade no plano Atendente + ERP. Chamados críticos são respondidos em minutos. Onboarding assistido é incluso e o time acompanha o primeiro mês de uso de perto.",
+  },
+];
+
+type ComparisonState = "yes" | "partial" | "no";
+type ComparisonRow = {
+  label: string;
+  sheet: ComparisonState;
+  legacy: ComparisonState;
+  receps: ComparisonState;
+};
+
+const COMPARISON_ROWS: ReadonlyArray<ComparisonRow> = [
+  { label: "Agendamento direto pelo WhatsApp", sheet: "no", legacy: "partial", receps: "yes" },
+  { label: "IA que atende 24h no WhatsApp", sheet: "no", legacy: "no", receps: "yes" },
+  { label: "Comissões calculadas automaticamente", sheet: "no", legacy: "yes", receps: "yes" },
+  { label: "Fluxo de caixa e DRE em tempo real", sheet: "partial", legacy: "yes", receps: "yes" },
+  { label: "Controle de estoque integrado", sheet: "no", legacy: "partial", receps: "yes" },
+  { label: "Relatórios e dashboards visuais", sheet: "no", legacy: "partial", receps: "yes" },
+  { label: "Onboarding assistido incluso", sheet: "no", legacy: "partial", receps: "yes" },
+  { label: "Suporte por WhatsApp", sheet: "no", legacy: "no", receps: "yes" },
+];
+
+function comparisonCell(state: ComparisonState) {
+  if (state === "yes") {
+    return (
+      <span className="comparison-icon comparison-icon-yes" aria-label="Sim">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "partial") {
+    return (
+      <span className="comparison-icon comparison-icon-partial" aria-label="Parcial">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span className="comparison-icon comparison-icon-no" aria-label="Não">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <line x1="6" y1="6" x2="18" y2="18" />
+        <line x1="18" y1="6" x2="6" y2="18" />
+      </svg>
+    </span>
+  );
+}
+
+const FAQ_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a,
+    },
+  })),
+};
 
 /**
  * Landing page da Receps (rota /).
@@ -30,37 +132,20 @@ export default function LandingPage() {
                 type="button"
                 className="nav-dropdown-trigger"
                 aria-haspopup="true"
-                aria-expanded="false"
               >
                 Produtos
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                <ChevronDownIcon size={12} />
               </button>
-              <div className="nav-dropdown-menu" role="menu">
-                <a href="/atendentes-ia" role="menuitem" className="nav-dropdown-item">
+              <div className="nav-dropdown-menu">
+                <a href="/atendentes-ia" className="nav-dropdown-item">
                   <strong>Atendente IA</strong>
                   <span>IA que atende no WhatsApp 24h</span>
                 </a>
-                <a href="/erp" role="menuitem" className="nav-dropdown-item">
+                <a href="/erp" className="nav-dropdown-item">
                   <strong>ERP Financeiro</strong>
                   <span>Gestão completa da clínica</span>
                 </a>
-                <a
-                  href="/erp-atendente-ia"
-                  role="menuitem"
-                  className="nav-dropdown-item"
-                >
+                <a href="/erp-atendente-ia" className="nav-dropdown-item">
                   <strong>ERP + Atendente IA</strong>
                   <span>Solução completa integrada</span>
                 </a>
@@ -78,18 +163,7 @@ export default function LandingPage() {
             <a href="/erp-atendente-ia" className="btn btn-primary btn-nav">
               Começar
               <span className="btn-icon-wrap">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
+                <ArrowRightIcon size={16} />
               </span>
             </a>
             <button className="nav-hamburger" id="hamburger" aria-label="Menu">
@@ -154,24 +228,27 @@ export default function LandingPage() {
           <a href="/erp-atendente-ia" className="btn btn-primary btn-lg">
             Testar grátis por 7 dias
             <span className="btn-icon-wrap">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
+              <ArrowRightIcon size={18} />
             </span>
           </a>
           <a href="#how-it-works" className="btn btn-ghost btn-lg">
             Como funciona
           </a>
         </div>
+        <ul className="hero-trust reveal" aria-label="Diferenciais">
+          <li>
+            <CheckIcon size={14} strokeWidth={2.5} />
+            Sem cartão de crédito
+          </li>
+          <li>
+            <CheckIcon size={14} strokeWidth={2.5} />
+            Configuração em 15 min
+          </li>
+          <li>
+            <CheckIcon size={14} strokeWidth={2.5} />
+            Suporte por WhatsApp
+          </li>
+        </ul>
         <div className="hero-visual reveal">
           <div className="hero-mockup">
             <div className="mockup-topbar">
@@ -245,6 +322,195 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AUDIENCE — para quem é */}
+      <section className="audience" id="para-quem-e">
+        <div className="container">
+          <div className="section-header reveal">
+            <span className="section-tag">Para quem é</span>
+            <h2 className="section-title">
+              Feito pra quem cuida de
+              <br />
+              <span className="text-accent">pessoas no dia a dia.</span>
+            </h2>
+            <p className="section-subtitle">
+              Negócios de beleza, saúde e bem-estar têm fluxo de atendimento
+              próprio. O Receps foi desenhado pra cada um deles.
+            </p>
+          </div>
+
+          <div className="audience-grid reveal">
+            <article className="audience-card">
+              <div className="audience-icon" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5Z" />
+                  <path d="M5 14a7 7 0 0 0 14 0" />
+                  <path d="M12 21v-7" />
+                </svg>
+              </div>
+              <h3 className="audience-title">Clínicas de Estética</h3>
+              <p className="audience-subtitle">
+                Botox, harmonização, limpeza de pele, protocolos.
+              </p>
+              <ul className="audience-features">
+                <li>Pacotes e sessões controlados</li>
+                <li>Ficha de anamnese no prontuário</li>
+                <li>Comissão por procedimento</li>
+              </ul>
+            </article>
+
+            <article className="audience-card">
+              <div className="audience-icon" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 5.5C8 2 2 3 2 9c0 3 2 6 4 9 1.5 2 3 2 3.5.5s.5-3 2.5-3 2 1.5 2.5 3S16 20 17.5 18c2-3 4.5-6 4.5-9 0-6-6-7-10-3.5Z" />
+                </svg>
+              </div>
+              <h3 className="audience-title">Consultórios Odontológicos</h3>
+              <p className="audience-subtitle">
+                Implantes, ortodontia, clínica geral.
+              </p>
+              <ul className="audience-features">
+                <li>Plano de tratamento parcelado</li>
+                <li>Lembretes de retorno automáticos</li>
+                <li>Dashboard por dentista</li>
+              </ul>
+            </article>
+
+            <article className="audience-card">
+              <div className="audience-icon" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="6" cy="6" r="3" />
+                  <circle cx="6" cy="18" r="3" />
+                  <path d="m8 6 12 6" />
+                  <path d="m8 18 12-6" />
+                  <path d="M14.5 9 20 4" />
+                </svg>
+              </div>
+              <h3 className="audience-title">Barbearias</h3>
+              <p className="audience-subtitle">
+                Corte, barba, combo e fidelização.
+              </p>
+              <ul className="audience-features">
+                <li>Agenda por cadeira/barbeiro</li>
+                <li>Cashback e clube de assinatura</li>
+                <li>Fila de espera no WhatsApp</li>
+              </ul>
+            </article>
+
+            <article className="audience-card">
+              <div className="audience-icon" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M7 21c0-4.4 2-8 5-8s5 3.6 5 8" />
+                  <circle cx="12" cy="7" r="4" />
+                  <path d="M8 10c-2 1-3 3-3 5" />
+                  <path d="M16 10c2 1 3 3 3 5" />
+                </svg>
+              </div>
+              <h3 className="audience-title">Salões de Beleza</h3>
+              <p className="audience-subtitle">
+                Cabelo, unha, depilação, maquiagem.
+              </p>
+              <ul className="audience-features">
+                <li>Comissão por profissional e serviço</li>
+                <li>Controle de produtos de revenda</li>
+                <li>Cliente escolhe o profissional no chat</li>
+              </ul>
+            </article>
+
+            <article className="audience-card">
+              <div className="audience-icon" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Z" />
+                  <circle cx="12" cy="9" r="2.5" />
+                </svg>
+              </div>
+              <h3 className="audience-title">Centros Estéticos</h3>
+              <p className="audience-subtitle">
+                Multimarcas, multiprofissionais, múltiplas salas.
+              </p>
+              <ul className="audience-features">
+                <li>Gestão de salas e equipamentos</li>
+                <li>Metas por unidade</li>
+                <li>Relatórios consolidados</li>
+              </ul>
+            </article>
+
+            <article className="audience-card">
+              <div className="audience-icon" aria-hidden="true">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2v6" />
+                  <path d="M5 11h14" />
+                  <path d="M6 11v4a6 6 0 0 0 12 0v-4" />
+                  <path d="M9 21h6" />
+                </svg>
+              </div>
+              <h3 className="audience-title">Estúdios</h3>
+              <p className="audience-subtitle">
+                Tattoo, pilates, fisioterapia, personal.
+              </p>
+              <ul className="audience-features">
+                <li>Pacotes, créditos e sessões recorrentes</li>
+                <li>Assinaturas mensais automáticas</li>
+                <li>Integração com WhatsApp para confirmação</li>
+              </ul>
+            </article>
           </div>
         </div>
       </section>
@@ -446,6 +712,49 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* COMPARISON TABLE */}
+      <section className="comparison" id="compare">
+        <div className="container">
+          <div className="section-header reveal">
+            <span className="section-tag">Comparação</span>
+            <h2 className="section-title">
+              Por que trocar?
+              <br />
+              <span className="text-accent">Dá pra ver de relance.</span>
+            </h2>
+            <p className="section-subtitle">
+              Do caderno à planilha, do sistema antigo ao Receps — o que muda
+              na rotina do seu negócio.
+            </p>
+          </div>
+
+          <div className="comparison-wrap reveal">
+            <table className="comparison-table" aria-label="Comparativo Receps vs Planilha vs Sistema Antigo">
+              <thead>
+                <tr>
+                  <th scope="col">Recurso</th>
+                  <th scope="col">Planilha / Excel</th>
+                  <th scope="col">Sistema antigo</th>
+                  <th scope="col" className="comparison-highlight">Receps</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_ROWS.map((row) => (
+                  <tr key={row.label}>
+                    <th scope="row">{row.label}</th>
+                    <td data-state={row.sheet}>{comparisonCell(row.sheet)}</td>
+                    <td data-state={row.legacy}>{comparisonCell(row.legacy)}</td>
+                    <td data-state={row.receps} className="comparison-highlight">
+                      {comparisonCell(row.receps)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {/* HOW IT WORKS */}
       <section className="how-it-works" id="how-it-works">
         <div className="container">
@@ -527,96 +836,30 @@ export default function LandingPage() {
                 <span className="trial-badge">7 dias grátis para testar</span>
                 <ul className="plan-features">
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Atendente IA 24h no WhatsApp
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Agendamento automático
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Confirmações e lembretes
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Respostas personalizadas
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Suporte prioritário
                   </li>
                 </ul>
                 <a href="/cadastro?plan=atendente-ia" className="btn btn-outline btn-block">
                   Começar grátis
                   <span className="btn-icon-wrap">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
+                    <ArrowRightIcon size={16} />
                   </span>
                 </a>
               </div>
@@ -638,111 +881,39 @@ export default function LandingPage() {
                   <span className="price-decimal">,99</span>
                   <span className="period">/mês</span>
                 </div>
+                <div className="pricing-savings">
+                  <span className="savings-strike">R$ 369,98</span>
+                  <span className="savings-note">Economize R$ 69,99/mês</span>
+                </div>
+                <span className="trial-badge trial-badge-featured">7 dias grátis para testar</span>
 
                 <ul className="plan-features">
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     <strong>Tudo do plano Atendente IA</strong>
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     <strong>Tudo do plano ERP</strong>
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Integração IA + Agenda + Financeiro
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Fechamento de caixa automático
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Dashboard unificado em tempo real
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Relatórios avançados de performance
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Onboarding VIP dedicado
                   </li>
                 </ul>
@@ -752,18 +923,7 @@ export default function LandingPage() {
                 >
                   Começar grátis
                   <span className="btn-icon-wrap">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
+                    <ArrowRightIcon size={16} />
                   </span>
                 </a>
               </div>
@@ -787,111 +947,34 @@ export default function LandingPage() {
                 <span className="trial-badge">7 dias grátis para testar</span>
                 <ul className="plan-features">
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     ERP financeiro completo
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Controle de estoque
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Comissões automáticas
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Fluxo de caixa e DRE
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Agenda integrada
                   </li>
                   <li>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon size={18} />
                     Suporte prioritário
                   </li>
                 </ul>
                 <a href="/cadastro?plan=erp" className="btn btn-outline btn-block">
                   Começar grátis
                   <span className="btn-icon-wrap">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
+                    <ArrowRightIcon size={16} />
                   </span>
                 </a>
               </div>
@@ -902,6 +985,59 @@ export default function LandingPage() {
             Sem cartão de crédito. Sem compromisso. Cancele a qualquer momento.
           </p>
         </div>
+      </section>
+
+      {/* ROI CALCULATOR */}
+      <RoiCalculator />
+
+      {/* FAQ */}
+      <section className="faq" id="faq">
+        <div className="container container-narrow">
+          <div className="section-header reveal">
+            <span className="section-tag">Perguntas</span>
+            <h2 className="section-title">
+              O que todo mundo
+              <br />
+              <span className="text-accent">pergunta antes.</span>
+            </h2>
+          </div>
+
+          <div className="faq-list reveal">
+            {FAQ_ITEMS.map((item, index) => (
+              <details
+                key={item.q}
+                className="faq-item"
+                name="faq"
+                open={index === 0}
+              >
+                <summary className="faq-question">
+                  <span>{item.q}</span>
+                  <svg
+                    className="faq-chevron"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </summary>
+                <div className="faq-answer">
+                  <p>{item.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
+        />
       </section>
 
       {/* FINAL CTA */}
@@ -922,18 +1058,7 @@ export default function LandingPage() {
                 <a href="/erp-atendente-ia" className="btn btn-primary btn-lg btn-white">
                   Começar agora
                   <span className="btn-icon-wrap">
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
+                    <ArrowRightIcon size={18} />
                   </span>
                 </a>
               </div>
@@ -982,7 +1107,7 @@ export default function LandingPage() {
                   sem formalidades, sem espera.
                 </p>
                 <a
-                  href="https://wa.me/5500000000000"
+                  href="https://wa.me/5516991113783"
                   target="_blank"
                   rel="noopener"
                   className="btn btn-whatsapp btn-lg"
@@ -993,18 +1118,7 @@ export default function LandingPage() {
                   </svg>
                   Conversar no WhatsApp
                   <span className="btn-icon-wrap">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
+                    <ArrowRightIcon size={16} />
                   </span>
                 </a>
                 <span className="contact-wa-hint">
@@ -1020,61 +1134,7 @@ export default function LandingPage() {
                   Sem problema. Preencha o formulário e respondemos em até 24
                   horas úteis.
                 </p>
-                {/* TODO: wire up form submit */}
-                <form
-                  className="contact-form"
-                  id="contactForm"
-                  action="#"
-                  method="POST"
-                >
-                  <div className="form-group">
-                    <label htmlFor="contact-name">Nome</label>
-                    <input
-                      type="text"
-                      id="contact-name"
-                      name="name"
-                      placeholder="Seu nome completo"
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="contact-email">E-mail</label>
-                    <input
-                      type="email"
-                      id="contact-email"
-                      name="email"
-                      placeholder="seuemail@exemplo.com"
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="contact-subject">Assunto</label>
-                    <textarea
-                      id="contact-subject"
-                      name="subject"
-                      placeholder="Descreva sua dúvida ou mensagem..."
-                      rows={4}
-                      required
-                    />
-                  </div>
-                  <button type="submit" className="btn btn-primary btn-block">
-                    Enviar mensagem
-                    <span className="btn-icon-wrap">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </span>
-                  </button>
-                </form>
+                <ContactForm />
               </div>
             </div>
           </div>
@@ -1110,23 +1170,16 @@ export default function LandingPage() {
               <a href="#how-it-works">Como Funciona</a>
             </div>
             <div className="footer-links-group">
-              <h4>Empresa</h4>
-              <a href="#">Sobre</a>
-              <a href="#">Blog</a>
-              <a href="#">Carreiras</a>
-            </div>
-            <div className="footer-links-group">
               <h4>Suporte</h4>
               <a href="https://app.receps.com.br/login">Entrar no app</a>
               <a href="#contato">Contato</a>
-              <a href="https://wa.me/5500000000000" target="_blank" rel="noopener">
+              <a href="https://wa.me/5516991113783" target="_blank" rel="noopener">
                 WhatsApp
               </a>
-              <a href="#">Status</a>
             </div>
           </div>
           <div className="footer-bottom">
-            <span>© 2025 Receps. Todos os direitos reservados.</span>
+            <span>© {new Date().getFullYear()} Receps. Todos os direitos reservados.</span>
             <div className="footer-legal">
               <a href="/termos">Termos de Uso</a>
               <a href="/privacidade">Privacidade</a>

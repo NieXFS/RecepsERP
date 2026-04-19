@@ -90,6 +90,10 @@
   padding: 0 clamp(1.25rem, 4vw, 3rem);
 }
 
+.receps-landing .container-narrow {
+  max-width: 860px;
+}
+
 /* --- SCROLL REVEAL ANIMATIONS --- */
 .receps-landing .reveal {
   opacity: 0;
@@ -531,6 +535,32 @@
   gap: var(--space-sm);
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.receps-landing .hero-trust {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.receps-landing .hero-trust li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  letter-spacing: 0.005em;
+}
+
+.receps-landing .hero-trust svg {
+  color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 .receps-landing .hero-visual {
@@ -1474,12 +1504,502 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* --- PRICING SAVINGS (featured card) --- */
+.receps-landing .pricing-savings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+  margin-bottom: var(--space-sm);
+}
+
+.receps-landing .pricing-savings .savings-strike {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  letter-spacing: 0.01em;
+}
+
+.receps-landing .pricing-savings .savings-note {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.01em;
+}
+
 .receps-landing .pricing-trial-note {
   text-align: center;
   font-size: 0.85rem;
   color: var(--color-text-tertiary);
   margin-top: var(--space-lg);
   font-weight: 500;
+}
+
+/* --- CONTACT FORM STATES --- */
+.receps-landing .contact-form-honeypot {
+  position: absolute !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.receps-landing .contact-form-error {
+  font-size: 0.9rem;
+  color: #B3261E;
+  background: rgba(179, 38, 30, 0.08);
+  border: 1px solid rgba(179, 38, 30, 0.2);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+
+.receps-landing .contact-form-success {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+
+.receps-landing .contact-form-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+.receps-landing .contact-form-success-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-text-primary);
+  letter-spacing: -0.015em;
+}
+
+.receps-landing .contact-form-success-desc {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* --- AUDIENCE (para quem é) --- */
+.receps-landing .audience {
+  padding: var(--space-2xl) 0;
+  background: var(--color-surface);
+}
+
+.receps-landing .audience-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.receps-landing .audience-card {
+  position: relative;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  transition: transform 350ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 350ms ease, box-shadow 350ms ease;
+}
+
+.receps-landing .audience-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-accent);
+  box-shadow: 0 20px 40px -20px rgba(115, 82, 235, 0.25);
+}
+
+.receps-landing .audience-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  margin-bottom: var(--space-sm);
+}
+
+.receps-landing .audience-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.015em;
+}
+
+.receps-landing .audience-subtitle {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-sm);
+  line-height: 1.5;
+}
+
+.receps-landing .audience-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.receps-landing .audience-features li {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  padding-left: 1.1rem;
+  position: relative;
+  line-height: 1.5;
+}
+
+.receps-landing .audience-features li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* --- FAQ --- */
+.receps-landing .faq {
+  padding: var(--space-2xl) 0;
+}
+
+.receps-landing .faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: var(--space-xl);
+}
+
+.receps-landing .faq-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.receps-landing .faq-item[open] {
+  border-color: var(--color-accent);
+  box-shadow: 0 10px 30px -20px rgba(115, 82, 235, 0.3);
+}
+
+.receps-landing .faq-item:hover {
+  border-color: var(--color-border-strong, var(--color-accent));
+}
+
+.receps-landing .faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  cursor: pointer;
+  padding: 1.125rem 1.5rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  list-style: none;
+  user-select: none;
+  letter-spacing: -0.005em;
+}
+
+.receps-landing .faq-question::-webkit-details-marker {
+  display: none;
+}
+
+.receps-landing .faq-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 300ms ease;
+}
+
+.receps-landing .faq-item[open] .faq-chevron {
+  transform: rotate(180deg);
+  color: var(--color-accent);
+}
+
+.receps-landing .faq-answer {
+  padding: 0 1.5rem 1.25rem;
+  color: var(--color-text-secondary);
+  font-size: 0.975rem;
+  line-height: 1.65;
+}
+
+.receps-landing .faq-answer p {
+  margin: 0;
+}
+
+/* --- COMPARISON TABLE --- */
+.receps-landing .comparison {
+  padding: var(--space-2xl) 0;
+}
+
+.receps-landing .comparison-wrap {
+  margin-top: var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  background: var(--color-bg);
+  box-shadow: 0 30px 60px -40px rgba(11, 11, 26, 0.15);
+}
+
+.receps-landing .comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.receps-landing .comparison-table thead th {
+  text-align: center;
+  padding: 1rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.receps-landing .comparison-table thead th:first-child {
+  text-align: left;
+}
+
+.receps-landing .comparison-table thead th.comparison-highlight {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.receps-landing .comparison-table tbody th {
+  text-align: left;
+  padding: 1rem 1.25rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.receps-landing .comparison-table tbody td {
+  text-align: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.receps-landing .comparison-table tbody td.comparison-highlight {
+  background: rgba(115, 82, 235, 0.04);
+}
+
+.receps-landing .comparison-table tbody tr:last-child th,
+.receps-landing .comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.receps-landing .comparison-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+}
+
+.receps-landing .comparison-icon-yes {
+  color: #0B8A3A;
+  background: rgba(11, 138, 58, 0.12);
+}
+
+.receps-landing .comparison-icon-partial {
+  color: #B78200;
+  background: rgba(183, 130, 0, 0.12);
+}
+
+.receps-landing .comparison-icon-no {
+  color: #8A8A9B;
+  background: rgba(138, 138, 155, 0.12);
+}
+
+@media (max-width: 720px) {
+  .receps-landing .comparison-wrap {
+    overflow-x: auto;
+  }
+
+  .receps-landing .comparison-table {
+    min-width: 640px;
+  }
+}
+
+/* --- ROI CALCULATOR --- */
+.receps-landing .roi-calc {
+  padding: var(--space-2xl) 0;
+  background: var(--color-surface);
+}
+
+.receps-landing .roi-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 30px 60px -40px rgba(11, 11, 26, 0.2);
+}
+
+@media (max-width: 720px) {
+  .receps-landing .roi-card {
+    grid-template-columns: 1fr;
+    padding: var(--space-lg);
+  }
+}
+
+.receps-landing .roi-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.receps-landing .roi-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.receps-landing .roi-field-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.receps-landing .roi-field-control {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.receps-landing .roi-field-control input[type="range"] {
+  flex: 1;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.receps-landing .roi-field-control .roi-number {
+  width: 88px;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+
+.receps-landing .roi-field-control .roi-number:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(115, 82, 235, 0.15);
+}
+
+.receps-landing .roi-field-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-tertiary);
+}
+
+.receps-landing .roi-output {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.receps-landing .roi-output-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.receps-landing .roi-output-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.receps-landing .roi-output-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.receps-landing .roi-output-unit {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  margin-left: 0.2rem;
+}
+
+.receps-landing .roi-output-divider {
+  border: none;
+  border-top: 1px dashed var(--color-border);
+  margin: 0;
+}
+
+.receps-landing .roi-output-highlight {
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-md);
+}
+
+.receps-landing .roi-output-highlight.is-positive {
+  background: rgba(11, 138, 58, 0.08);
+}
+
+.receps-landing .roi-output-highlight.is-positive .roi-output-value {
+  color: #0B8A3A;
+}
+
+.receps-landing .roi-output-highlight.is-neutral {
+  background: var(--color-accent-subtle);
+}
+
+.receps-landing .roi-output-highlight.is-neutral .roi-output-value {
+  color: var(--color-accent);
+}
+
+.receps-landing .roi-output-payback {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.receps-landing .roi-output-payback strong {
+  color: var(--color-text-primary);
 }
 
 /* --- CONTACT SECTION --- */
