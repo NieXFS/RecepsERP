@@ -4,7 +4,9 @@ import {
   type AppointmentStoredStatus,
 } from "@/lib/appointments/status";
 import {
+  addDaysToCivilDate,
   formatCivilDateToQuery,
+  getCivilDateFromDate,
   getCivilDayRange,
   getTodayCivilDate,
   type CivilDate,
@@ -116,6 +118,28 @@ export type FinancialOverview = {
     endDate: string;
   };
   summary: FinancialStatementSummary;
+  previousSummary: FinancialStatementSummary;
+  dailySeries: Array<{
+    date: string;
+    entradas: number;
+    saidas: number;
+  }>;
+  statementTrend: Array<{
+    date: string;
+    count: number;
+  }>;
+  topProfessionals: Array<{
+    id: string;
+    name: string;
+    revenue: number;
+    appointmentCount: number;
+  }>;
+  topServices: Array<{
+    id: string;
+    name: string;
+    revenue: number;
+    soldCount: number;
+  }>;
   commissions: {
     generatedTotal: number;
     pendingTotal: number;
@@ -1367,102 +1391,196 @@ export async function getFinancialOverview(
   const { start, endExclusive } = getPeriodBounds(startDate, endDate);
   const { start: todayStart, endExclusive: todayEndExclusive } = getCivilDayRange(today);
 
+  const startCivil =
+    formatCivilDateToQuery(startDate) <= formatCivilDateToQuery(endDate) ? startDate : endDate;
+  const endCivil =
+    formatCivilDateToQuery(startDate) <= formatCivilDateToQuery(endDate) ? endDate : startDate;
+
+  const daysInPeriod = Math.max(
+    1,
+    Math.round((endExclusive.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
+  );
+  const previousEndCivil = addDaysToCivilDate(startCivil, -1);
+  const previousStartCivil = addDaysToCivilDate(previousEndCivil, -(daysInPeriod - 1));
+
+  const statementTrendEndCivil = today;
+  const statementTrendStartCivil = addDaysToCivilDate(today, -13);
+  const { start: trendStart, endExclusive: trendEndExclusive } = getPeriodBounds(
+    statementTrendStartCivil,
+    statementTrendEndCivil
+  );
+
   const [
     statement,
+    previousStatement,
     cashOverview,
     commissions,
     recentTransactions,
     recentCashSessions,
     todayCashClosingGroups,
-  ] =
-    await Promise.all([
-      getFinancialStatement(tenantId, {
-        startDate,
-        endDate,
-      }),
-      getCashRegisterOverview(tenantId),
-      db.commission.findMany({
-        where: {
-          tenantId,
-          OR: [
-            {
-              createdAt: {
-                gte: start,
-                lt: endExclusive,
+    periodPaidIncomes,
+    trendTransactions,
+  ] = await Promise.all([
+    getFinancialStatement(tenantId, {
+      startDate: startCivil,
+      endDate: endCivil,
+    }),
+    getFinancialStatement(tenantId, {
+      startDate: previousStartCivil,
+      endDate: previousEndCivil,
+    }),
+    getCashRegisterOverview(tenantId),
+    db.commission.findMany({
+      where: {
+        tenantId,
+        OR: [
+          {
+            createdAt: {
+              gte: start,
+              lt: endExclusive,
+            },
+          },
+          {
+            paidAt: {
+              gte: start,
+              lt: endExclusive,
+            },
+          },
+        ],
+      },
+      select: {
+        commissionValue: true,
+        status: true,
+        professionalId: true,
+      },
+    }),
+    db.transaction.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        account: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 5,
+    }),
+    db.cashRegisterSession.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        account: {
+          select: {
+            name: true,
+          },
+        },
+        openedByUser: {
+          select: {
+            name: true,
+          },
+        },
+        closedByUser: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        openedAt: "desc",
+      },
+      take: 3,
+    }),
+    db.transaction.groupBy({
+      by: ["paymentMethod"],
+      where: {
+        tenantId,
+        type: "INCOME",
+        paymentStatus: "PAID",
+        paidAt: {
+          gte: todayStart,
+          lt: todayEndExclusive,
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
+    db.transaction.findMany({
+      where: {
+        tenantId,
+        type: "INCOME",
+        paymentStatus: "PAID",
+        paidAt: {
+          gte: start,
+          lt: endExclusive,
+        },
+        appointmentId: { not: null },
+      },
+      select: {
+        id: true,
+        amount: true,
+        appointment: {
+          select: {
+            id: true,
+            professionalId: true,
+            professional: {
+              select: {
+                id: true,
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
-            {
-              paidAt: {
-                gte: start,
-                lt: endExclusive,
+            services: {
+              select: {
+                serviceId: true,
+                price: true,
+                quantity: true,
+                service: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
-          ],
+          },
         },
-        select: {
-          commissionValue: true,
-          status: true,
-          professionalId: true,
-        },
-      }),
-      db.transaction.findMany({
-        where: {
-          tenantId,
-        },
-        include: {
-          account: {
-            select: {
-              name: true,
+      },
+    }),
+    db.transaction.findMany({
+      where: {
+        tenantId,
+        OR: [
+          {
+            paidAt: {
+              gte: trendStart,
+              lt: trendEndExclusive,
             },
           },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 5,
-      }),
-      db.cashRegisterSession.findMany({
-        where: {
-          tenantId,
-        },
-        include: {
-          account: {
-            select: {
-              name: true,
+          {
+            paidAt: null,
+            createdAt: {
+              gte: trendStart,
+              lt: trendEndExclusive,
             },
           },
-          openedByUser: {
-            select: {
-              name: true,
-            },
-          },
-          closedByUser: {
-            select: {
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          openedAt: "desc",
-        },
-        take: 3,
-      }),
-      db.transaction.groupBy({
-        by: ["paymentMethod"],
-        where: {
-          tenantId,
-          type: "INCOME",
-          paymentStatus: "PAID",
-          paidAt: {
-            gte: todayStart,
-            lt: todayEndExclusive,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      }),
-    ]);
+        ],
+      },
+      select: {
+        paidAt: true,
+        createdAt: true,
+      },
+    }),
+  ]);
 
   const generatedTotal = commissions.reduce(
     (sum, commission) => sum + Number(commission.commissionValue),
@@ -1531,6 +1649,118 @@ export async function getFinancialOverview(
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
     .slice(0, 8);
 
+  const dailyBuckets = new Map<string, { entradas: number; saidas: number }>();
+  for (let offset = 0; offset < daysInPeriod; offset += 1) {
+    const key = formatCivilDateToQuery(addDaysToCivilDate(startCivil, offset));
+    dailyBuckets.set(key, { entradas: 0, saidas: 0 });
+  }
+  for (const entry of statement.entries) {
+    const civil = getCivilDateFromDate(new Date(entry.effectiveDate));
+    const key = formatCivilDateToQuery(civil);
+    const bucket = dailyBuckets.get(key);
+    if (!bucket) continue;
+    if (entry.type === "INCOME") {
+      bucket.entradas += entry.amount;
+    } else {
+      bucket.saidas += entry.amount;
+    }
+  }
+  const dailySeries = Array.from(dailyBuckets.entries()).map(([date, value]) => ({
+    date,
+    entradas: roundCurrency(value.entradas),
+    saidas: roundCurrency(value.saidas),
+  }));
+
+  const trendBuckets = new Map<string, number>();
+  for (let offset = 0; offset < 14; offset += 1) {
+    const key = formatCivilDateToQuery(addDaysToCivilDate(statementTrendStartCivil, offset));
+    trendBuckets.set(key, 0);
+  }
+  for (const transaction of trendTransactions) {
+    const reference = transaction.paidAt ?? transaction.createdAt;
+    const key = formatCivilDateToQuery(getCivilDateFromDate(reference));
+    if (!trendBuckets.has(key)) continue;
+    trendBuckets.set(key, (trendBuckets.get(key) ?? 0) + 1);
+  }
+  const statementTrend = Array.from(trendBuckets.entries()).map(([date, count]) => ({
+    date,
+    count,
+  }));
+
+  const professionalTotals = new Map<
+    string,
+    { id: string; name: string; revenue: number; appointmentIds: Set<string> }
+  >();
+  const serviceTotals = new Map<
+    string,
+    { id: string; name: string; revenue: number; soldCount: number }
+  >();
+
+  for (const transaction of periodPaidIncomes) {
+    const appointment = transaction.appointment;
+    if (!appointment) continue;
+
+    const amount = Number(transaction.amount);
+    const professional = appointment.professional;
+    if (professional) {
+      const entry = professionalTotals.get(professional.id) ?? {
+        id: professional.id,
+        name: professional.user?.name ?? "Profissional",
+        revenue: 0,
+        appointmentIds: new Set<string>(),
+      };
+      entry.revenue += amount;
+      entry.appointmentIds.add(appointment.id);
+      professionalTotals.set(professional.id, entry);
+    }
+
+    const services = appointment.services ?? [];
+    if (services.length === 0) continue;
+
+    const weights = services.map((row) => {
+      const unitPrice = Number(row.price ?? 0);
+      const quantity = row.quantity ?? 1;
+      return unitPrice * quantity;
+    });
+    const weightTotal = weights.reduce((sum, value) => sum + value, 0);
+    const equalSplit = amount / services.length;
+
+    services.forEach((row, index) => {
+      const service = row.service;
+      if (!service) return;
+      const portion = weightTotal > 0 ? (weights[index] / weightTotal) * amount : equalSplit;
+      const entry = serviceTotals.get(service.id) ?? {
+        id: service.id,
+        name: service.name,
+        revenue: 0,
+        soldCount: 0,
+      };
+      entry.revenue += portion;
+      entry.soldCount += row.quantity ?? 1;
+      serviceTotals.set(service.id, entry);
+    });
+  }
+
+  const topProfessionals = Array.from(professionalTotals.values())
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      revenue: roundCurrency(entry.revenue),
+      appointmentCount: entry.appointmentIds.size,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const topServices = Array.from(serviceTotals.values())
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      revenue: roundCurrency(entry.revenue),
+      soldCount: entry.soldCount,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
   return {
     period: {
       label: formatMonthLabel(startDate),
@@ -1538,6 +1768,11 @@ export async function getFinancialOverview(
       endDate: formatCivilDateToQuery(endDate),
     },
     summary: statement.summary,
+    previousSummary: previousStatement.summary,
+    dailySeries,
+    statementTrend,
+    topProfessionals,
+    topServices,
     commissions: {
       generatedTotal: roundCurrency(generatedTotal),
       pendingTotal: roundCurrency(pendingTotal),
