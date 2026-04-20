@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Script from "next/script";
+import SiteHeader from "@/components/marketing/site-header";
 import { ContactForm } from "./_contact-form";
-import { ArrowRightIcon, CheckIcon, ChevronDownIcon } from "./_icons";
+import { ArrowRightIcon, CheckIcon } from "./_icons";
 import { RoiCalculator } from "./_roi-calculator";
 
 type FaqItem = { q: string; a: string };
@@ -106,104 +107,7 @@ const FAQ_JSONLD = {
 export default function LandingPage() {
   return (
     <div className="receps-landing">
-      {/* NAVBAR */}
-      <nav className="navbar" id="navbar">
-        <div className="nav-inner">
-          <a href="/" className="nav-logo" aria-label="Receps">
-            <Image
-              src="/landing-wordmark.svg"
-              alt="Receps"
-              width={853}
-              height={228}
-              className="nav-logo-img"
-              style={{ height: 28, width: "auto", display: "block" }}
-              sizes="140px"
-              priority
-            />
-          </a>
-          <div className="nav-links" id="navLinks">
-            <div className="nav-dropdown">
-              <button
-                type="button"
-                className="nav-dropdown-trigger"
-                aria-haspopup="true"
-              >
-                Produtos
-                <ChevronDownIcon size={12} />
-              </button>
-              <div className="nav-dropdown-menu">
-                <a href="/atendentes-ia" className="nav-dropdown-item">
-                  <strong>Atendente IA</strong>
-                  <span>IA que atende no WhatsApp 24h</span>
-                </a>
-                <a href="/erp" className="nav-dropdown-item">
-                  <strong>ERP Financeiro</strong>
-                  <span>Gestão completa da clínica</span>
-                </a>
-                <a href="/erp-atendente-ia" className="nav-dropdown-item">
-                  <strong>ERP + Atendente IA</strong>
-                  <span>Solução completa integrada</span>
-                </a>
-              </div>
-            </div>
-            <a href="#features">Funcionalidades</a>
-            <a href="#how-it-works">Como Funciona</a>
-            <a href="#pricing">Planos</a>
-            <a href="#contato">Contato</a>
-          </div>
-          <div className="nav-actions">
-            <a href="https://app.receps.com.br/login" className="nav-login">
-              Entrar
-            </a>
-            <a href="/erp-atendente-ia" className="btn btn-primary btn-nav">
-              Começar
-              <span className="btn-icon-wrap">
-                <ArrowRightIcon size={16} />
-              </span>
-            </a>
-            <button className="nav-hamburger" id="hamburger" aria-label="Menu">
-              <span />
-              <span />
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        <div className="mobile-menu" id="mobileMenu">
-          <div className="mobile-menu-inner">
-            <div className="mobile-menu-group">
-              <span className="mobile-menu-label">Produtos</span>
-              <a href="/atendentes-ia" className="mobile-link mobile-sublink">
-                Atendente IA
-              </a>
-              <a href="/erp" className="mobile-link mobile-sublink">
-                ERP Financeiro
-              </a>
-              <a href="/erp-atendente-ia" className="mobile-link mobile-sublink">
-                ERP + Atendente IA
-              </a>
-            </div>
-            <a href="#features" className="mobile-link">
-              Funcionalidades
-            </a>
-            <a href="#how-it-works" className="mobile-link">
-              Como Funciona
-            </a>
-            <a href="#pricing" className="mobile-link">
-              Planos
-            </a>
-            <a href="#contato" className="mobile-link">
-              Contato
-            </a>
-            <a href="https://app.receps.com.br/login" className="mobile-link">
-              Entrar
-            </a>
-            <a href="/erp-atendente-ia" className="btn btn-primary btn-mobile-cta">
-              Começar
-            </a>
-          </div>
-        </div>
-      </nav>
+      <SiteHeader />
 
       {/* HERO */}
       <section className="hero">

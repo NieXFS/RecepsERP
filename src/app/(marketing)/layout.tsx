@@ -1,9 +1,16 @@
-import Link from "next/link";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { CookieConsentBanner } from "@/components/marketing/cookie-consent-banner";
-import { MarketingHeaderActions } from "@/components/marketing/marketing-header-actions";
-import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import SiteHeader from "@/components/marketing/site-header";
 import { WhatsAppFab } from "@/components/support/whatsapp-fab";
+import "@/styles/landing.css";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
 
 /**
  * Layout público institucional da Receps.
@@ -15,21 +22,10 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
-          <Link href="/" aria-label="Receps — página inicial" className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo_texto.svg" alt="Receps" className="h-9 max-h-8 w-auto" />
-          </Link>
+    <div className={`${jakarta.variable} min-h-screen bg-background`}>
+      <SiteHeader />
 
-          <MarketingNav />
-
-          <MarketingHeaderActions />
-        </div>
-      </header>
-
-      <main>{children}</main>
+      <main className="pt-[5.5rem] md:pt-[6rem]">{children}</main>
 
       <SiteFooter />
       <CookieConsentBanner />

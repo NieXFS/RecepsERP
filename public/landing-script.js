@@ -29,33 +29,6 @@
 
   revealElements.forEach((el) => revealObserver.observe(el));
 
-  // --- NAVBAR SCROLL STATE ---
-  const navbar = document.getElementById('navbar');
-  let ticking = false;
-
-  function handleNavScroll() {
-    if (window.scrollY > 20) {
-      navbar.classList.add('scrolled');
-    } else {
-      navbar.classList.remove('scrolled');
-    }
-  }
-
-  window.addEventListener(
-    'scroll',
-    () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          handleNavScroll();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    },
-    { passive: true }
-  );
-  handleNavScroll();
-
   // ── Preservação do código de indicação ──────────────────────────
   // Lê ?ref=XXX da URL da landing e injeta nos links de assinatura,
   // mantendo o sistema de indicação funcional ao compartilhar receps.com.br?ref=...
@@ -86,47 +59,8 @@
     });
   })();
 
-  // --- MOBILE MENU ---
-  const hamburger = document.getElementById('hamburger');
-  const mobileMenu = document.getElementById('mobileMenu');
-  const mobileLinks = document.querySelectorAll('.mobile-link, .btn-mobile-cta');
-
-  function toggleMobileMenu() {
-    const isOpen = mobileMenu.classList.contains('open');
-
-    if (isOpen) {
-      closeMobileMenu();
-    } else {
-      openMobileMenu();
-    }
-  }
-
-  function openMobileMenu() {
-    hamburger.classList.add('active');
-    mobileMenu.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeMobileMenu() {
-    hamburger.classList.remove('active');
-    mobileMenu.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  hamburger.addEventListener('click', toggleMobileMenu);
-
-  mobileLinks.forEach((link) => {
-    link.addEventListener('click', () => {
-      closeMobileMenu();
-    });
-  });
-
-  // Close on escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeMobileMenu();
-  });
-
   // --- SMOOTH ANCHOR SCROLLING ---
+  const navbar = document.getElementById('navbar');
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener('click', function (e) {
       const targetId = this.getAttribute('href');
@@ -137,7 +71,7 @@
 
       e.preventDefault();
 
-      const navHeight = navbar.offsetHeight;
+      const navHeight = navbar ? navbar.offsetHeight : 0;
       const targetPosition = target.getBoundingClientRect().top + window.scrollY - navHeight - 20;
 
       window.scrollTo({

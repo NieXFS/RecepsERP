@@ -190,10 +190,10 @@ export default function ComboLandingPage() {
       <ForceLightTheme />
 
       <div className="bg-white text-[#0A0A0A]">
-        <section className="relative overflow-hidden bg-[#0B0B1A] text-white">
+        <section className="relative overflow-hidden bg-[#0B0B1A] text-white -mt-[5.5rem] md:-mt-[6rem]">
           <AuroraBackground />
 
-          <div className="relative mx-auto w-full grid max-w-7xl gap-14 px-6 py-[4.75rem] md:py-24 lg:grid-cols-2 lg:items-center lg:gap-14 lg:px-8 lg:py-[7.75rem] xl:gap-16">
+          <div className="relative mx-auto w-full grid max-w-7xl gap-14 px-6 pt-[10.25rem] pb-[4.75rem] md:pt-[12rem] md:pb-24 lg:grid-cols-2 lg:items-center lg:gap-14 lg:px-8 lg:pt-[13.75rem] lg:pb-[7.75rem] xl:gap-16">
             <div className="min-w-0 max-w-2xl space-y-8">
               <ScrollReveal>
                 <div className="inline-flex items-center gap-2 rounded-full bg-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.32)]">
