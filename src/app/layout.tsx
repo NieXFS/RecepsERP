@@ -23,6 +23,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var pref=localStorage.getItem('receps-theme-preference');if(!pref){var old=localStorage.getItem('theme');pref=(old==='light'||old==='dark')?old:'auto';}var resolved;if(pref==='light'||pref==='dark'){resolved=pref;}else{var h=new Date().getHours();resolved=(h>=6&&h<18)?'light':'dark';}var el=document.documentElement;if(resolved==='dark')el.classList.add('dark');else el.classList.remove('dark');el.style.colorScheme=resolved;}catch(e){}})();`,
+          }}
+        />
         <Providers>
           {children}
           <Suspense fallback={null}>

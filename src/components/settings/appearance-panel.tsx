@@ -85,8 +85,8 @@ export function AppearancePanel({
           <CardTitle>Aparência</CardTitle>
           <CardDescription>
             Personalize a identidade visual do seu ERP sem alterar o modo de
-            aparência. O claro/escuro continua sendo controlado separadamente
-            pelo botão no topo.
+            aparência. O modo claro/escuro é controlado pelo seletor no topo,
+            com opção de automático (muda com o horário) ou fixo em claro/escuro.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
