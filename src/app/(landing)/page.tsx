@@ -117,7 +117,7 @@ export default function LandingPage() {
               height={228}
               className="nav-logo-img"
               style={{ height: 28, width: "auto", display: "block" }}
-              unoptimized
+              sizes="140px"
               priority
             />
           </a>

@@ -31,21 +31,29 @@
 
   // --- NAVBAR SCROLL STATE ---
   const navbar = document.getElementById('navbar');
-  let lastScroll = 0;
+  let ticking = false;
 
   function handleNavScroll() {
-    const scrollY = window.scrollY;
-
-    if (scrollY > 20) {
+    if (window.scrollY > 20) {
       navbar.classList.add('scrolled');
     } else {
       navbar.classList.remove('scrolled');
     }
-
-    lastScroll = scrollY;
   }
 
-  window.addEventListener('scroll', handleNavScroll, { passive: true });
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleNavScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    },
+    { passive: true }
+  );
   handleNavScroll();
 
   // ── Preservação do código de indicação ──────────────────────────
