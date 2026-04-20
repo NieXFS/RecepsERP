@@ -8,6 +8,7 @@ import {
   formatCivilDateToQuery,
   getCivilDateFromDate,
   getCivilDayRange,
+  getCivilMonthRange,
   getTodayCivilDate,
   type CivilDate,
 } from "@/lib/civil-date";
@@ -31,8 +32,67 @@ type CheckoutOptions = {
   finalStatus?: "COMPLETED" | "PAID";
 };
 
+const ALERT_THRESHOLDS = {
+  EXPENSE_DUE_SOON_DAYS: 2,
+  COMMISSION_STALE_DAYS: 15,
+  CASH_OPEN_STALE_HOURS: 12,
+  STATEMENT_IDLE_DAYS: 2,
+} as const;
+
+export type FinancialAlert = {
+  id:
+    | "expenses_due_soon"
+    | "expenses_overdue"
+    | "commissions_stale"
+    | "cash_open_long"
+    | "statement_idle";
+  severity: "info" | "warning" | "critical";
+  title: string;
+  ctaLabel: string;
+  ctaHref: string;
+  metadata?: Record<string, unknown>;
+};
+
 type StatementTypeFilter = "ALL" | "INCOME" | "EXPENSE";
 type StatementStatusFilter = "ALL" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
+
+type AppointmentDescriptionInput = {
+  customerName: string | null | undefined;
+  serviceNames: string[];
+  installmentNumber?: number | null;
+  totalInstallments?: number | null;
+};
+
+/**
+ * Monta a descrição humana de uma transação vinculada a agendamento.
+ * Formato: "Cliente — Serviço" ou "Cliente — Serviço +N" / "Cliente — Serviço (i/N)".
+ */
+export function buildAppointmentDescription(
+  input: AppointmentDescriptionInput
+): string {
+  const customer = input.customerName?.trim() || "Cliente avulso";
+  const services = input.serviceNames.filter(Boolean);
+
+  let servicePart: string;
+  if (services.length === 0) {
+    servicePart = "Atendimento";
+  } else if (services.length === 1) {
+    servicePart = services[0]!;
+  } else {
+    servicePart = `${services[0]} +${services.length - 1}`;
+  }
+
+  const hasInstallments =
+    typeof input.installmentNumber === "number" &&
+    typeof input.totalInstallments === "number" &&
+    input.totalInstallments > 1;
+
+  const installmentPart = hasInstallments
+    ? ` (${input.installmentNumber}/${input.totalInstallments})`
+    : "";
+
+  return `${customer} — ${servicePart}${installmentPart}`;
+}
 type CommissionViewerScope = {
   userId: string;
   role: Role;
@@ -543,6 +603,8 @@ export async function checkoutAppointment(
 
   const isPackageSession = !!appointment.customerPackageId;
   const totalAmount = Number(appointment.totalPrice);
+  const serviceNames = appointment.services.map((s) => s.service.name);
+  const customerName = appointment.customer?.name ?? null;
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -581,7 +643,12 @@ export async function checkoutAppointment(
                 totalInstallments: installments,
                 dueDate,
                 paidAt: i === 1 ? checkoutTimestamp : null,
-                description: `Agendamento #${appointmentId.slice(-6)} — Parcela ${i}/${installments}`,
+                description: buildAppointmentDescription({
+                  customerName,
+                  serviceNames,
+                  installmentNumber: i,
+                  totalInstallments: installments,
+                }),
               },
             });
             createdTransactionIds.push(transaction.id);
@@ -601,7 +668,10 @@ export async function checkoutAppointment(
               totalInstallments: null,
               dueDate: null,
               paidAt: checkoutTimestamp,
-              description: `Agendamento #${appointmentId.slice(-6)} — Pagamento à vista`,
+              description: buildAppointmentDescription({
+                customerName,
+                serviceNames,
+              }),
             },
           });
           createdTransactionIds.push(transaction.id);
@@ -1060,6 +1130,17 @@ export async function getFinancialStatement(
           type: true,
         },
       },
+      appointment: {
+        select: {
+          id: true,
+          customer: { select: { name: true } },
+          services: {
+            select: {
+              service: { select: { name: true } },
+            },
+          },
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -1067,12 +1148,24 @@ export async function getFinancialStatement(
   });
 
   const entries = transactions
-    .map((transaction) => ({
+    .map((transaction) => {
+      const resolvedDescription = transaction.appointment
+        ? buildAppointmentDescription({
+            customerName: transaction.appointment.customer?.name,
+            serviceNames: transaction.appointment.services.map(
+              (s) => s.service.name
+            ),
+            installmentNumber: transaction.installmentNumber,
+            totalInstallments: transaction.totalInstallments,
+          })
+        : transaction.description;
+
+      return {
       id: transaction.id,
       type: transaction.type,
       paymentStatus: transaction.paymentStatus,
       amount: Number(transaction.amount),
-      description: transaction.description,
+      description: resolvedDescription,
       paymentMethod: transaction.paymentMethod,
       accountName: transaction.account?.name ?? null,
       accountType: transaction.account?.type ?? null,
@@ -1080,7 +1173,8 @@ export async function getFinancialStatement(
       createdAt: transaction.createdAt.toISOString(),
       paidAt: transaction.paidAt?.toISOString() ?? null,
       dueDate: transaction.dueDate?.toISOString() ?? null,
-    }))
+      };
+    })
     .sort(
       (a, b) =>
         new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime()
@@ -1802,5 +1896,898 @@ export async function getFinancialOverview(
       methods: todayCashClosing,
     },
     recentActivities,
+  };
+}
+
+function formatBRL(value: number) {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function formatRelativePtBR(from: Date, to: Date = new Date()) {
+  const diffMs = Math.max(0, to.getTime() - from.getTime());
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${diffMin} min`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 48) return `${diffHour} h`;
+  const diffDay = Math.floor(diffHour / 24);
+  return `${diffDay} dias`;
+}
+
+/**
+ * Computa alertas contextuais para exibir no topo do módulo Financeiro.
+ * Retorna apenas os alertas ativos — se uma condição não se aplica, é omitida.
+ */
+export async function getFinancialAlerts(tenantId: string): Promise<FinancialAlert[]> {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const dueSoonEnd = new Date(
+    todayStart.getTime() + (ALERT_THRESHOLDS.EXPENSE_DUE_SOON_DAYS + 1) * 24 * 60 * 60 * 1000
+  );
+  const commissionStaleBefore = new Date(
+    now.getTime() - ALERT_THRESHOLDS.COMMISSION_STALE_DAYS * 24 * 60 * 60 * 1000
+  );
+  const cashStaleBefore = new Date(
+    now.getTime() - ALERT_THRESHOLDS.CASH_OPEN_STALE_HOURS * 60 * 60 * 1000
+  );
+  const statementIdleThreshold = new Date(
+    now.getTime() - ALERT_THRESHOLDS.STATEMENT_IDLE_DAYS * 24 * 60 * 60 * 1000
+  );
+
+  const [
+    expensesDueSoon,
+    expensesOverdue,
+    commissionsStale,
+    cashOpenLong,
+    lastPaidTransaction,
+  ] = await Promise.all([
+    db.expense.aggregate({
+      where: {
+        tenantId,
+        status: "PENDING",
+        deletedAt: null,
+        dueDate: {
+          gte: todayStart,
+          lt: dueSoonEnd,
+        },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    db.expense.aggregate({
+      where: {
+        tenantId,
+        status: "PENDING",
+        deletedAt: null,
+        dueDate: { lt: todayStart },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    db.commission.aggregate({
+      where: {
+        tenantId,
+        status: "PENDING",
+        createdAt: { lt: commissionStaleBefore },
+      },
+      _sum: { commissionValue: true },
+      _count: { _all: true },
+    }),
+    db.cashRegisterSession.findFirst({
+      where: {
+        tenantId,
+        status: "OPEN",
+        openedAt: { lt: cashStaleBefore },
+      },
+      include: {
+        account: { select: { name: true } },
+      },
+      orderBy: { openedAt: "asc" },
+    }),
+    db.transaction.findFirst({
+      where: {
+        tenantId,
+        paymentStatus: "PAID",
+      },
+      select: { paidAt: true, createdAt: true },
+      orderBy: { paidAt: "desc" },
+    }),
+  ]);
+
+  const alerts: FinancialAlert[] = [];
+
+  const overdueCount = expensesOverdue._count?._all ?? 0;
+  const overdueTotal = roundCurrency(Number(expensesOverdue._sum.amount ?? 0));
+  if (overdueCount > 0) {
+    alerts.push({
+      id: "expenses_overdue",
+      severity: "critical",
+      title: `${overdueCount} despesa(s) vencida(s) — total ${formatBRL(overdueTotal)}`,
+      ctaLabel: "Ver despesas",
+      ctaHref: "/financeiro/despesas?filter=overdue",
+      metadata: { count: overdueCount, total: overdueTotal },
+    });
+  }
+
+  const dueSoonCount = expensesDueSoon._count?._all ?? 0;
+  const dueSoonTotal = roundCurrency(Number(expensesDueSoon._sum.amount ?? 0));
+  if (dueSoonCount > 0) {
+    alerts.push({
+      id: "expenses_due_soon",
+      severity: "warning",
+      title: `${dueSoonCount} despesa(s) vencem nos próximos ${ALERT_THRESHOLDS.EXPENSE_DUE_SOON_DAYS} dias — total ${formatBRL(dueSoonTotal)}`,
+      ctaLabel: "Ver despesas",
+      ctaHref: "/financeiro/despesas?filter=due_soon",
+      metadata: { count: dueSoonCount, total: dueSoonTotal },
+    });
+  }
+
+  const staleCommissionsCount = commissionsStale._count?._all ?? 0;
+  const staleCommissionsTotal = roundCurrency(
+    Number(commissionsStale._sum.commissionValue ?? 0)
+  );
+  if (staleCommissionsCount > 0) {
+    alerts.push({
+      id: "commissions_stale",
+      severity: "warning",
+      title: `${formatBRL(staleCommissionsTotal)} em comissões pendentes há mais de ${ALERT_THRESHOLDS.COMMISSION_STALE_DAYS} dias`,
+      ctaLabel: "Ver comissões",
+      ctaHref: "/financeiro/comissoes?filter=stale",
+      metadata: {
+        count: staleCommissionsCount,
+        total: staleCommissionsTotal,
+      },
+    });
+  }
+
+  if (cashOpenLong) {
+    const relative = formatRelativePtBR(cashOpenLong.openedAt, now);
+    alerts.push({
+      id: "cash_open_long",
+      severity: "info",
+      title: `Caixa ${cashOpenLong.account.name} aberto há ${relative} — considere fechar`,
+      ctaLabel: "Ver caixa",
+      ctaHref: "/financeiro/caixa",
+      metadata: {
+        sessionId: cashOpenLong.id,
+        accountName: cashOpenLong.account.name,
+        openedAt: cashOpenLong.openedAt.toISOString(),
+      },
+    });
+  }
+
+  const lastPaidAt =
+    lastPaidTransaction?.paidAt ?? lastPaidTransaction?.createdAt ?? null;
+  if (!lastPaidAt || lastPaidAt < statementIdleThreshold) {
+    const daysIdle = lastPaidAt
+      ? Math.max(
+          ALERT_THRESHOLDS.STATEMENT_IDLE_DAYS,
+          Math.floor((now.getTime() - lastPaidAt.getTime()) / (24 * 60 * 60 * 1000))
+        )
+      : null;
+    alerts.push({
+      id: "statement_idle",
+      severity: "info",
+      title: daysIdle
+        ? `Sem movimentação no extrato há ${daysIdle} dias`
+        : "Ainda não há movimentação registrada no extrato",
+      ctaLabel: "Abrir extrato",
+      ctaHref: "/financeiro/extrato",
+      metadata: { lastPaidAt: lastPaidAt?.toISOString() ?? null },
+    });
+  }
+
+  const severityOrder: Record<FinancialAlert["severity"], number> = {
+    critical: 0,
+    warning: 1,
+    info: 2,
+  };
+  return alerts.sort(
+    (a, b) => severityOrder[a.severity] - severityOrder[b.severity]
+  );
+}
+
+export type CommissionsOverview = {
+  period: { label: string; startDate: string; endDate: string };
+  generatedInPeriod: number;
+  generatedInPeriodPrevious: number;
+  paidInPeriod: number;
+  pendingTotal: number;
+  pendingProfessionalsCount: number;
+};
+
+/**
+ * Sumário executivo da aba Comissões, com comparação vs. período anterior.
+ */
+export async function getCommissionsOverview(
+  tenantId: string,
+  period?: {
+    startDate?: CivilDate;
+    endDate?: CivilDate;
+  }
+): Promise<CommissionsOverview> {
+  const today = getTodayCivilDate();
+  const startDate = period?.startDate ?? {
+    year: today.year,
+    month: today.month,
+    day: 1,
+  };
+  const endDate = period?.endDate ?? today;
+  const { start, endExclusive } = getPeriodBounds(startDate, endDate);
+
+  const startCivil =
+    formatCivilDateToQuery(startDate) <= formatCivilDateToQuery(endDate)
+      ? startDate
+      : endDate;
+  const endCivil =
+    formatCivilDateToQuery(startDate) <= formatCivilDateToQuery(endDate)
+      ? endDate
+      : startDate;
+
+  const daysInPeriod = Math.max(
+    1,
+    Math.round((endExclusive.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
+  );
+  const previousEndCivil = addDaysToCivilDate(startCivil, -1);
+  const previousStartCivil = addDaysToCivilDate(previousEndCivil, -(daysInPeriod - 1));
+  const { start: previousStart, endExclusive: previousEndExclusive } = getPeriodBounds(
+    previousStartCivil,
+    previousEndCivil
+  );
+
+  const [
+    generatedAggregate,
+    previousAggregate,
+    paidAggregate,
+    pendingAggregate,
+    pendingProfessionalsGroup,
+  ] = await Promise.all([
+    db.commission.aggregate({
+      where: {
+        tenantId,
+        createdAt: { gte: start, lt: endExclusive },
+      },
+      _sum: { commissionValue: true },
+    }),
+    db.commission.aggregate({
+      where: {
+        tenantId,
+        createdAt: { gte: previousStart, lt: previousEndExclusive },
+      },
+      _sum: { commissionValue: true },
+    }),
+    db.commission.aggregate({
+      where: {
+        tenantId,
+        status: "PAID",
+        paidAt: { gte: start, lt: endExclusive },
+      },
+      _sum: { commissionValue: true },
+    }),
+    db.commission.aggregate({
+      where: {
+        tenantId,
+        status: "PENDING",
+      },
+      _sum: { commissionValue: true },
+    }),
+    db.commission.groupBy({
+      by: ["professionalId"],
+      where: {
+        tenantId,
+        status: "PENDING",
+      },
+    }),
+  ]);
+
+  return {
+    period: {
+      label: formatMonthLabel(startCivil),
+      startDate: formatCivilDateToQuery(startCivil),
+      endDate: formatCivilDateToQuery(endCivil),
+    },
+    generatedInPeriod: roundCurrency(Number(generatedAggregate._sum.commissionValue ?? 0)),
+    generatedInPeriodPrevious: roundCurrency(
+      Number(previousAggregate._sum.commissionValue ?? 0)
+    ),
+    paidInPeriod: roundCurrency(Number(paidAggregate._sum.commissionValue ?? 0)),
+    pendingTotal: roundCurrency(Number(pendingAggregate._sum.commissionValue ?? 0)),
+    pendingProfessionalsCount: pendingProfessionalsGroup.length,
+  };
+}
+
+export type ExpensesOverview = {
+  period: { label: string; month: number; year: number };
+  paidInMonth: number;
+  paidInMonthPrevious: number;
+  pendingInMonth: number;
+  overdueTotal: number;
+  overdueCount: number;
+  averageTicket: number;
+  paidCount: number;
+};
+
+/**
+ * Sumário executivo da aba Despesas, com comparação vs. mês anterior.
+ */
+export async function getExpensesOverview(
+  tenantId: string,
+  period: { month: number; year: number }
+): Promise<ExpensesOverview> {
+  const currentMonth = { year: period.year, month: period.month };
+  const previousMonth =
+    currentMonth.month === 1
+      ? { year: currentMonth.year - 1, month: 12 }
+      : { year: currentMonth.year, month: currentMonth.month - 1 };
+
+  const { start: currentStart, endExclusive: currentEnd } = getCivilMonthRange(currentMonth);
+  const { start: previousStart, endExclusive: previousEnd } = getCivilMonthRange(previousMonth);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+
+  const [paidAggregate, previousPaidAggregate, pendingAggregate, overdueAggregate] =
+    await Promise.all([
+      db.expense.aggregate({
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: "PAID",
+          paidAt: { gte: currentStart, lt: currentEnd },
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      db.expense.aggregate({
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: "PAID",
+          paidAt: { gte: previousStart, lt: previousEnd },
+        },
+        _sum: { amount: true },
+      }),
+      db.expense.aggregate({
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: "PENDING",
+          dueDate: { gte: currentStart, lt: currentEnd },
+        },
+        _sum: { amount: true },
+      }),
+      db.expense.aggregate({
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: "PENDING",
+          dueDate: { lt: todayStart },
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+  const paidCount = paidAggregate._count?._all ?? 0;
+  const paidInMonth = roundCurrency(Number(paidAggregate._sum.amount ?? 0));
+
+  return {
+    period: {
+      label: formatMonthLabel({ ...currentMonth, day: 1 }),
+      month: currentMonth.month,
+      year: currentMonth.year,
+    },
+    paidInMonth,
+    paidInMonthPrevious: roundCurrency(Number(previousPaidAggregate._sum.amount ?? 0)),
+    pendingInMonth: roundCurrency(Number(pendingAggregate._sum.amount ?? 0)),
+    overdueTotal: roundCurrency(Number(overdueAggregate._sum.amount ?? 0)),
+    overdueCount: overdueAggregate._count?._all ?? 0,
+    averageTicket: paidCount > 0 ? roundCurrency(paidInMonth / paidCount) : 0,
+    paidCount,
+  };
+}
+
+export type CashOverviewSummary = {
+  status: "OPEN" | "CLOSED";
+  accountName: string | null;
+  openedAt: string | null;
+  lastClosedAt: string | null;
+  expectedBalance: number;
+  todayEntriesCount: number;
+  todayIncomes: number;
+  todayExpenses: number;
+  todayNet: number;
+  lastClosingDifference: number | null;
+};
+
+/**
+ * Sumário executivo da aba Caixa. Usa dados já disponíveis em getCashRegisterOverview
+ * e amplia com métricas do dia corrente.
+ */
+export async function getCashOverviewSummary(
+  tenantId: string
+): Promise<CashOverviewSummary> {
+  const overview = await getCashRegisterOverview(tenantId);
+  const today = getTodayCivilDate();
+  const { start: dayStart, endExclusive: dayEnd } = getCivilDayRange(today);
+
+  const [todayIncome, todayExpense] = await Promise.all([
+    db.transaction.aggregate({
+      where: {
+        tenantId,
+        type: "INCOME",
+        paymentStatus: "PAID",
+        paidAt: { gte: dayStart, lt: dayEnd },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    db.transaction.aggregate({
+      where: {
+        tenantId,
+        type: "EXPENSE",
+        paymentStatus: "PAID",
+        paidAt: { gte: dayStart, lt: dayEnd },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const todayIncomes = roundCurrency(Number(todayIncome._sum.amount ?? 0));
+  const todayExpenses = roundCurrency(Number(todayExpense._sum.amount ?? 0));
+  const todayEntriesCount =
+    (todayIncome._count?._all ?? 0) + (todayExpense._count?._all ?? 0);
+
+  const currentSession = overview.currentSession;
+  const lastClosedSession = overview.recentSessions.find(
+    (session) => session.status === "CLOSED" && session.difference != null
+  );
+
+  return {
+    status: currentSession ? "OPEN" : "CLOSED",
+    accountName: currentSession?.accountName ?? null,
+    openedAt: currentSession?.openedAt ?? null,
+    lastClosedAt: overview.recentSessions.find((s) => s.status === "CLOSED")?.closedAt ?? null,
+    expectedBalance: currentSession?.expectedBalance ?? 0,
+    todayEntriesCount,
+    todayIncomes,
+    todayExpenses,
+    todayNet: roundCurrency(todayIncomes - todayExpenses),
+    lastClosingDifference: lastClosedSession?.difference ?? null,
+  };
+}
+
+export type DetailedCommissionEntry = {
+  id: string;
+  generatedAt: string;
+  professionalName: string;
+  customerName: string | null;
+  services: string;
+  serviceAmount: number;
+  commissionRate: number;
+  commissionValue: number;
+  status: "PENDING" | "PAID" | "CANCELLED";
+  paidAt: string | null;
+};
+
+/**
+ * Lista comissões detalhadas (1 linha por comissão) com dados de profissional,
+ * cliente e serviços. Usada para exportação — sem limite de registros.
+ */
+export async function getCommissionsDetailed(
+  tenantId: string,
+  filters?: {
+    startDate?: CivilDate;
+    endDate?: CivilDate;
+    status?: "ALL" | "PENDING" | "PAID" | "CANCELLED";
+    professionalId?: string;
+  }
+): Promise<DetailedCommissionEntry[]> {
+  const dateWhere =
+    filters?.startDate && filters?.endDate
+      ? {
+          createdAt: (() => {
+            const { start, endExclusive } = getPeriodBounds(
+              filters.startDate,
+              filters.endDate
+            );
+            return { gte: start, lt: endExclusive };
+          })(),
+        }
+      : {};
+
+  const statusWhere =
+    filters?.status && filters.status !== "ALL" ? { status: filters.status } : {};
+
+  const professionalWhere = filters?.professionalId
+    ? { professionalId: filters.professionalId }
+    : {};
+
+  const commissions = await db.commission.findMany({
+    where: {
+      tenantId,
+      ...dateWhere,
+      ...statusWhere,
+      ...professionalWhere,
+    },
+    include: {
+      professional: {
+        select: {
+          user: { select: { name: true } },
+        },
+      },
+      appointment: {
+        select: {
+          customer: { select: { name: true } },
+          services: {
+            select: {
+              service: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return commissions.map((commission) => ({
+    id: commission.id,
+    generatedAt: commission.createdAt.toISOString(),
+    professionalName: commission.professional?.user?.name ?? "—",
+    customerName: commission.appointment?.customer?.name ?? null,
+    services:
+      commission.appointment?.services
+        .map((s) => s.service?.name)
+        .filter((name): name is string => Boolean(name))
+        .join(", ") ?? "",
+    serviceAmount: roundCurrency(Number(commission.serviceAmount)),
+    commissionRate: Number(commission.commissionRate),
+    commissionValue: roundCurrency(Number(commission.commissionValue)),
+    status: commission.status,
+    paidAt: commission.paidAt?.toISOString() ?? null,
+  }));
+}
+
+export type DetailedExpenseEntry = {
+  id: string;
+  description: string;
+  categoryName: string | null;
+  type: "FIXED" | "VARIABLE";
+  amount: number;
+  dueDate: string;
+  paidAt: string | null;
+  status: "PENDING" | "PAID" | "OVERDUE" | "CANCELLED";
+  accountName: string | null;
+  recurrence: "MONTHLY" | "BIMONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "YEARLY" | "NONE";
+  notes: string | null;
+};
+
+/**
+ * Lista despesas detalhadas para exportação, respeitando filtros de mês,
+ * status, tipo e categoria. Sem limite de registros.
+ */
+export async function getExpensesDetailed(
+  tenantId: string,
+  filters: {
+    month?: { month: number; year: number };
+    status?: "ALL" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED";
+    type?: "ALL" | "FIXED" | "VARIABLE";
+    categoryId?: string;
+  }
+): Promise<DetailedExpenseEntry[]> {
+  const monthRange = filters.month
+    ? getCivilMonthRange(filters.month)
+    : null;
+
+  const expenses = await db.expense.findMany({
+    where: {
+      tenantId,
+      deletedAt: null,
+      ...(monthRange
+        ? { dueDate: { gte: monthRange.start, lt: monthRange.endExclusive } }
+        : {}),
+      ...(filters.status && filters.status !== "ALL"
+        ? { status: filters.status }
+        : {}),
+      ...(filters.type && filters.type !== "ALL" ? { type: filters.type } : {}),
+      ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+    },
+    include: {
+      category: { select: { name: true } },
+      account: { select: { name: true } },
+    },
+    orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+  });
+
+  return expenses.map((expense) => ({
+    id: expense.id,
+    description: expense.description,
+    categoryName: expense.category?.name ?? null,
+    type: expense.type,
+    amount: roundCurrency(Number(expense.amount)),
+    dueDate: expense.dueDate.toISOString(),
+    paidAt: expense.paidAt?.toISOString() ?? null,
+    status: expense.status,
+    accountName: expense.account?.name ?? null,
+    recurrence: expense.recurrence,
+    notes: expense.notes ?? null,
+  }));
+}
+
+const FORECAST_DAYS_AHEAD = 30;
+
+export type CashFlowForecast = {
+  horizon: {
+    startDate: string;
+    endDate: string;
+    daysAhead: number;
+  };
+  currentBalance: number;
+  projectedEndBalance: number;
+  totalIncomeAhead: number;
+  totalExpenseAhead: number;
+  dailyProjection: Array<{
+    date: string;
+    plannedIncome: number;
+    plannedExpense: number;
+    balanceAfter: number;
+  }>;
+  negativeBalanceAlert: {
+    date: string;
+    balance: number;
+  } | null;
+  breakdown: {
+    incomeSources: Array<{
+      kind: "appointment" | "pending_transaction";
+      id: string;
+      date: string;
+      amount: number;
+      label: string;
+    }>;
+    expenseSources: Array<{
+      id: string;
+      date: string;
+      amount: number;
+      label: string;
+      category: string;
+    }>;
+  };
+};
+
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export type ProjectedIncomeEntry = {
+  kind: "appointment" | "pending_transaction";
+  id: string;
+  date: string;
+  amount: number;
+  label: string;
+  installmentNumber?: number | null;
+  totalInstallments?: number | null;
+};
+
+/**
+ * Entradas previstas num intervalo [from, to): agendamentos SCHEDULED/CONFIRMED
+ * ainda não cobrados + transactions INCOME PENDING. Serve tanto o forecast de
+ * 30 dias quanto o cálculo de projeção de fechamento da meta do mês.
+ */
+export async function getProjectedIncomeBetween(
+  tenantId: string,
+  from: Date,
+  to: Date
+): Promise<ProjectedIncomeEntry[]> {
+  const [appointments, pendingTxs] = await Promise.all([
+    db.appointment.findMany({
+      where: {
+        tenantId,
+        status: { in: ["SCHEDULED", "CONFIRMED"] },
+        transaction: null,
+        customerPackageId: null,
+        totalPrice: { gt: 0 },
+        startTime: { gte: from, lt: to },
+      },
+      include: {
+        customer: { select: { name: true } },
+        services: { include: { service: { select: { name: true } } } },
+      },
+    }),
+    db.transaction.findMany({
+      where: {
+        tenantId,
+        type: "INCOME",
+        paymentStatus: "PENDING",
+        dueDate: { gte: from, lt: to },
+      },
+      include: {
+        appointment: {
+          select: {
+            customer: { select: { name: true } },
+            services: { include: { service: { select: { name: true } } } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const entries: ProjectedIncomeEntry[] = [];
+
+  for (const appointment of appointments) {
+    const amount = roundCurrency(Number(appointment.totalPrice));
+    if (amount <= 0) continue;
+    entries.push({
+      kind: "appointment",
+      id: appointment.id,
+      date: appointment.startTime.toISOString(),
+      amount,
+      label: buildAppointmentDescription({
+        customerName: appointment.customer?.name,
+        serviceNames: appointment.services.map((s) => s.service.name),
+      }),
+    });
+  }
+
+  for (const transaction of pendingTxs) {
+    if (!transaction.dueDate) continue;
+    const amount = roundCurrency(Number(transaction.amount));
+    if (amount <= 0) continue;
+    const label = transaction.appointment
+      ? buildAppointmentDescription({
+          customerName: transaction.appointment.customer?.name,
+          serviceNames: transaction.appointment.services.map(
+            (s) => s.service.name
+          ),
+          installmentNumber: transaction.installmentNumber,
+          totalInstallments: transaction.totalInstallments,
+        })
+      : transaction.description ?? "Entrada prevista";
+    entries.push({
+      kind: "pending_transaction",
+      id: transaction.id,
+      date: transaction.dueDate.toISOString(),
+      amount,
+      label,
+      installmentNumber: transaction.installmentNumber,
+      totalInstallments: transaction.totalInstallments,
+    });
+  }
+
+  return entries;
+}
+
+/**
+ * Projeção de fluxo de caixa para os próximos 30 dias.
+ * Combina saldo atual das contas com entradas previstas (via
+ * getProjectedIncomeBetween) e saídas previstas (expenses PENDING).
+ * Vencidas (dueDate < hoje) entram na projeção no dia de hoje — o dinheiro ainda
+ * não saiu, mas é devido, e o gráfico é forward-looking.
+ */
+export async function getCashFlowForecast(
+  tenantId: string
+): Promise<CashFlowForecast> {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
+  const endOfHorizon = new Date(todayStart);
+  endOfHorizon.setDate(endOfHorizon.getDate() + FORECAST_DAYS_AHEAD + 1);
+
+  const [balanceAgg, projectedIncome, pendingExpenses] = await Promise.all([
+    db.financialAccount.aggregate({
+      where: { tenantId, isActive: true },
+      _sum: { balance: true },
+    }),
+    getProjectedIncomeBetween(tenantId, todayStart, endOfHorizon),
+    db.expense.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: "PENDING",
+        dueDate: { lt: endOfHorizon },
+      },
+      include: { category: { select: { name: true } } },
+    }),
+  ]);
+
+  const currentBalance = roundCurrency(Number(balanceAgg._sum.balance ?? 0));
+
+  const incomeSources: CashFlowForecast["breakdown"]["incomeSources"] =
+    projectedIncome.map((entry) => ({
+      kind: entry.kind,
+      id: entry.id,
+      date: entry.date,
+      amount: entry.amount,
+      label: entry.label,
+    }));
+  const expenseSources: CashFlowForecast["breakdown"]["expenseSources"] = [];
+
+  for (const expense of pendingExpenses) {
+    const amount = roundCurrency(Number(expense.amount));
+    if (amount <= 0) continue;
+    // Vencidas (dueDate < hoje) são consolidadas no dia de hoje na projeção.
+    const effectiveDate =
+      expense.dueDate < todayStart ? todayStart : expense.dueDate;
+    expenseSources.push({
+      id: expense.id,
+      date: effectiveDate.toISOString(),
+      amount,
+      label: expense.description,
+      category: expense.category?.name ?? "Sem categoria",
+    });
+  }
+
+  const incomeByDay = new Map<string, number>();
+  const expenseByDay = new Map<string, number>();
+
+  for (const source of incomeSources) {
+    const key = toIsoDate(new Date(source.date));
+    incomeByDay.set(key, (incomeByDay.get(key) ?? 0) + source.amount);
+  }
+  for (const source of expenseSources) {
+    const key = toIsoDate(new Date(source.date));
+    expenseByDay.set(key, (expenseByDay.get(key) ?? 0) + source.amount);
+  }
+
+  const dailyProjection: CashFlowForecast["dailyProjection"] = [];
+  let runningBalance = currentBalance;
+  let totalIncomeAhead = 0;
+  let totalExpenseAhead = 0;
+  let negativeBalanceAlert: CashFlowForecast["negativeBalanceAlert"] = null;
+
+  for (let offset = 0; offset <= FORECAST_DAYS_AHEAD; offset++) {
+    const cursor = new Date(todayStart);
+    cursor.setDate(cursor.getDate() + offset);
+    const key = toIsoDate(cursor);
+    const plannedIncome = roundCurrency(incomeByDay.get(key) ?? 0);
+    const plannedExpense = roundCurrency(expenseByDay.get(key) ?? 0);
+    runningBalance = roundCurrency(
+      runningBalance + plannedIncome - plannedExpense
+    );
+    totalIncomeAhead += plannedIncome;
+    totalExpenseAhead += plannedExpense;
+
+    if (!negativeBalanceAlert && runningBalance < 0) {
+      negativeBalanceAlert = { date: key, balance: runningBalance };
+    }
+
+    dailyProjection.push({
+      date: key,
+      plannedIncome,
+      plannedExpense,
+      balanceAfter: runningBalance,
+    });
+  }
+
+  incomeSources.sort((a, b) => a.date.localeCompare(b.date));
+  expenseSources.sort((a, b) => a.date.localeCompare(b.date));
+
+  const lastDate = new Date(todayStart);
+  lastDate.setDate(lastDate.getDate() + FORECAST_DAYS_AHEAD);
+
+  return {
+    horizon: {
+      startDate: toIsoDate(todayStart),
+      endDate: toIsoDate(lastDate),
+      daysAhead: FORECAST_DAYS_AHEAD,
+    },
+    currentBalance,
+    projectedEndBalance: runningBalance,
+    totalIncomeAhead: roundCurrency(totalIncomeAhead),
+    totalExpenseAhead: roundCurrency(totalExpenseAhead),
+    dailyProjection,
+    negativeBalanceAlert,
+    breakdown: { incomeSources, expenseSources },
   };
 }

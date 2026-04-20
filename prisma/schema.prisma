@@ -78,6 +78,7 @@ model Tenant {
   referredReward       ReferralReward?       @relation("TenantReferredBy")
   referredByTenant     Tenant?               @relation("TenantReferrals", fields: [referredByTenantId], references: [id], onDelete: SetNull)
   referredTenants      Tenant[]              @relation("TenantReferrals")
+  revenueGoals         RevenueGoal[]
 
   @@map("tenants")
 }
@@ -360,6 +361,7 @@ model User {
   reviewedAccessRequests     AccessRequest[]        @relation("AccessRequestReviewer")
   createdInvitations         TenantInvitation[]     @relation("InvitationCreator")
   passwordResetTokens        PasswordResetToken[]
+  createdRevenueGoals        RevenueGoal[]          @relation("RevenueGoalCreator")
 
   @@index([tenantId])
   @@index([email])
@@ -1184,4 +1186,24 @@ model Media {
   @@index([customerId])
   @@index([anamnesisRecordId])
   @@map("media")
+}
+
+// ============================================================
+// FINANCIAL — Metas de faturamento mensal
+// ============================================================
+model RevenueGoal {
+  id           String   @id @default(cuid())
+  tenantId     String
+  month        String // formato "YYYY-MM" — permite histórico e metas diferentes por mês
+  targetAmount Decimal  @db.Decimal(12, 2)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("RevenueGoalCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, month])
+  @@index([tenantId])
+  @@map("revenue_goals")
 }

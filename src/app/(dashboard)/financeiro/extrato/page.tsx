@@ -1,4 +1,5 @@
 import { getAuthUserForPermission } from "@/lib/session";
+import { hasPermission } from "@/lib/tenant-permissions";
 import {
   formatCivilDateToQuery,
   getTodayCivilDate,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/validators/financial";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { getFinancialStatement } from "@/services/financial.service";
+import { ExportButton } from "@/components/financial/export-button";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -67,6 +69,7 @@ export default async function FinancialStatementPage({
   }>;
 }) {
   const user = await getAuthUserForPermission("financeiro.extrato", "view");
+  const canExport = hasPermission(user.customPermissions, "financeiro.extrato", "view");
   const query = searchParams ? await searchParams : undefined;
   const defaults = getDefaultPeriod();
 
@@ -154,10 +157,22 @@ export default async function FinancialStatementPage({
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>
             Lançamentos encontrados ({statement.summary.totalLancamentos})
           </CardTitle>
+          {canExport ? (
+            <ExportButton
+              endpoint="extrato"
+              filters={{
+                from: formatCivilDateToQuery(startDate),
+                to: formatCivilDateToQuery(endDate),
+                type: typeFilter,
+                status: statusFilter,
+              }}
+              suggestedFilename={`extrato_${formatCivilDateToQuery(startDate)}_${formatCivilDateToQuery(endDate)}`}
+            />
+          ) : null}
         </CardHeader>
         <CardContent>
           {statement.entries.length === 0 ? (

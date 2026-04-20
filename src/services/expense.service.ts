@@ -1057,6 +1057,99 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+export type ExpensesAgenda = {
+  overdue: MonthlyExpense[];
+  dueToday: MonthlyExpense[];
+  dueNext7Days: MonthlyExpense[];
+  recentlyPaid: MonthlyExpense[];
+};
+
+const AGENDA_COLUMN_LIMIT = 50;
+
+/**
+ * Janela móvel de despesas centrada em hoje — usada pela visão Agenda/Kanban
+ * de Contas a Pagar. Ignora o filtro mensal da visão tradicional.
+ */
+export async function getExpensesAgenda(tenantId: string): Promise<ExpensesAgenda> {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const nextWeekEndExclusive = new Date(todayStart);
+  nextWeekEndExclusive.setDate(nextWeekEndExclusive.getDate() + 8);
+  const recentPaidStart = new Date(todayStart);
+  recentPaidStart.setDate(recentPaidStart.getDate() - 14);
+
+  const baseInclude = {
+    category: { select: { name: true } },
+    account: {
+      select: { id: true, name: true, type: true },
+    },
+  } as const;
+
+  const [overdue, dueToday, dueNext7Days, recentlyPaid] = await Promise.all([
+    db.expense.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: "PENDING",
+        dueDate: { lt: todayStart },
+      },
+      include: baseInclude,
+      orderBy: { dueDate: "asc" },
+      take: AGENDA_COLUMN_LIMIT,
+    }),
+    db.expense.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: "PENDING",
+        dueDate: { gte: todayStart, lt: tomorrowStart },
+      },
+      include: baseInclude,
+      orderBy: { amount: "desc" },
+      take: AGENDA_COLUMN_LIMIT,
+    }),
+    db.expense.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: "PENDING",
+        dueDate: { gte: tomorrowStart, lt: nextWeekEndExclusive },
+      },
+      include: baseInclude,
+      orderBy: { dueDate: "asc" },
+      take: AGENDA_COLUMN_LIMIT,
+    }),
+    db.expense.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: "PAID",
+        paidAt: { gte: recentPaidStart },
+      },
+      include: baseInclude,
+      orderBy: { paidAt: "desc" },
+      take: AGENDA_COLUMN_LIMIT,
+    }),
+  ]);
+
+  return {
+    overdue: overdue.map(serializeExpense),
+    dueToday: dueToday.map(serializeExpense),
+    dueNext7Days: dueNext7Days.map(serializeExpense),
+    recentlyPaid: recentlyPaid.map(serializeExpense),
+  };
+}
+
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }

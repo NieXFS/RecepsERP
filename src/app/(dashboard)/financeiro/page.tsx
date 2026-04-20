@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { ComponentType, ReactNode } from "react";
 import { differenceInHours, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -17,7 +16,12 @@ import {
 } from "lucide-react";
 import { getAuthUserForPermission } from "@/lib/session";
 import { hasPermission } from "@/lib/tenant-permissions";
-import { getFinancialOverview } from "@/services/financial.service";
+import {
+  getCashFlowForecast,
+  getFinancialAlerts,
+  getFinancialOverview,
+} from "@/services/financial.service";
+import { getRevenueGoalProgress } from "@/services/revenue-goal.service";
 import {
   Card,
   CardContent,
@@ -26,7 +30,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { CashFlowForecastBlock } from "@/components/financial/overview/CashFlowForecastBlock";
 import { DailyMovementChart } from "@/components/financial/overview/DailyMovementChart";
+import { RevenueGoalBlock } from "@/components/financial/overview/revenue-goal-block";
+import { RevenueGoalEmpty } from "@/components/financial/overview/revenue-goal-empty";
+import { FinancialAlerts } from "@/components/financial/overview/FinancialAlerts";
+import { FinancialKpiCard } from "@/components/financial/overview/FinancialKpiCard";
 import { KpiTrendIndicator } from "@/components/financial/overview/KpiTrendIndicator";
 import { PaymentMethodDonut } from "@/components/financial/overview/PaymentMethodDonut";
 import { StatementSparkline } from "@/components/financial/overview/StatementSparkline";
@@ -94,7 +103,18 @@ export default async function FinancialPage() {
   const canViewCaixa = hasPermission(user.customPermissions, "financeiro.caixa", "view");
   const canViewExtrato = hasPermission(user.customPermissions, "financeiro.extrato", "view");
   const canViewDespesas = hasPermission(user.customPermissions, "financeiro.despesas", "view");
-  const overview = await getFinancialOverview(user.tenantId);
+  const canEditGoal = hasPermission(user.customPermissions, "financeiro.geral", "edit");
+  const [overview, alerts, cashFlowForecast, revenueGoal] = await Promise.all([
+    getFinancialOverview(user.tenantId),
+    getFinancialAlerts(user.tenantId),
+    getCashFlowForecast(user.tenantId),
+    getRevenueGoalProgress(user.tenantId),
+  ]);
+
+  const currentMonthAnchor = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  })();
 
   const commissionsPaidRatio =
     overview.commissions.generatedTotal > 0
@@ -120,6 +140,8 @@ export default async function FinancialPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <FinancialAlerts alerts={alerts} />
+
       <Card className="animate-fade-in-down border-primary/15 bg-gradient-to-br from-primary/8 via-card to-card">
         <CardHeader>
           <CardTitle>Visão geral do Financeiro</CardTitle>
@@ -132,7 +154,7 @@ export default async function FinancialPage() {
       </Card>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryMetricCard
+        <FinancialKpiCard
           delay={0}
           label="Entradas do período"
           value={formatCurrency(overview.summary.entradas)}
@@ -147,7 +169,7 @@ export default async function FinancialPage() {
             />
           }
         />
-        <SummaryMetricCard
+        <FinancialKpiCard
           delay={50}
           label="Saídas do período"
           value={formatCurrency(overview.summary.saidas)}
@@ -163,7 +185,7 @@ export default async function FinancialPage() {
             />
           }
         />
-        <SummaryMetricCard
+        <FinancialKpiCard
           delay={100}
           label="Saldo do período"
           value={formatCurrency(overview.summary.saldoPeriodo)}
@@ -180,7 +202,7 @@ export default async function FinancialPage() {
             />
           }
         />
-        <SummaryMetricCard
+        <FinancialKpiCard
           delay={150}
           label="Caixa atual"
           value={overview.cash.status === "OPEN" ? "Aberto" : "Fechado"}
@@ -217,6 +239,14 @@ export default async function FinancialPage() {
           </CardContent>
         </Card>
       </section>
+
+      <CashFlowForecastBlock forecast={cashFlowForecast} />
+
+      {revenueGoal ? (
+        <RevenueGoalBlock progress={revenueGoal} canEdit={canEditGoal} />
+      ) : (
+        <RevenueGoalEmpty month={currentMonthAnchor} canEdit={canEditGoal} />
+      )}
 
       <section className="grid gap-4 xl:grid-cols-3">
         {canViewCommissions ? (
@@ -536,46 +566,6 @@ export default async function FinancialPage() {
         </ScrollReveal>
       </section>
     </div>
-  );
-}
-
-function SummaryMetricCard({
-  delay,
-  label,
-  value,
-  note,
-  icon: Icon,
-  accent,
-  iconWrapperClass,
-  trend,
-}: {
-  delay: number;
-  label: string;
-  value: string;
-  note: string;
-  icon: ComponentType<{ className?: string }>;
-  accent?: string;
-  iconWrapperClass?: string;
-  trend?: ReactNode;
-}) {
-  return (
-    <Card className="animate-fade-in-up" style={{ animationDelay: `${delay}ms` }}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-        <span
-          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-            iconWrapperClass ?? "bg-muted"
-          }`}
-        >
-          <Icon className={`h-4 w-4 ${accent ?? "text-muted-foreground"}`} aria-hidden="true" />
-        </span>
-      </CardHeader>
-      <CardContent>
-        <p className={`text-2xl font-bold tabular-nums ${accent ?? ""}`}>{value}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-        {trend ? <div className="mt-2">{trend}</div> : null}
-      </CardContent>
-    </Card>
   );
 }
 
