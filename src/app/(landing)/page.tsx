@@ -9,28 +9,23 @@ type FaqItem = { q: string; a: string };
 const FAQ_ITEMS: ReadonlyArray<FaqItem> = [
   {
     q: "Preciso ter um WhatsApp Business separado?",
-    // TODO(victor): confirmar se usamos WhatsApp Cloud API oficial ou número pessoal/Business App. Ajustar copy conforme.
-    a: "Sim, recomendamos um número dedicado ao negócio para manter o histórico profissional separado do pessoal. A configuração é feita junto com nossa equipe no onboarding e funciona com WhatsApp Business normal — você não precisa trocar de número se o que usa hoje já é do negócio.",
+    a: "Não precisa instalar nada diferente — funciona com o WhatsApp Business que você já usa. Se hoje você atende pelo número pessoal, aí sim recomendamos separar um número do negócio. A gente te ajuda a configurar isso no onboarding.",
   },
   {
     q: "A IA aprende o jeito de atender da minha clínica?",
-    a: "Sim. No onboarding, a IA é treinada com seu cardápio de serviços, política de agendamento, horários, regras de confirmação, tom de voz e respostas para dúvidas comuns. Você pode ajustar a qualquer momento pelo painel e ver como ela responderia antes de entrar em produção.",
-  },
-  {
-    q: "Posso migrar dados do meu sistema atual?",
-    a: "Sim. Importamos clientes, serviços, profissionais, histórico de agendamentos e saldos financeiros via planilha ou integração direta. Nossa equipe faz a migração por você nos planos anuais e acompanha a primeira semana pra garantir que nada ficou para trás.",
+    a: "Sim. No onboarding, a IA é treinada com a sua lista de serviços, política de agendamento, horários, regras de confirmação, tom de voz e respostas para dúvidas comuns. Você pode ajustar a qualquer momento pelo painel e ver como ela responderia antes de entrar em produção.",
   },
   {
     q: "Meus dados e dos meus clientes estão seguros? LGPD?",
-    a: "Sim. O Receps segue a LGPD: dados criptografados em trânsito e em repouso, controle de acesso por perfil, trilha de auditoria nas ações críticas e possibilidade de exportação e exclusão a pedido do titular. Não vendemos dados e não usamos conversas dos seus clientes para treinar IAs de terceiros.",
+    a: "Sim. O Receps segue a LGPD: dados criptografados em trânsito e em repouso, controle de acesso por perfil de usuário e possibilidade de exportação ou exclusão a pedido do titular. Não vendemos dados e não usamos as conversas dos seus clientes para treinar IAs de terceiros.",
   },
   {
     q: "O que acontece depois dos 7 dias grátis?",
-    a: "Nada some de um dia pro outro. Você recebe lembretes antes do fim do período e, se decidir assinar, o plano entra ativo automaticamente. Se não quiser continuar, a conta fica em modo leitura por mais 30 dias pra você exportar tudo com calma.",
+    a: "Nada some de um dia pro outro. Você recebe lembretes antes do fim do período e, se decidir assinar, o plano entra ativo automaticamente. Se não quiser continuar, é só cancelar pelo painel — e, se mudar de ideia depois, a gente consegue te ajudar a exportar os dados.",
   },
   {
     q: "Tem contrato de fidelidade ou multa?",
-    a: "Não. A assinatura é mensal e você cancela pelo próprio painel quando quiser, sem multa e sem burocracia. Planos anuais têm desconto, mas também aceitam cancelamento proporcional.",
+    a: "Não. A assinatura é mensal e você cancela pelo próprio painel quando quiser, sem multa e sem burocracia.",
   },
   {
     q: "Funciona pra qual tipo de negócio?",
@@ -38,7 +33,7 @@ const FAQ_ITEMS: ReadonlyArray<FaqItem> = [
   },
   {
     q: "Como funciona o suporte?",
-    a: "Suporte por WhatsApp em horário comercial para todos os planos, com prioridade no plano Atendente + ERP. Chamados críticos são respondidos em minutos. Onboarding assistido é incluso e o time acompanha o primeiro mês de uso de perto.",
+    a: "Suporte por WhatsApp em horário comercial para todos os planos, com prioridade no plano Atendente + ERP. O onboarding é assistido e o time acompanha o primeiro mês de uso de perto.",
   },
 ];
 
@@ -54,7 +49,7 @@ const COMPARISON_ROWS: ReadonlyArray<ComparisonRow> = [
   { label: "Agendamento direto pelo WhatsApp", sheet: "no", legacy: "partial", receps: "yes" },
   { label: "IA que atende 24h no WhatsApp", sheet: "no", legacy: "no", receps: "yes" },
   { label: "Comissões calculadas automaticamente", sheet: "no", legacy: "yes", receps: "yes" },
-  { label: "Fluxo de caixa e DRE em tempo real", sheet: "partial", legacy: "yes", receps: "yes" },
+  { label: "Fluxo de caixa e lucro em tempo real", sheet: "partial", legacy: "yes", receps: "yes" },
   { label: "Controle de estoque integrado", sheet: "no", legacy: "partial", receps: "yes" },
   { label: "Relatórios e dashboards visuais", sheet: "no", legacy: "partial", receps: "yes" },
   { label: "Onboarding assistido incluso", sheet: "no", legacy: "partial", receps: "yes" },
@@ -882,7 +877,6 @@ export default function LandingPage() {
                   <span className="period">/mês</span>
                 </div>
                 <div className="pricing-savings">
-                  <span className="savings-strike">R$ 369,98</span>
                   <span className="savings-note">Economize R$ 69,99/mês</span>
                 </div>
                 <span className="trial-badge trial-badge-featured">7 dias grátis para testar</span>
@@ -890,11 +884,11 @@ export default function LandingPage() {
                 <ul className="plan-features">
                   <li>
                     <CheckIcon size={18} />
-                    <strong>Tudo do plano Atendente IA</strong>
+                    Tudo do plano Atendente IA
                   </li>
                   <li>
                     <CheckIcon size={18} />
-                    <strong>Tudo do plano ERP</strong>
+                    Tudo do plano ERP
                   </li>
                   <li>
                     <CheckIcon size={18} />
@@ -906,7 +900,7 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <CheckIcon size={18} />
-                    Dashboard unificado em tempo real
+                    Painel único com tudo em tempo real
                   </li>
                   <li>
                     <CheckIcon size={18} />
@@ -914,7 +908,7 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <CheckIcon size={18} />
-                    Onboarding VIP dedicado
+                    Configuração completa com nosso time
                   </li>
                 </ul>
                 <a
@@ -960,7 +954,7 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <CheckIcon size={18} />
-                    Fluxo de caixa e DRE
+                    Fluxo de caixa e resumo de lucro
                   </li>
                   <li>
                     <CheckIcon size={18} />

@@ -421,11 +421,11 @@
 }
 
 .receps-landing .btn-glow {
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 16px 40px rgba(115, 82, 235, 0.35);
 }
 
 .receps-landing .btn-glow:hover {
-  box-shadow: 0 0 80px rgba(115, 82, 235, 0.25), var(--shadow-lg);
+  box-shadow: 0 20px 56px rgba(115, 82, 235, 0.45), var(--shadow-lg);
 }
 
 .receps-landing .btn-mobile-cta {
@@ -1058,7 +1058,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-md);
-  align-items: start;
+  align-items: stretch;
 }
 
 /* Double-bezel pricing cards */
@@ -1071,6 +1071,8 @@
   opacity: 0;
   transform: translateY(1.5rem);
   transition: all var(--duration-base) var(--ease-out-spring);
+  display: flex;
+  flex-direction: column;
 }
 
 .receps-landing .pricing-card:nth-child(1) { transition-delay: 0ms; }
@@ -1088,20 +1090,27 @@
   border-radius: calc(var(--radius-xl) - 4px);
   padding: var(--space-xl);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 /* Featured card — the combo plan */
 .receps-landing .pricing-featured {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  transform: scale(1.04);
+  transform: scale(1.06);
   box-shadow: var(--shadow-glow), var(--shadow-xl);
 }
 
 .receps-landing .pricing-featured:hover {
   border-color: var(--color-accent-light);
   box-shadow: 0 0 80px rgba(115, 82, 235, 0.2), var(--shadow-xl);
-  transform: scale(1.04) translateY(-4px);
+  transform: scale(1.06) translateY(-4px);
+}
+
+.receps-landing .pricing-featured .pricing-card-inner {
+  background: color-mix(in oklch, var(--color-accent) 4%, var(--color-surface));
 }
 
 .receps-landing .pricing-badge {
@@ -1109,7 +1118,7 @@
   top: -14px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-gold);
+  background: var(--color-accent);
   color: white;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1159,6 +1168,10 @@
   line-height: 1;
 }
 
+.receps-landing .pricing-featured .price {
+  font-size: 3.78rem;
+}
+
 .receps-landing .price-decimal {
   font-size: 1.75rem;
   font-weight: 700;
@@ -1172,25 +1185,13 @@
   margin-left: 4px;
 }
 
-.receps-landing .pricing-savings {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
-  padding: 0.5rem 0.875rem;
-  border-radius: var(--radius-full);
-  margin-bottom: var(--space-lg);
-}
-
 .receps-landing .plan-features {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: var(--space-xl);
+  flex: 1 1 auto;
 }
 
 .receps-landing .plan-features li {
@@ -1499,37 +1500,42 @@
   letter-spacing: 0.01em;
 }
 
-.receps-landing .trial-badge-featured {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.2);
-}
+/* .trial-badge-featured herda do .trial-badge (accent em accent-subtle).
+   O override anterior usava branco sobre rgba(255,255,255,.2), mas o
+   .pricing-card-inner do featured tem fundo branco — ficava invisível. */
 
-/* --- PRICING SAVINGS (featured card) --- */
+/* --- PRICING SAVINGS (featured card) ---
+   Duas linhas empilhadas e centralizadas, alinhadas com o preço acima.
+   Cores funcionam em fundo branco (.pricing-card-inner). */
 .receps-landing .pricing-savings {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  margin-top: 0.35rem;
-  margin-bottom: var(--space-sm);
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  margin-bottom: var(--space-md);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Featured: strike cola no preço (agrupamento "era X, agora Y") */
+.receps-landing .pricing-featured .pricing-amount {
+  margin-bottom: 0;
 }
 
 .receps-landing .pricing-savings .savings-strike {
-  font-size: 0.95rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  color: var(--color-text-tertiary);
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
   letter-spacing: 0.01em;
 }
 
 .receps-landing .pricing-savings .savings-note {
-  font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.12);
-  padding: 0.3rem 0.75rem;
-  border-radius: var(--radius-full);
+  color: var(--color-accent);
   letter-spacing: 0.01em;
 }
 
@@ -2002,6 +2008,49 @@
   color: var(--color-text-primary);
 }
 
+.receps-landing .roi-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.receps-landing .roi-pill {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.receps-landing .roi-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.receps-landing .roi-pill.is-active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.receps-landing .roi-pill.is-active:hover {
+  color: #fff;
+}
+
+.receps-landing .roi-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
 /* --- CONTACT SECTION --- */
 .receps-landing .contact-section {
   padding: var(--space-section) 0;
@@ -2422,6 +2471,11 @@
 
   .receps-landing .pricing-featured {
     order: -1;
+    transform: scale(1);
+  }
+
+  .receps-landing .pricing-featured:hover {
+    transform: translateY(-4px);
   }
 
   /* --- CTA MOBILE --- */
