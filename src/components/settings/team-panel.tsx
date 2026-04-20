@@ -473,7 +473,7 @@ export function TeamPanel({
       </AnimatedList>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] sm:max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingMember ? "Editar membro da equipe" : "Novo membro da equipe"}
@@ -489,13 +489,24 @@ export function TeamPanel({
                 </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Nome *</label>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Nome completo"
-                />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Nome *</label>
+                  <Input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Nome completo"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Telefone</label>
+                  <Input
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
@@ -520,15 +531,6 @@ export function TeamPanel({
                     />
                   </div>
                 ) : null}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Telefone</label>
-                <Input
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="(11) 99999-9999"
-                />
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
