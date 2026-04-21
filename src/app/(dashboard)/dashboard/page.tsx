@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Calendar, DollarSign, TrendingUp, UserPlus } from "lucide-react";
 import { getAuthUserForModule } from "@/lib/session";
 import { getCivilMonthRange, parseCivilMonthFromQuery } from "@/lib/civil-date";
 import {
@@ -7,16 +7,22 @@ import {
   getDailyRevenueForTenant,
   getMonthlyStatsForTenant,
 } from "@/services/dashboard.service";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentsHeatmap } from "@/components/dashboard/appointments-heatmap";
 import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
+import { KpiCard } from "@/components/dashboard/kpi-card";
 import { MonthlySummarySection } from "@/components/dashboard/monthly-summary-section";
-import {
-  DollarSign,
-  TrendingUp,
-  Calendar,
-  UserPlus,
-} from "lucide-react";
+
+const SPARK_PATHS = {
+  revenue: "M0,22 L12,18 L24,20 L36,12 L48,14 L60,8 L72,10",
+  ticket: "M0,14 L12,18 L24,10 L36,14 L48,8 L60,12 L72,6",
+} as const;
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
 
 /**
  * Página principal do Dashboard (Server Component).
@@ -54,103 +60,80 @@ export default async function DashboardPage({
     return <DashboardEmptyState />;
   }
 
-  const kpiCards = [
-    {
-      id: "kpi-revenue-title",
-      title: "Faturamento Hoje",
-      icon: DollarSign,
-      value: `R$ ${kpis.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-      subtitle: null,
-      href: "/financeiro",
-    },
-    {
-      id: "kpi-ticket-title",
-      title: "Ticket Médio",
-      icon: TrendingUp,
-      value: `R$ ${kpis.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-      subtitle: `${kpis.completedAppointments} atendimento(s) finalizado(s)`,
-      href: "/financeiro",
-    },
-    {
-      id: "kpi-appointments-title",
-      title: "Agendamentos Hoje",
-      icon: Calendar,
-      value: String(kpis.totalAppointments),
-      subtitle: `${kpis.completedAppointments} finalizado(s)`,
-      href: "/agenda",
-    },
-    {
-      id: "kpi-customers-title",
-      title: "Novos Clientes",
-      icon: UserPlus,
-      value: String(kpis.newCustomers),
-      subtitle: "cadastrados hoje",
-      href: "/clientes",
-    },
-  ] as const;
+  const today = new Date();
+  const todayLabel = today.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  });
+  const weekdayFullLabel = today.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Cabeçalho */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-sm text-muted-foreground">
-          Visão geral do dia — {new Date().toLocaleDateString("pt-BR", {
-            weekday: "long",
-            day: "2-digit",
-            month: "long",
-          })}
-        </p>
-      </div>
+    <div className="flex flex-col gap-7">
+      {/* Page title */}
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-[40px] font-extrabold leading-none tracking-[-0.035em] text-foreground">
+            Dashboard
+          </h1>
+          <p className="mt-2.5 text-[14.5px] text-muted-foreground">
+            Visão geral do dia — {weekdayFullLabel}
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 self-start rounded-full bg-card px-[14px] py-2 text-[12.5px] font-medium text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:self-auto">
+          <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>{todayLabel}</span>
+        </div>
+      </header>
 
-      {/* ---- KPI CARDS ---- */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpiCards.map((card, i) => {
-          const Icon = card.icon;
-
-          return (
-            <Link
-              key={card.id}
-              href={card.href}
-              className="group block rounded-xl animate-fade-in-up outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
-              style={{ animationDelay: `${i * 75}ms` }}
-            >
-              <Card
-                role="region"
-                aria-labelledby={card.id}
-                className="border border-transparent transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/20 group-hover:shadow-md group-hover:ring-primary/10"
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle
-                    id={card.id}
-                    className="text-sm font-medium text-muted-foreground"
-                  >
-                    {card.title}
-                  </CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold tabular-nums">{card.value}</p>
-                  {card.subtitle && (
-                    <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                      {card.subtitle}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <MonthlySummarySection
-          period={selectedMonth}
-          stats={monthlyStats}
-          series={dailyRevenue}
+      {/* KPIs do dia */}
+      <div className="grid gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="Faturamento hoje"
+          value={formatCurrency(kpis.revenue)}
+          subtitle={`${kpis.completedAppointments} atendimento(s) finalizado(s)`}
+          icon={DollarSign}
+          href="/financeiro"
+          sparkPath={SPARK_PATHS.revenue}
+          animationDelay={60}
         />
-        <AppointmentsHeatmap heatmap={appointmentsHeatmap} />
+        <KpiCard
+          label="Ticket médio"
+          value={formatCurrency(kpis.averageTicket)}
+          subtitle={`${kpis.completedAppointments} atendimento(s) finalizado(s)`}
+          icon={TrendingUp}
+          href="/financeiro"
+          sparkPath={SPARK_PATHS.ticket}
+          animationDelay={120}
+        />
+        <KpiCard
+          label="Agendamentos hoje"
+          value={String(kpis.totalAppointments)}
+          subtitle={`${kpis.completedAppointments} finalizado(s)`}
+          icon={Calendar}
+          href="/agenda"
+          animationDelay={180}
+        />
+        <KpiCard
+          label="Novos clientes"
+          value={String(kpis.newCustomers)}
+          subtitle="cadastrados hoje"
+          icon={UserPlus}
+          href="/clientes"
+          animationDelay={240}
+        />
       </div>
+
+      <MonthlySummarySection
+        period={selectedMonth}
+        stats={monthlyStats}
+        series={dailyRevenue}
+      />
+
+      <AppointmentsHeatmap heatmap={appointmentsHeatmap} />
     </div>
   );
 }

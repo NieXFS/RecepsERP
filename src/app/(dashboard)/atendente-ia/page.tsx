@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { AnaStudio } from "@/components/atendente-ia/ana-studio";
 import { ModuleUpsell } from "@/components/billing/module-upsell";
+import { db } from "@/lib/db";
 import { getAuthUserWithAccess, getTenantPlanSlug } from "@/lib/session";
 import { hasPlanProduct } from "@/lib/plan-modules";
 import { getBotConfigByTenantId } from "@/services/bot-config.service";
+import { getAutomationsVMForTenant } from "@/services/bot-automation.service";
 
 export default async function AtendenteIAPage() {
   const user = await getAuthUserWithAccess();
@@ -17,7 +19,20 @@ export default async function AtendenteIAPage() {
     return <ModuleUpsell product="bot" />;
   }
 
-  const settings = await getBotConfigByTenantId(user.tenantId);
+  const [settings, automations, tenant] = await Promise.all([
+    getBotConfigByTenantId(user.tenantId),
+    getAutomationsVMForTenant(user.tenantId),
+    db.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { name: true },
+    }),
+  ]);
 
-  return <AnaStudio settings={settings} />;
+  return (
+    <AnaStudio
+      settings={settings}
+      automations={automations}
+      tenantName={tenant?.name ?? "nosso negócio"}
+    />
+  );
 }

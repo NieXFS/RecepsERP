@@ -22,8 +22,6 @@ import {
   Lock,
   type LucideIcon,
 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { BrandLogo } from "@/components/layout/brand-logo";
 import {
   Tooltip,
   TooltipContent,
@@ -42,7 +40,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   activePrefixes?: readonly string[];
-  /** Grupo visual para separadores */
+  /** Grupo visual para separadores. A ordem dos grupos é: main, management, bot, config. */
   group: "main" | "bot" | "management" | "config";
 };
 
@@ -79,13 +77,11 @@ const navItems: NavItem[] = [
     group: "management",
   },
 
-  // --- Grupo clínico/config ---
-  { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
-
   // --- Atendente IA ---
   { module: "ATENDENTE_IA", href: "/atendente-ia", label: "Atendente IA", icon: Bot, group: "bot" },
 
-  // --- Configurações ---
+  // --- Grupo clínico/config ---
+  { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
   { module: "CONFIGURACOES", href: "/configuracoes", label: "Configurações", icon: Settings, group: "config" },
 ];
 
@@ -121,7 +117,6 @@ export function Sidebar({
     ),
   }));
 
-  // Agrupa os itens visíveis
   const mainItems = visibleItems.filter((i) => i.group === "main");
   const botItems = visibleItems.filter((i) => i.group === "bot");
   const managementItems = visibleItems.filter((i) => i.group === "management");
@@ -130,36 +125,45 @@ export function Sidebar({
     ? navItems.find((item) => item.module === upsellModule) ?? null
     : null;
 
+  const initials = userName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <TooltipProvider delay={120}>
       <aside
         className={cn(
-          "flex h-full flex-col overflow-hidden border-r bg-background transition-[width] duration-300 ease-out",
-          collapsed ? "w-16" : "w-64",
+          "flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out",
+          collapsed ? "w-16" : "w-[260px]",
           className
         )}
       >
-        {/* Logo e nome do tenant */}
+        {/* Brand */}
         <div
           className={cn(
-            "flex h-[64px] items-center border-b",
-            collapsed ? "justify-center px-2" : "justify-center px-6"
+            "flex items-center px-4 pb-5 pt-5",
+            collapsed ? "justify-center" : "gap-2.5"
           )}
         >
-          {collapsed ? (
-            <>
-              <span className="sr-only">Receps</span>
-              <span className="text-lg font-bold text-primary" aria-hidden="true">
-                R
-              </span>
-            </>
-          ) : (
-            <BrandLogo className="max-w-full" />
+          <span
+            aria-hidden="true"
+            className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] bg-[linear-gradient(135deg,#8B5CF6_0%,#6223CF_100%)] text-[16px] font-black tracking-[-0.04em] text-white shadow-[0_8px_20px_rgba(139,92,246,0.35)]"
+          >
+            R
+          </span>
+          {!collapsed && (
+            <span className="text-[19px] font-extrabold tracking-[-0.03em] text-sidebar-foreground">
+              receps
+            </span>
           )}
+          <span className="sr-only">Receps</span>
         </div>
 
-        {/* Navegação */}
-        <nav className={cn("flex-1 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
+        {/* Nav */}
+        <nav className={cn("flex-1 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
           <NavGroup
             items={mainItems}
             pathname={pathname}
@@ -168,12 +172,7 @@ export function Sidebar({
             onLockedItemClick={setUpsellModule}
           />
 
-          <Separator className="my-3" />
-          {!collapsed && (
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Gestão
-            </p>
-          )}
+          <NavDivider />
           <NavGroup
             items={managementItems}
             pathname={pathname}
@@ -182,7 +181,7 @@ export function Sidebar({
             onLockedItemClick={setUpsellModule}
           />
 
-          <Separator className="my-3" />
+          <NavDivider />
           <NavGroup
             items={botItems}
             pathname={pathname}
@@ -191,7 +190,7 @@ export function Sidebar({
             onLockedItemClick={setUpsellModule}
           />
 
-          <Separator className="my-3" />
+          <NavDivider />
           <NavGroup
             items={configItems}
             pathname={pathname}
@@ -201,29 +200,30 @@ export function Sidebar({
           />
         </nav>
 
-        {/* Rodapé: info do usuário logado */}
-        <div className="border-t p-4">
+        {/* Footer */}
+        <div
+          className={cn(
+            "flex items-center px-4 py-4",
+            collapsed ? "justify-center" : "gap-[11px]"
+          )}
+          title={collapsed ? `${userName} • ${roleLabel(userRole)}` : undefined}
+        >
           <div
-            className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}
-            title={collapsed ? `${userName} • ${roleLabel(userRole)}` : undefined}
+            aria-hidden="true"
+            className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#8B5CF6,#6223CF)] text-sm font-bold text-white shadow-[0_0_0_2px_var(--sidebar),0_0_0_3px_rgba(139,92,246,0.3)]"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-              {userName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase()}
-            </div>
-            {!collapsed && (
-              <div className="flex flex-col overflow-hidden">
-                <span className="truncate text-sm font-medium">{userName}</span>
-                <span className="text-xs text-muted-foreground">
-                  {roleLabel(userRole)}
-                </span>
-              </div>
-            )}
+            {initials}
           </div>
+          {!collapsed && (
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-[13px] font-bold text-sidebar-foreground">
+                {userName}
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {roleLabel(userRole)}
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -240,6 +240,16 @@ export function Sidebar({
         />
       ) : null}
     </TooltipProvider>
+  );
+}
+
+/** Divisor de gradiente sutil entre grupos de navegação. */
+function NavDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      className="mx-3 my-3.5 h-px bg-[linear-gradient(90deg,transparent_0%,var(--sidebar-border)_20%,var(--sidebar-border)_80%,transparent_100%)]"
+    />
   );
 }
 
@@ -266,20 +276,22 @@ function NavGroup({
         );
         const Icon = item.icon;
         const tooltipLabel = item.isLocked ? getModuleUpsellTooltip(item.module) : null;
-        const itemClasses = cn(
-          collapsed
-            ? "mx-auto flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200 ease-out"
-            : "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
-          item.isLocked
-            ? "cursor-pointer text-muted-foreground/70 opacity-60 hover:bg-muted/70 hover:text-foreground hover:opacity-90"
-            : isActive
-              ? "translate-x-0.5 bg-primary text-primary-foreground shadow-sm"
-              : "translate-x-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-        );
+
+        const baseClasses = collapsed
+          ? "mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ease-out"
+          : "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium transition-all duration-200 ease-out";
+
+        const stateClasses = item.isLocked
+          ? "cursor-pointer text-muted-foreground opacity-60 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:opacity-90"
+          : isActive
+            ? "bg-primary font-semibold text-primary-foreground shadow-lg shadow-primary/35 dark:bg-primary/20 dark:text-sidebar-foreground dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-primary/30"
+            : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground";
+
+        const itemClasses = cn(baseClasses, stateClasses);
 
         const content = collapsed ? (
           <>
-            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
             {item.isLocked ? (
               <Lock className="absolute right-1 top-1 h-3.5 w-3.5 rounded-full bg-background p-0.5 text-muted-foreground" />
             ) : null}
@@ -287,7 +299,7 @@ function NavGroup({
           </>
         ) : (
           <>
-            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {item.isLocked ? (
               <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarX2, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { AppointmentCard } from "./appointment-card";
 import { AppointmentDetailDialog } from "./appointment-detail-dialog";
 import { AgendaOperationsPanel } from "./agenda-operations-panel";
@@ -282,45 +281,62 @@ export function DailyCalendar({
 
   return (
     <>
-      {/* ---- CABEÇALHO: Navegação de data ---- */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* ---- CABEÇALHO ---- */}
+      <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="animate-fade-in-down">
-          <h2 className="text-2xl font-bold tracking-tight">Agenda</h2>
-          <p className="text-sm text-muted-foreground capitalize">{dateFormatted}</p>
+          <h1 className="text-[40px] font-extrabold leading-none tracking-[-0.035em] text-foreground">
+            Agenda
+          </h1>
+          <p className="mt-2.5 flex flex-wrap items-center gap-2 text-[14.5px] text-muted-foreground">
+            <span className="capitalize">{dateFormatted}</span>
+            <span
+              aria-hidden="true"
+              className="inline-block h-1 w-1 rounded-full bg-muted-foreground/40"
+            />
+            <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="relative inline-flex h-2 w-2">
+                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
+                <span className="relative inline-block h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              Ana online
+            </span>
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={handleNewAppointmentClick} disabled={professionals.length === 0}>
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Novo Agendamento
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
             onClick={() => navigateDay(-1)}
-            className="transition-transform active:scale-95"
             aria-label="Dia anterior"
+            className="grid h-9 w-9 place-items-center rounded-[11px] bg-card text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-150 hover:bg-primary hover:text-primary-foreground active:scale-95"
           >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+            <ChevronLeft className="h-[15px] w-[15px]" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
             onClick={goToToday}
-            className="transition-transform active:scale-95"
+            className="rounded-[11px] bg-card px-[18px] py-[9px] text-[13px] font-semibold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:bg-primary hover:text-primary-foreground active:scale-95"
           >
             Hoje
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
+          </button>
+          <button
+            type="button"
             onClick={() => navigateDay(1)}
-            className="transition-transform active:scale-95"
             aria-label="Próximo dia"
+            className="grid h-9 w-9 place-items-center rounded-[11px] bg-card text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-150 hover:bg-primary hover:text-primary-foreground active:scale-95"
           >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
+            <ChevronRight className="h-[15px] w-[15px]" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={handleNewAppointmentClick}
+            disabled={professionals.length === 0}
+            className="ml-1 inline-flex items-center gap-1.5 rounded-[11px] bg-primary px-[18px] py-[9px] text-[13px] font-semibold text-primary-foreground shadow-lg shadow-primary/35 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/45 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+          >
+            <Plus className="h-[15px] w-[15px]" aria-hidden="true" />
+            Novo agendamento
+          </button>
         </div>
-      </div>
+      </header>
 
       {/* ---- GRID DA AGENDA ---- */}
       {professionals.length === 0 ? (
@@ -364,7 +380,7 @@ export function DailyCalendar({
             ref={gridRef}
             role="grid"
             aria-label={`Agenda de ${dateFormatted}`}
-            className="relative flex-1 h-[60vh] min-h-[500px] overflow-x-auto overflow-y-auto rounded-lg border bg-background pb-4"
+            className="relative flex-1 h-[62vh] min-h-[520px] overflow-x-auto overflow-y-auto rounded-[22px] bg-card pb-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),_0_8px_24px_-12px_rgba(15,23,42,0.06)]"
             {...swipeHandlers}
           >
             <div className="min-w-full w-max snap-x snap-mandatory md:snap-none">
@@ -376,26 +392,34 @@ export function DailyCalendar({
                 }}
               >
                 {/* Célula vazia no canto (coluna de horários) */}
-                <div className="sticky top-0 left-0 z-30 w-[80px] min-w-[80px] border-r border-b bg-background px-2 py-3 text-xs font-medium text-muted-foreground shadow-[0_1px_3px_0_rgb(0_0_0/0.04)]">
+                <div className="sticky top-0 left-0 z-30 w-[80px] min-w-[80px] bg-card/95 px-3 pb-3 pt-4 text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
                   Horário
                 </div>
 
                 {/* Uma coluna por profissional */}
-                {professionals.map((prof) => (
-                  <div
-                    key={prof.id}
-                    role="columnheader"
-                    className="sticky top-0 z-20 min-w-[220px] border-b border-r bg-background px-3 py-3 text-center shadow-[0_1px_3px_0_rgb(0_0_0/0.04)] last:border-r-0"
-                  >
-                    <p className="truncate text-sm font-semibold">{prof.name}</p>
-                    {prof.specialty && (
-                      <p className="text-xs text-muted-foreground">{prof.specialty}</p>
-                    )}
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {appointmentsByProfessional.get(prof.id)?.length ?? 0} agendamento(s)
-                    </p>
-                  </div>
-                ))}
+                {professionals.map((prof) => {
+                  const count = appointmentsByProfessional.get(prof.id)?.length ?? 0;
+                  return (
+                    <div
+                      key={prof.id}
+                      role="columnheader"
+                      className="sticky top-0 z-20 min-w-[220px] bg-card/95 px-3 pb-3 pt-4 backdrop-blur"
+                    >
+                      <div className="relative overflow-hidden rounded-[14px] bg-gradient-to-br from-primary/12 to-primary/4 px-3.5 py-2.5 dark:from-primary/20 dark:to-primary/8">
+                        <span
+                          aria-hidden="true"
+                          className="absolute inset-y-[10px] left-0 w-[2.5px] rounded-full bg-primary"
+                        />
+                        <p className="truncate text-[13px] font-bold text-foreground">
+                          {prof.name}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {prof.specialty ?? "Profissional"} · {count} agendamento(s)
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Corpo do grid: Slots de horário × Profissionais */}
@@ -407,13 +431,13 @@ export function DailyCalendar({
               >
                 {/* Coluna de horários (eixo Y) */}
                 <div
-                  className="sticky left-0 relative z-20 w-[80px] min-w-[80px] border-r bg-background"
+                  className="sticky left-0 relative z-20 w-[80px] min-w-[80px] bg-card"
                   style={{ height: `${totalGridHeight}px` }}
                 >
                   {timeSlots.map((slot, i) => (
                     <div
                       key={slot.label}
-                      className="absolute flex w-full items-start justify-end pr-2 text-xs text-muted-foreground tabular-nums"
+                      className="absolute flex w-full items-start justify-end pr-3 text-[11px] font-semibold text-muted-foreground tabular-nums"
                       style={{
                         top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
                         height: `${CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
@@ -424,7 +448,7 @@ export function DailyCalendar({
                   ))}
                   {showNowLine && (
                     <div
-                      className="pointer-events-none absolute right-2 z-30 -mt-2 text-[10px] font-semibold text-red-500 tabular-nums"
+                      className="pointer-events-none absolute right-2 z-30 -mt-2.5 rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-red-500/35 tabular-nums"
                       style={{ top: `${nowLineTop}px` }}
                     >
                       {nowFormatted}
@@ -440,14 +464,14 @@ export function DailyCalendar({
                   return (
                     <div
                       key={prof.id}
-                      className="relative min-w-[220px] snap-start border-r last:border-r-0"
+                      className="relative min-w-[220px] snap-start"
                       style={{ height: `${totalGridHeight}px` }}
                     >
                       {/* Linhas horizontais de cada slot (fundo clicável) */}
                       {timeSlots.map((slot, i) => (
                         <div
                           key={slot.label}
-                          className="group absolute w-full cursor-pointer border-t border-dashed border-muted-foreground/15 transition-all duration-200 hover:bg-primary/8 hover:shadow-[inset_0_0_0_1px_var(--color-primary)] active:bg-primary/12"
+                          className="group absolute w-full cursor-pointer border-t border-dashed border-border/60 transition-all duration-200 hover:bg-primary/[0.06] active:bg-primary/[0.1]"
                           style={{
                             top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
                             height: `${CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
@@ -458,9 +482,9 @@ export function DailyCalendar({
                           }
                         >
                           {/* Ícone de + aparece no hover */}
-                          <div className="flex h-full items-center justify-center opacity-35 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                          <div className="flex h-full items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                             <Plus
-                              className="h-4 w-4 text-primary/40"
+                              className="h-4 w-4 text-primary/55"
                               aria-hidden="true"
                             />
                           </div>
@@ -488,8 +512,14 @@ export function DailyCalendar({
                           style={{ top: `${nowLineTop}px` }}
                         >
                           <div className="flex items-center">
-                            <div className="-ml-1 h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse-ring" />
-                            <div className="h-[2px] flex-1 bg-red-500/70" />
+                            <div className="-ml-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow-md shadow-red-500/45 animate-pulse-ring" />
+                            <div
+                              className="h-[1.5px] flex-1"
+                              style={{
+                                background:
+                                  "repeating-linear-gradient(90deg, rgb(239 68 68 / 0.85) 0 6px, transparent 6px 10px)",
+                              }}
+                            />
                           </div>
                         </div>
                       )}

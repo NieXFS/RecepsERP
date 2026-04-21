@@ -194,7 +194,7 @@ export default async function AgendaPage({
   }));
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-7">
       <DailyCalendar
         date={formatCivilDateToQuery(selectedDate)}
         scheduleConfig={scheduleConfig}

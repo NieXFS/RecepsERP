@@ -19,7 +19,7 @@ type HeaderProps = {
   sidebarProps?: Omit<SidebarProps, "className" | "collapsed" | "onNavigate">;
 };
 
-/** Barra superior do dashboard — destaca o tenant atual e mantém o usuário como contexto secundário. */
+/** Barra superior do dashboard — tenant como contexto discreto e ações do usuário. */
 export function Header({
   tenantName,
   userName,
@@ -35,7 +35,7 @@ export function Header({
   }, [pathname]);
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
+    <header className="flex h-16 items-center justify-between bg-background px-4 sm:px-8">
       <div className="flex min-w-0 items-center gap-3">
         {sidebarProps && (
           <Sheet open={sheetOpen} onOpenChange={(open) => setSheetOpen(open)}>
@@ -51,7 +51,7 @@ export function Header({
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0">
+            <SheetContent side="left" className="w-[260px] p-0">
               <Sidebar
                 {...sidebarProps}
                 collapsed={false}
@@ -62,34 +62,31 @@ export function Header({
           </Sheet>
         )}
 
-        <p className="truncate text-base font-semibold text-foreground sm:text-lg">
-          {tenantName ?? "Estabelecimento"}
+        <p className="truncate text-[14px] font-medium text-muted-foreground">
+          {tenantName ?? "Receps Admin"}
         </p>
       </div>
 
       <div
-        className="flex items-center gap-3 pl-4"
+        className="flex items-center gap-4 pl-4 text-[13px] text-muted-foreground"
         title={`${userName} • ${roleLabel(userRole)}`}
       >
         <Link
           href="/ajuda"
-          className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground md:inline"
+          className="hidden font-medium transition-colors hover:text-foreground md:inline"
         >
           Ajuda
         </Link>
-        <span className="text-xs text-muted-foreground hidden sm:inline">
-          {userEmail}
-        </span>
+        <span className="hidden sm:inline">{userEmail}</span>
         <ThemeToggle />
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="gap-2"
+          className="inline-flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[13px] font-medium text-muted-foreground transition-all duration-150 hover:bg-accent hover:text-foreground"
         >
-          <LogOut className="h-4 w-4" aria-hidden="true" />
+          <LogOut className="h-[15px] w-[15px]" aria-hidden="true" />
           <span className="hidden sm:inline">Sair</span>
-        </Button>
+        </button>
       </div>
     </header>
   );

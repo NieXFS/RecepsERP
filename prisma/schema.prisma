@@ -16,37 +16,37 @@ datasource db {
 // TENANT — Representa cada clínica/barbearia/salão (empresa)
 // ============================================================
 model Tenant {
-  id                  String                @id @default(cuid())
-  name                String // Nome fantasia do estabelecimento
-  slug                String                @unique // URL-friendly identifier (ex: "clinica-bella")
-  source              TenantSource          @default(MANUAL_INVITE)
-  lifecycleStatus     TenantLifecycleStatus @default(INCOMPLETE)
-  accentTheme         TenantAccentTheme     @default(RECEPS_SIGNATURE)
-  cnpj                String?               @unique
-  document            String? // CNPJ ou CPF do responsável
-  phone               String?
-  email               String?
-  address             String?
-  city                String?
-  state               String?
-  zipCode             String?
-  openingTime         String                @default("08:00")
-  closingTime         String                @default("20:00")
-  slotIntervalMinutes Int                   @default(30)
-  logoUrl             String?
-  stripeCustomerId    String?               @unique
-  billingBypassEnabled Boolean              @default(false)
-  billingBypassReason String?
+  id                     String                 @id @default(cuid())
+  name                   String // Nome fantasia do estabelecimento
+  slug                   String                 @unique // URL-friendly identifier (ex: "clinica-bella")
+  source                 TenantSource           @default(MANUAL_INVITE)
+  lifecycleStatus        TenantLifecycleStatus  @default(INCOMPLETE)
+  accentTheme            TenantAccentTheme      @default(RECEPS_SIGNATURE)
+  cnpj                   String?                @unique
+  document               String? // CNPJ ou CPF do responsável
+  phone                  String?
+  email                  String?
+  address                String?
+  city                   String?
+  state                  String?
+  zipCode                String?
+  openingTime            String                 @default("08:00")
+  closingTime            String                 @default("20:00")
+  slotIntervalMinutes    Int                    @default(30)
+  logoUrl                String?
+  stripeCustomerId       String?                @unique
+  billingBypassEnabled   Boolean                @default(false)
+  billingBypassReason    String?
   billingBypassUpdatedAt DateTime?
-  referredByCode      String?
-  referredByTenantId  String?
-  notes               String?               @db.Text
-  businessSegment     TenantBusinessSegment?
-  setupCompletedAt    DateTime?
-  setupSkippedAt      DateTime?
-  isActive            Boolean               @default(true)
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  referredByCode         String?
+  referredByTenantId     String?
+  notes                  String?                @db.Text
+  businessSegment        TenantBusinessSegment?
+  setupCompletedAt       DateTime?
+  setupSkippedAt         DateTime?
+  isActive               Boolean                @default(true)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
   // Relacionamentos
   users                User[]
@@ -81,6 +81,8 @@ model Tenant {
   revenueGoals         RevenueGoal[]
   commissionPayouts    CommissionPayout[]
   auditLogs            AuditLog[]
+  botAutomations       BotAutomation[]
+  botAutomationLogs    BotAutomationLog[]
 
   @@map("tenants")
 }
@@ -236,16 +238,16 @@ model StripeEvent {
 }
 
 model EmailLog {
-  id         String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  template    String
-  recipient   String
-  status      String
-  providerId  String?
-  error       String?  @db.Text
-  sentAt      DateTime?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template   String
+  recipient  String
+  status     String
+  providerId String?
+  error      String?   @db.Text
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([tenantId, template, createdAt])
   @@map("email_logs")
@@ -536,36 +538,38 @@ enum Gender {
 }
 
 model Customer {
-  id           String    @id @default(cuid())
-  tenantId     String
-  name         String
-  email        String?
-  phone        String?
-  document     String? // CPF
-  birthDate    DateTime?
-  gender       Gender    @default(NOT_INFORMED)
-  address      String?
-  zipCode      String?
-  street       String?
-  number       String?
-  complement   String?
-  neighborhood String?
-  city         String?
-  state        String?
-  notes        String?   @db.Text // Observações gerais
-  totalSpent   Decimal   @default(0) @db.Decimal(12, 2) // LTV acumulado
-  visitCount   Int       @default(0) // Total de visitas finalizadas
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime? // Soft delete
+  id                String    @id @default(cuid())
+  tenantId          String
+  name              String
+  email             String?
+  phone             String?
+  document          String? // CPF
+  birthDate         DateTime?
+  gender            Gender    @default(NOT_INFORMED)
+  address           String?
+  zipCode           String?
+  street            String?
+  number            String?
+  complement        String?
+  neighborhood      String?
+  city              String?
+  state             String?
+  notes             String?   @db.Text // Observações gerais
+  totalSpent        Decimal   @default(0) @db.Decimal(12, 2) // LTV acumulado
+  visitCount        Int       @default(0) // Total de visitas finalizadas
+  isActive          Boolean   @default(true)
+  optOutAutomations Boolean   @default(false) // Cliente optou por não receber automações
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime? // Soft delete
 
   // Relacionamentos
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments     Appointment[]
   anamnesisRecords AnamnesisRecord[]
   customerPackages CustomerPackage[]
   media            Media[] // Fotos de evolução, antes/depois
+  automationLogs   BotAutomationLog[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -1305,4 +1309,86 @@ model AuditLog {
   @@index([tenantId, action])
   @@index([tenantId, userId])
   @@map("audit_logs")
+}
+
+// ============================================================
+// BOT AUTOMATIONS — Mensagens proativas via WhatsApp Cloud API
+// ============================================================
+enum BotAutomationType {
+  BIRTHDAY
+  INACTIVE
+  POST_APPOINTMENT
+  RESCHEDULE
+}
+
+enum MetaTemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  DELETED
+}
+
+enum BotAutomationLogStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum BotAutomationSkipReason {
+  OPT_OUT
+  NO_PHONE
+  TEMPLATE_NOT_APPROVED
+  ALREADY_SENT
+  DISABLED
+}
+
+model BotAutomation {
+  id                          String             @id @default(cuid())
+  tenantId                    String
+  type                        BotAutomationType
+  enabled                     Boolean            @default(false)
+  templateText                String             @db.Text
+  windowDays                  Int? // Usado apenas pelo INACTIVE
+  metaTemplateName            String?
+  metaTemplateLanguage        String             @default("pt_BR")
+  metaCategory                String             @default("MARKETING")
+  metaTemplateStatus          MetaTemplateStatus @default(DRAFT)
+  metaTemplateRejectionReason String?
+  metaLastSyncedAt            DateTime?
+  variableMap                 Json // [{position:1, varName:"nome"}, ...]
+  createdAt                   DateTime           @default(now())
+  updatedAt                   DateTime           @updatedAt
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logs   BotAutomationLog[]
+
+  @@unique([tenantId, type])
+  @@index([tenantId])
+  @@index([metaTemplateStatus])
+  @@map("bot_automations")
+}
+
+model BotAutomationLog {
+  id              String                   @id @default(cuid())
+  tenantId        String
+  customerId      String?
+  automationType  BotAutomationType
+  automationId    String?
+  appointmentId   String? // snapshot — sem FK
+  sentAt          DateTime                 @default(now())
+  status          BotAutomationLogStatus
+  skipReason      BotAutomationSkipReason?
+  errorMessage    String?
+  metaMessageId   String?
+  renderedMessage String                   @db.Text
+
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  automation BotAutomation? @relation(fields: [automationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, sentAt(sort: Desc)])
+  @@index([tenantId, customerId, automationType, sentAt])
+  @@index([tenantId, status])
+  @@map("bot_automation_logs")
 }

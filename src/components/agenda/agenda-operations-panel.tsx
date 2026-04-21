@@ -28,7 +28,6 @@ import {
 } from "@/lib/appointments/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -100,15 +99,18 @@ const STATUS_DESCRIPTIONS: Record<AppointmentWorkflowStatus, string> = {
   NO_SHOW: "Clientes que não compareceram ao agendamento.",
 };
 
-const STATUS_COUNTER_COLORS: Record<AppointmentWorkflowStatus, string> = {
-  SCHEDULED: "border-t-2 border-t-blue-400",
-  CONFIRMED: "border-t-2 border-t-emerald-400",
-  WAITING: "border-t-2 border-t-amber-400",
-  IN_PROGRESS: "border-t-2 border-t-purple-400",
-  COMPLETED: "border-t-2 border-t-slate-300",
-  PAID: "border-t-2 border-t-emerald-500",
-  CANCELLED: "border-t-2 border-t-red-400",
-  NO_SHOW: "border-t-2 border-t-orange-400",
+const STATUS_PILL_COLORS: Record<
+  AppointmentWorkflowStatus,
+  { dot: string; tint: string }
+> = {
+  SCHEDULED: { dot: "bg-blue-500", tint: "hover:bg-blue-500/6" },
+  CONFIRMED: { dot: "bg-emerald-500", tint: "hover:bg-emerald-500/6" },
+  WAITING: { dot: "bg-amber-500", tint: "hover:bg-amber-500/6" },
+  IN_PROGRESS: { dot: "bg-purple-500", tint: "hover:bg-purple-500/6" },
+  COMPLETED: { dot: "bg-slate-400", tint: "hover:bg-slate-500/6" },
+  PAID: { dot: "bg-emerald-600", tint: "hover:bg-emerald-600/6" },
+  CANCELLED: { dot: "bg-red-500", tint: "hover:bg-red-500/6" },
+  NO_SHOW: { dot: "bg-orange-500", tint: "hover:bg-orange-500/6" },
 };
 
 const STATUS_ICONS: Record<
@@ -160,33 +162,71 @@ export function AgendaOperationsPanel({
     }));
   }, [groupedAppointments]);
 
+  const totalCount = counters.reduce((sum, c) => sum + c.count, 0);
+
   return (
-    <section className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Operação da Agenda</h3>
-          <p className="text-sm text-muted-foreground">
-            Confirmação, recepção, andamento e encerramento dos atendimentos de{" "}
-            <span className="font-medium text-foreground capitalize">{dateLabel}</span>.
-          </p>
+    <section className="flex flex-col gap-[18px]">
+      {/* Status strip — 8 colunas com dot + label + count */}
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-[22px] bg-card px-6 py-5",
+          "shadow-[0_1px_2px_rgba(15,23,42,0.04),_0_8px_24px_-12px_rgba(15,23,42,0.06)]"
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-[18px] left-0 w-[3px] rounded-full bg-gradient-to-b from-primary to-chart-2"
+        />
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3 pl-2">
+          <div>
+            <h3 className="text-[19px] font-extrabold tracking-[-0.025em] text-foreground">
+              Operação do dia
+            </h3>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              Confirmação, recepção, andamento e encerramento dos atendimentos de{" "}
+              <b className="font-bold capitalize text-foreground">{dateLabel}</b>.
+            </p>
+          </div>
+          <div className="text-[12px] text-muted-foreground">
+            Total no dia:{" "}
+            <b className="font-bold text-foreground tabular-nums">
+              {totalCount} agendamento(s)
+            </b>
+          </div>
         </div>
         <div
-          className="flex flex-wrap gap-2"
+          className="grid grid-cols-2 gap-2 pl-2 sm:grid-cols-4 xl:grid-cols-8"
           aria-live="polite"
           aria-atomic="true"
         >
-          {counters.map((counter) => (
-            <div
-              key={counter.status}
-              className={cn(
-                "rounded-lg border bg-background px-3 py-2 text-xs",
-                STATUS_COUNTER_COLORS[counter.status]
-              )}
-            >
-              <p className="font-medium text-foreground">{counter.label}</p>
-              <p className="text-muted-foreground">{counter.count} agendamento(s)</p>
-            </div>
-          ))}
+          {counters.map((counter) => {
+            const { dot, tint } = STATUS_PILL_COLORS[counter.status];
+            return (
+              <div
+                key={counter.status}
+                className={cn(
+                  "group flex items-center gap-2.5 rounded-[12px] bg-muted/50 px-3 py-2.5 transition-colors duration-150",
+                  tint
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-full transition-transform duration-150 group-hover:scale-125",
+                    dot
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11.5px] font-semibold text-foreground">
+                    {counter.label}
+                  </p>
+                  <p className="text-[10.5px] text-muted-foreground tabular-nums">
+                    {counter.count} agendamento(s)
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -227,13 +267,11 @@ function LaneGrid({
   financialAccounts: CalendarFinancialAccount[];
 }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </h4>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="flex flex-col gap-3">
+      <h4 className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
+        {title}
+      </h4>
+      <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-4">
         {statuses.map((status) => (
           <StatusLane
             key={status}
@@ -263,29 +301,40 @@ function StatusLane({
   financialAccounts: CalendarFinancialAccount[];
 }) {
   const Icon = STATUS_ICONS[status];
+  const { dot } = STATUS_PILL_COLORS[status];
 
   return (
-    <Card className="min-h-[220px]">
-      <CardHeader className="space-y-2 pb-3">
+    <div
+      className={cn(
+        "relative flex min-h-[240px] flex-col overflow-hidden rounded-[18px] bg-card pb-4 pt-5",
+        "shadow-[0_1px_2px_rgba(15,23,42,0.04),_0_8px_24px_-12px_rgba(15,23,42,0.06)]"
+      )}
+    >
+      <span aria-hidden="true" className={cn("absolute inset-x-0 top-0 h-[3px]", dot)} />
+      <div className="mb-3 space-y-1.5 px-5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
-            <CardTitle className="text-base">{APPOINTMENT_STATUS_LABELS[status]}</CardTitle>
+            <Icon className="h-[15px] w-[15px] text-muted-foreground" aria-hidden={true} />
+            <h5 className="text-[14.5px] font-bold tracking-[-0.01em] text-foreground">
+              {APPOINTMENT_STATUS_LABELS[status]}
+            </h5>
           </div>
-          <Badge
-            variant="outline"
-            className={getLaneCounterBadgeClass(appointments.length)}
+          <span
+            className={cn(
+              "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-bold tabular-nums",
+              getLaneCounterBadgeClass(appointments.length)
+            )}
           >
             {appointments.length}
-          </Badge>
+          </span>
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-[11.5px] leading-[1.45] text-muted-foreground">
           {STATUS_DESCRIPTIONS[status]}
         </p>
-      </CardHeader>
-      <CardContent className="space-y-3">
+      </div>
+      <div className="flex flex-col gap-2.5 px-4">
         {appointments.length === 0 ? (
-          <div className="animate-fade-in rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+          <div className="animate-fade-in rounded-[12px] border border-dashed border-border/70 px-3 py-5 text-center text-[12px] text-muted-foreground/70">
             Nenhum agendamento neste status.
           </div>
         ) : (
@@ -299,17 +348,17 @@ function StatusLane({
             />
           ))
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 function getLaneCounterBadgeClass(count: number) {
   if (count === 0) {
-    return "border-border bg-muted/50 text-muted-foreground";
+    return "bg-muted/70 text-muted-foreground";
   }
 
-  return "border-primary bg-primary text-primary-foreground";
+  return "bg-primary text-primary-foreground shadow-sm shadow-primary/25";
 }
 
 function OperationalAppointmentCard({
@@ -464,33 +513,44 @@ function OperationalAppointmentCard({
     minute: "2-digit",
   });
 
+  const { dot } = STATUS_PILL_COLORS[normalizedStatus];
+
   return (
-    <div className="animate-fade-in-up rounded-xl border bg-background/70 p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="group animate-fade-in-up relative overflow-hidden rounded-[14px] bg-muted/40 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted/70 hover:shadow-md">
+      <span
+        aria-hidden="true"
+        className={cn("absolute inset-y-2 left-0 w-[2.5px] rounded-full", dot)}
+      />
+      <div className="flex items-start justify-between gap-3 pl-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{appointment.customerName}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="truncate text-[13px] font-bold text-foreground">
+            {appointment.customerName}
+          </p>
+          <p className="mt-0.5 text-[11.5px] text-muted-foreground tabular-nums">
             {timeLabel} · {appointment.professionalName}
           </p>
         </div>
-        <Badge variant={APPOINTMENT_STATUS_BADGE_VARIANTS[normalizedStatus]}>
+        <Badge
+          variant={APPOINTMENT_STATUS_BADGE_VARIANTS[normalizedStatus]}
+          className="shrink-0 text-[10px]"
+        >
           {getAppointmentStatusLabel(appointment.status)}
         </Badge>
       </div>
 
-      <div className="mt-2 space-y-1">
-        <p className="line-clamp-2 text-xs text-muted-foreground">
+      <div className="mt-2 space-y-1 pl-2">
+        <p className="line-clamp-2 text-[11.5px] text-muted-foreground">
           {appointment.services.join(", ")}
         </p>
         {appointment.totalPrice > 0 && (
-          <p className="text-xs font-medium text-foreground">
+          <p className="text-[12px] font-semibold text-foreground tabular-nums">
             R$ {appointment.totalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </p>
         )}
       </div>
 
       {availableActions.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5 pl-2">
           {availableActions.map((action) => {
             const Icon = action.icon;
             return (
@@ -500,7 +560,7 @@ function OperationalAppointmentCard({
                 variant={action.variant}
                 disabled={isPending}
                 onClick={() => handleActionClick(action.nextStatus)}
-                className="min-h-[36px] min-w-[44px]"
+                className="h-8 gap-1 rounded-[9px] text-[11.5px]"
               >
                 <Icon className="h-3 w-3" aria-hidden={true} />
                 {action.label}

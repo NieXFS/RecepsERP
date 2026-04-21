@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import { updateBotConfigAction } from "@/actions/bot-config.actions";
 import { Button } from "@/components/ui/button";
 import type { BotSettingsRecord } from "@/services/bot-config.service";
+import type { BotAutomationVM } from "@/services/bot-automation.service";
 import { AnaHero } from "./ana-hero";
 import { AnaPersonalitySection } from "./ana-personality-section";
 import { AnaMessagesSection } from "./ana-messages-section";
+import { AnaAutomationsSection } from "./ana-automations-section";
 import { AnaHoursSection } from "./ana-hours-section";
 import { AnaWhatsAppPreview } from "./ana-whatsapp-preview";
 import { AnaStatusPanel } from "./ana-status-panel";
@@ -50,7 +52,15 @@ function shallowEqual(a: AnaFormState, b: AnaFormState) {
   );
 }
 
-export function AnaStudio({ settings }: { settings: BotSettingsRecord }) {
+export function AnaStudio({
+  settings,
+  automations,
+  tenantName,
+}: {
+  settings: BotSettingsRecord;
+  automations: BotAutomationVM[];
+  tenantName: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [baseline, setBaseline] = useState<AnaFormState>(() => toFormState(settings));
@@ -126,6 +136,12 @@ export function AnaStudio({ settings }: { settings: BotSettingsRecord }) {
             style={{ animation: "fade-in-up 0.4s cubic-bezier(0.2,0,0,1) both", animationDelay: "160ms" }}
           />
 
+          <AnaAutomationsSection
+            automations={automations}
+            tenantName={tenantName}
+            style={{ animation: "fade-in-up 0.4s cubic-bezier(0.2,0,0,1) both", animationDelay: "220ms" }}
+          />
+
           <AnaHoursSection
             botIsAlwaysActive={form.botIsAlwaysActive}
             botActiveStart={form.botActiveStart}
@@ -135,7 +151,7 @@ export function AnaStudio({ settings }: { settings: BotSettingsRecord }) {
             onStartChange={(value) => update("botActiveStart", value)}
             onEndChange={(value) => update("botActiveEnd", value)}
             onTimezoneChange={(value) => update("timezone", value)}
-            style={{ animation: "fade-in-up 0.4s cubic-bezier(0.2,0,0,1) both", animationDelay: "240ms" }}
+            style={{ animation: "fade-in-up 0.4s cubic-bezier(0.2,0,0,1) both", animationDelay: "300ms" }}
           />
 
           <div

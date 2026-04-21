@@ -72,13 +72,13 @@ export function AppointmentCard({
         }
       }}
       className={cn(
-        "absolute left-1 right-1 z-10 overflow-hidden rounded-md border cursor-pointer",
-        "transition-all duration-200 ease-out",
-        "hover:z-20 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-lg",
-        "active:scale-[0.98] active:shadow-sm",
-        isCompact ? "px-1.5 py-0.5" : "px-2 py-1",
+        "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-[10px] cursor-pointer",
+        "transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
+        "shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
+        "hover:z-20 hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-lg hover:shadow-primary/15",
+        "active:scale-[0.98]",
+        isCompact ? "px-2 py-1" : "px-2.5 py-1.5",
         style.bg,
-        style.border,
         style.leftBorder,
         style.text
       )}

@@ -162,7 +162,7 @@ export default async function DashboardLayout({
           userRole={user.role}
           sidebarProps={sidebarProps}
         />
-        <main className="flex-1 overflow-y-auto bg-muted/30 p-6">
+        <main className="flex-1 overflow-y-auto bg-muted/40 px-4 pb-14 pt-6 sm:px-10">
           {mainContent}
         </main>
         <WhatsAppFab
