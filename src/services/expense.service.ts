@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { recordAudit, computeDiff, type AuditActor } from "@/lib/audit";
 import {
   addMonthsToCivilMonth,
   civilDateToLocalDate,
@@ -370,7 +371,8 @@ export async function getMonthlyExpenses(
  */
 export async function createExpense(
   tenantId: string,
-  input: ExpenseInput
+  input: ExpenseInput,
+  actor?: AuditActor
 ): Promise<ActionResult<{ expenseId: string }>> {
   const dueDate = parseCivilDate(input.dueDate);
 
@@ -383,7 +385,7 @@ export async function createExpense(
       id: input.categoryId,
       tenantId,
     },
-    select: { id: true },
+    select: { id: true, name: true },
   });
 
   if (!category) {
@@ -410,21 +412,49 @@ export async function createExpense(
       ? randomUUID()
       : null;
 
-  const expense = await db.expense.create({
-    data: {
-      tenantId,
-      categoryId: input.categoryId,
-      accountId: input.accountId ?? null,
-      description: input.description.trim(),
-      type: input.type,
-      amount: input.amount,
-      dueDate: civilDateToLocalDate(dueDate, { hour: 12 }),
-      status: "PENDING",
-      recurrence: input.type === "FIXED" ? input.recurrence : "NONE",
-      recurrenceGroupId,
-      notes: input.notes?.trim() || null,
-    },
-    select: { id: true },
+  const dueDateValue = civilDateToLocalDate(dueDate, { hour: 12 });
+  const expense = await db.$transaction(async (tx) => {
+    const created = await tx.expense.create({
+      data: {
+        tenantId,
+        categoryId: input.categoryId,
+        accountId: input.accountId ?? null,
+        description: input.description.trim(),
+        type: input.type,
+        amount: input.amount,
+        dueDate: dueDateValue,
+        status: "PENDING",
+        recurrence: input.type === "FIXED" ? input.recurrence : "NONE",
+        recurrenceGroupId,
+        notes: input.notes?.trim() || null,
+      },
+      select: { id: true },
+    });
+
+    if (actor) {
+      await recordAudit(tx, {
+        tenantId,
+        actor,
+        action: "CREATE",
+        entityType: "Expense",
+        entityId: created.id,
+        summary: `Despesa criada: ${input.description.trim()} · ${Number(input.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} · ${category.name}`,
+        snapshot: {
+          description: input.description.trim(),
+          type: input.type,
+          amount: Number(input.amount),
+          categoryId: input.categoryId,
+          categoryName: category.name,
+          accountId: input.accountId ?? null,
+          dueDate: dueDateValue.toISOString(),
+          recurrence: input.type === "FIXED" ? input.recurrence : "NONE",
+          recurrenceGroupId,
+          notes: input.notes?.trim() || null,
+        },
+      });
+    }
+
+    return created;
   });
 
   return {
@@ -440,7 +470,8 @@ export async function createExpense(
 export async function updateExpense(
   tenantId: string,
   expenseId: string,
-  input: Partial<ExpenseInput>
+  input: Partial<ExpenseInput>,
+  actor?: AuditActor
 ): Promise<ActionResult<{ expenseId: string }>> {
   const nextDueDate = input.dueDate ? parseCivilDate(input.dueDate) : null;
 
@@ -503,34 +534,94 @@ export async function updateExpense(
       ? "NONE"
       : input.recurrence;
 
-  await db.expense.update({
-    where: { id: expenseId },
-    data: {
-      categoryId: input.categoryId,
-      accountId: input.accountId !== undefined ? input.accountId : undefined,
-      description: input.description?.trim(),
-      type: nextType,
-      amount: input.amount,
-      dueDate: nextDueDate
-        ? civilDateToLocalDate(nextDueDate, { hour: 12 })
-        : undefined,
-      recurrence:
-        nextRecurrence ??
-        (nextType === "VARIABLE" ? "NONE" : undefined),
-      recurrenceGroupId:
-        nextType === "VARIABLE"
-          ? null
-          : input.recurrence && input.recurrence !== "NONE"
-            ? expense.recurrenceGroupId ?? randomUUID()
-            : input.recurrence === "NONE"
-              ? null
-              : undefined,
-      notes: input.notes != null ? input.notes.trim() || null : undefined,
-      status:
-        expense.status === "CANCELLED"
-          ? "PENDING"
+  const auditFields = [
+    "description",
+    "type",
+    "amount",
+    "dueDate",
+    "categoryId",
+    "accountId",
+    "recurrence",
+    "notes",
+    "status",
+  ] as const;
+
+  await db.$transaction(async (tx) => {
+    const before = await tx.expense.findFirst({
+      where: { id: expenseId, tenantId, deletedAt: null },
+      select: {
+        description: true,
+        type: true,
+        amount: true,
+        dueDate: true,
+        categoryId: true,
+        accountId: true,
+        recurrence: true,
+        notes: true,
+        status: true,
+      },
+    });
+
+    await tx.expense.update({
+      where: { id: expenseId },
+      data: {
+        categoryId: input.categoryId,
+        accountId: input.accountId !== undefined ? input.accountId : undefined,
+        description: input.description?.trim(),
+        type: nextType,
+        amount: input.amount,
+        dueDate: nextDueDate
+          ? civilDateToLocalDate(nextDueDate, { hour: 12 })
           : undefined,
-    },
+        recurrence:
+          nextRecurrence ??
+          (nextType === "VARIABLE" ? "NONE" : undefined),
+        recurrenceGroupId:
+          nextType === "VARIABLE"
+            ? null
+            : input.recurrence && input.recurrence !== "NONE"
+              ? expense.recurrenceGroupId ?? randomUUID()
+              : input.recurrence === "NONE"
+                ? null
+                : undefined,
+        notes: input.notes != null ? input.notes.trim() || null : undefined,
+        status:
+          expense.status === "CANCELLED"
+            ? "PENDING"
+            : undefined,
+      },
+    });
+
+    if (actor) {
+      const after = await tx.expense.findFirst({
+        where: { id: expenseId, tenantId, deletedAt: null },
+        select: {
+          description: true,
+          type: true,
+          amount: true,
+          dueDate: true,
+          categoryId: true,
+          accountId: true,
+          recurrence: true,
+          notes: true,
+          status: true,
+        },
+      });
+
+      const diff = computeDiff(before, after, auditFields);
+
+      if (diff) {
+        await recordAudit(tx, {
+          tenantId,
+          actor,
+          action: "UPDATE",
+          entityType: "Expense",
+          entityId: expenseId,
+          summary: `Despesa atualizada: ${after?.description ?? ""}`,
+          changes: diff,
+        });
+      }
+    }
   });
 
   return {
@@ -545,7 +636,8 @@ export async function updateExpense(
 export async function markExpenseAsPaid(
   tenantId: string,
   expenseId: string,
-  accountId?: string | null
+  accountId?: string | null,
+  actor?: AuditActor
 ): Promise<ActionResult<{ expenseId: string; transactionId: string }>> {
   try {
     const result = await db.$transaction(async (tx) => {
@@ -637,6 +729,31 @@ export async function markExpenseAsPaid(
         },
       });
 
+      if (actor) {
+        const amountNumber = Number(expense.amount);
+        const formatted = amountNumber.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        await recordAudit(tx, {
+          tenantId,
+          actor,
+          action: "PAYMENT_MARKED",
+          entityType: "Expense",
+          entityId: expense.id,
+          summary: `Despesa paga: ${expense.description} · ${formatted}`,
+          snapshot: {
+            expenseId: expense.id,
+            transactionId: transaction.id,
+            accountId: resolvedAccount?.id ?? null,
+            paidAt: paidAt.toISOString(),
+            amount: amountNumber,
+            categoryName: expense.category.name,
+          },
+          metadata: { transactionId: transaction.id },
+        });
+      }
+
       return {
         expenseId: expense.id,
         transactionId: transaction.id,
@@ -661,7 +778,8 @@ export async function markExpenseAsPaid(
  */
 export async function cancelExpensePayment(
   tenantId: string,
-  expenseId: string
+  expenseId: string,
+  actor?: AuditActor
 ): Promise<ActionResult<{ expenseId: string }>> {
   try {
     const result = await db.$transaction(async (tx) => {
@@ -697,6 +815,8 @@ export async function cancelExpensePayment(
         });
       }
 
+      const removedTransactionId = expense.transaction?.id ?? null;
+
       if (expense.transaction) {
         await tx.transaction.delete({
           where: { id: expense.transaction.id },
@@ -710,6 +830,21 @@ export async function cancelExpensePayment(
           paidAt: null,
         },
       });
+
+      if (actor) {
+        await recordAudit(tx, {
+          tenantId,
+          actor,
+          action: "STATUS_CHANGE",
+          entityType: "Expense",
+          entityId: expense.id,
+          summary: `Pagamento cancelado: ${expense.description}`,
+          changes: {
+            status: { from: "PAID", to: "PENDING" },
+          },
+          metadata: { removedTransactionId },
+        });
+      }
 
       return { expenseId: expense.id };
     });
@@ -732,13 +867,15 @@ export async function cancelExpensePayment(
  */
 export async function cancelExpense(
   tenantId: string,
-  expenseId: string
+  expenseId: string,
+  actor?: AuditActor
 ): Promise<ActionResult<{ expenseId: string }>> {
   const expense = await db.expense.findFirst({
     where: { id: expenseId, tenantId, deletedAt: null },
     select: {
       id: true,
       status: true,
+      description: true,
     },
   });
 
@@ -760,9 +897,27 @@ export async function cancelExpense(
     };
   }
 
-  await db.expense.update({
-    where: { id: expense.id },
-    data: { status: "CANCELLED" },
+  const previousStatus = expense.status;
+
+  await db.$transaction(async (tx) => {
+    await tx.expense.update({
+      where: { id: expense.id },
+      data: { status: "CANCELLED" },
+    });
+
+    if (actor) {
+      await recordAudit(tx, {
+        tenantId,
+        actor,
+        action: "STATUS_CHANGE",
+        entityType: "Expense",
+        entityId: expense.id,
+        summary: `Despesa cancelada: ${expense.description}`,
+        changes: {
+          status: { from: previousStatus, to: "CANCELLED" },
+        },
+      });
+    }
   });
 
   return {
@@ -779,7 +934,8 @@ export async function deleteExpense(
   expenseId: string,
   options?: {
     deleteAllFuture?: boolean;
-  }
+  },
+  actor?: AuditActor
 ): Promise<ActionResult<{ expenseId: string; deletedCount: number }>> {
   const deleteAllFuture = options?.deleteAllFuture ?? false;
 
@@ -793,6 +949,7 @@ export async function deleteExpense(
           dueDate: true,
           recurrence: true,
           recurrenceGroupId: true,
+          description: true,
         },
       });
 
@@ -871,6 +1028,22 @@ export async function deleteExpense(
           },
         });
 
+        if (actor) {
+          await recordAudit(tx, {
+            tenantId,
+            actor,
+            action: "DELETE",
+            entityType: "Expense",
+            entityId: expense.id,
+            summary: `Despesa recorrente excluída (${deletedExpenses.count} ocorrências): ${expense.description}`,
+            metadata: {
+              recurrenceGroupId: expense.recurrenceGroupId,
+              deletedCount: deletedExpenses.count,
+              deleteAllFuture: true,
+            },
+          });
+        }
+
         return {
           expenseId: expense.id,
           deletedCount: deletedExpenses.count,
@@ -881,6 +1054,18 @@ export async function deleteExpense(
         where: { id: expense.id },
         data: { deletedAt },
       });
+
+      if (actor) {
+        await recordAudit(tx, {
+          tenantId,
+          actor,
+          action: "DELETE",
+          entityType: "Expense",
+          entityId: expense.id,
+          summary: `Despesa excluída: ${expense.description}`,
+          metadata: { deletedCount: 1 },
+        });
+      }
 
       return {
         expenseId: expense.id,

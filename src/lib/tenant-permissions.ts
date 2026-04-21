@@ -15,7 +15,8 @@ export type FinanceSubmoduleKey =
   | "comissoes"
   | "despesas"
   | "extrato"
-  | "caixa";
+  | "caixa"
+  | "auditoria";
 
 export type PermissionModuleKey =
   | "dashboard"
@@ -82,6 +83,7 @@ export const customPermissionsSchema = z
             despesas: permissionScopeInputSchema.optional(),
             extrato: permissionScopeInputSchema.optional(),
             caixa: permissionScopeInputSchema.optional(),
+            auditoria: permissionScopeInputSchema.optional(),
           })
           .partial()
           .optional(),
@@ -124,6 +126,12 @@ export const FINANCIAL_SUBMODULE_DEFINITIONS = [
     label: "Caixa",
     description: "Abertura, fechamento, sangrias, suprimentos e conferência do caixa.",
     href: "/financeiro/caixa",
+  },
+  {
+    key: "auditoria",
+    label: "Auditoria",
+    description: "Trilha de auditoria das ações financeiras: caixa, comissões, despesas, metas e pagamentos.",
+    href: "/financeiro/auditoria",
   },
 ] as const satisfies ReadonlyArray<{
   key: FinanceSubmoduleKey;
@@ -194,6 +202,7 @@ function clonePermissions(permissions: TenantCustomPermissions): TenantCustomPer
         despesas: clonePermissionScope(permissions.financeiro.sub.despesas),
         extrato: clonePermissionScope(permissions.financeiro.sub.extrato),
         caixa: clonePermissionScope(permissions.financeiro.sub.caixa),
+        auditoria: clonePermissionScope(permissions.financeiro.sub.auditoria),
       },
     },
     estoque: clonePermissionScope(permissions.estoque),
@@ -220,6 +229,7 @@ function createEmptyPermissions(): TenantCustomPermissions {
         despesas: createPermissionScope(),
         extrato: createPermissionScope(),
         caixa: createPermissionScope(),
+        auditoria: createPermissionScope(),
       },
     },
     estoque: createPermissionScope(),

@@ -1,6 +1,7 @@
 "use server";
 
 import { requirePermission } from "@/lib/session";
+import { buildUserSnapshot } from "@/lib/audit";
 import {
   createExpenseCategorySchema,
   expenseSchema,
@@ -70,7 +71,7 @@ export async function createExpenseAction(
     };
   }
 
-  return createExpense(session.tenantId, parsed.data);
+  return createExpense(session.tenantId, parsed.data, buildUserSnapshot(session));
 }
 
 /**
@@ -90,7 +91,7 @@ export async function updateExpenseAction(
     };
   }
 
-  return updateExpense(session.tenantId, expenseId, parsed.data);
+  return updateExpense(session.tenantId, expenseId, parsed.data, buildUserSnapshot(session));
 }
 
 /**
@@ -101,7 +102,12 @@ export async function markExpenseAsPaidAction(data: {
   accountId?: string | null;
 }): Promise<ActionResult<{ expenseId: string; transactionId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return markExpenseAsPaid(session.tenantId, data.expenseId, data.accountId);
+  return markExpenseAsPaid(
+    session.tenantId,
+    data.expenseId,
+    data.accountId,
+    buildUserSnapshot(session)
+  );
 }
 
 /**
@@ -111,7 +117,7 @@ export async function cancelExpensePaymentAction(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return cancelExpensePayment(session.tenantId, expenseId);
+  return cancelExpensePayment(session.tenantId, expenseId, buildUserSnapshot(session));
 }
 
 /**
@@ -121,7 +127,7 @@ export async function cancelExpenseAction(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return cancelExpense(session.tenantId, expenseId);
+  return cancelExpense(session.tenantId, expenseId, buildUserSnapshot(session));
 }
 
 /**
@@ -134,5 +140,5 @@ export async function deleteExpenseAction(
   }
 ): Promise<ActionResult<{ expenseId: string; deletedCount: number }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return deleteExpense(session.tenantId, expenseId, options);
+  return deleteExpense(session.tenantId, expenseId, options, buildUserSnapshot(session));
 }

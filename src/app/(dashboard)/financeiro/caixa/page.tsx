@@ -10,11 +10,16 @@ import { hasPermission } from "@/lib/tenant-permissions";
 import {
   getCashOverviewSummary,
   getCashRegisterOverview,
-  getOpenSessionTransactions,
+  getCashSessionMovements,
+  getRecentCashSessions,
 } from "@/services/financial.service";
 import { CashRegisterPanel } from "@/components/financial/cash-register-panel";
 import { CashStatusKpi } from "@/components/financial/overview/CashStatusKpi";
 import { FinancialKpiCard } from "@/components/financial/overview/FinancialKpiCard";
+import {
+  parseHistoryFilters,
+  type CashHistorySearchParams,
+} from "@/lib/cash-history-filters";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -26,19 +31,28 @@ function formatCurrency(value: number) {
 /**
  * Submódulo operacional de caixa com abertura, fechamento e histórico.
  */
-export default async function CashRegisterPage() {
+export default async function CashRegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<CashHistorySearchParams>;
+}) {
   const user = await getAuthUserForPermission("financeiro.caixa", "view");
   const canEdit = hasPermission(user.customPermissions, "financeiro.caixa", "edit");
-  const [overview, summary] = await Promise.all([
+  const resolvedSearchParams = await searchParams;
+  const filters = parseHistoryFilters(resolvedSearchParams);
+
+  const [overview, summary, historyResult] = await Promise.all([
     getCashRegisterOverview(user.tenantId),
     getCashOverviewSummary(user.tenantId),
+    getRecentCashSessions(user.tenantId, {
+      accountId: filters.accountId,
+      from: filters.from,
+      to: filters.to,
+      limit: filters.limit,
+    }),
   ]);
   const sessionMovements = overview.currentSession
-    ? await getOpenSessionTransactions(
-        user.tenantId,
-        overview.currentSession.accountId,
-        new Date(overview.currentSession.openedAt)
-      )
+    ? await getCashSessionMovements(user.tenantId, overview.currentSession.id)
     : [];
 
   const lastDiff = summary.lastClosingDifference;
@@ -142,7 +156,15 @@ export default async function CashRegisterPage() {
         canEdit={canEdit}
         currentSession={overview.currentSession}
         sessionMovements={sessionMovements}
-        recentSessions={overview.recentSessions}
+        recentSessions={historyResult.sessions}
+        historyHasMore={historyResult.hasMore}
+        historyFilters={{
+          accountId: filters.accountId ?? "",
+          fromInput: filters.fromInput,
+          toInput: filters.toInput,
+          limit: filters.limit,
+        }}
+        lastClosedAccountBalances={overview.lastClosedAccountBalances}
       />
     </div>
   );

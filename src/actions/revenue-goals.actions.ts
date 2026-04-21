@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requirePermission } from "@/lib/session";
+import { buildUserSnapshot } from "@/lib/audit";
 import { upsertRevenueGoal } from "@/services/revenue-goal.service";
 import type { ActionResult } from "@/types";
 
@@ -36,6 +37,7 @@ export async function setRevenueGoalAction(
       month: parsed.data.month,
       targetAmount: parsed.data.targetAmount,
       userId: session.id,
+      actor: buildUserSnapshot(session),
     });
     revalidatePath("/financeiro");
     return { success: true, data: { month: saved.month } };

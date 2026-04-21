@@ -7,14 +7,23 @@ import {
 import { getAuthUserForPermission } from "@/lib/session";
 import { hasPermission } from "@/lib/tenant-permissions";
 import { db } from "@/lib/db";
+import { getCommissionsOverview } from "@/services/financial.service";
 import {
-  getCommissionsOverview,
-  getCommissionsSummaryByProfessional,
-} from "@/services/financial.service";
-import { CommissionPanel } from "@/components/financial/commission-panel";
+  getCommissionPayoutHistory,
+  getPayableCommissions,
+} from "@/services/commission-payout.service";
+import { CommissionSelectionProvider } from "@/components/financial/commission-selection-provider";
 import { ExportButton } from "@/components/financial/export-button";
 import { FinancialKpiCard } from "@/components/financial/overview/FinancialKpiCard";
 import { KpiTrendIndicator } from "@/components/financial/overview/KpiTrendIndicator";
+import { PayoutHistoryView } from "@/components/financial/payout-history-view";
+import { PendingCommissionsView } from "@/components/financial/pending-commissions-view";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -28,14 +37,12 @@ function formatCurrency(value: number) {
  */
 export default async function FinancialCommissionsPage() {
   const user = await getAuthUserForPermission("financeiro.comissoes", "view");
-  const canEdit = hasPermission(user.customPermissions, "financeiro.comissoes", "edit");
+  const canPay = hasPermission(user.customPermissions, "financeiro.comissoes", "edit");
   const canExport = hasPermission(user.customPermissions, "financeiro.comissoes", "view");
 
-  const [professionals, accounts, overview] = await Promise.all([
-    getCommissionsSummaryByProfessional(user.tenantId, {
-      userId: user.id,
-      role: user.role,
-    }),
+  const [payable, payoutHistory, accounts, overview] = await Promise.all([
+    getPayableCommissions(user.tenantId),
+    getCommissionPayoutHistory(user.tenantId),
     db.financialAccount.findMany({
       where: { tenantId: user.tenantId, isActive: true },
       select: { id: true, name: true, type: true },
@@ -123,11 +130,24 @@ export default async function FinancialCommissionsPage() {
         />
       </section>
 
-      <CommissionPanel
-        professionals={professionals}
-        accounts={serializedAccounts}
-        canEdit={canEdit}
-      />
+      <Tabs defaultValue="pending" className="gap-4">
+        <TabsList>
+          <TabsTrigger value="pending">Pendentes</TabsTrigger>
+          <TabsTrigger value="closed">Acertos fechados</TabsTrigger>
+        </TabsList>
+        <TabsContent value="pending">
+          <CommissionSelectionProvider>
+            <PendingCommissionsView
+              commissions={payable}
+              accounts={serializedAccounts}
+              canPay={canPay}
+            />
+          </CommissionSelectionProvider>
+        </TabsContent>
+        <TabsContent value="closed">
+          <PayoutHistoryView payouts={payoutHistory} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

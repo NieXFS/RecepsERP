@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireModuleAccess, requirePermission } from "@/lib/session";
 import type { PaymentMethodValue } from "@/lib/payment-methods";
 import {
@@ -7,18 +8,22 @@ import {
   closeCashRegister,
   createManualCashTransaction,
   getCashRegisterOverview,
+  getCashSessionDetail,
   getFinancialStatement,
   payCommissions,
   getPendingCommissions,
   getCommissionsSummaryByProfessional,
   openCashRegister,
+  recordCashMovement,
   settleCommissions,
 } from "@/services/financial.service";
 import {
+  cashMovementSchema,
   closeCashRegisterSchema,
   manualCashTransactionSchema,
   openCashRegisterSchema,
 } from "@/lib/validators/financial";
+import { buildUserSnapshot } from "@/lib/audit";
 import type { ActionResult } from "@/types";
 
 /**
@@ -34,10 +39,15 @@ export async function checkoutAppointmentAction(
   }
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
   const session = await requireModuleAccess("AGENDA", "edit");
-  return checkoutAppointment(session.tenantId, appointmentId, {
-    ...options,
-    finalStatus: "PAID",
-  });
+  return checkoutAppointment(
+    session.tenantId,
+    appointmentId,
+    {
+      ...options,
+      finalStatus: "PAID",
+    },
+    buildUserSnapshot(session)
+  );
 }
 
 /**
@@ -49,7 +59,7 @@ export async function payCommissionsAction(
 ): Promise<ActionResult<{ paidCount: number }>> {
   const session = await requirePermission("financeiro.comissoes", "edit");
 
-  return payCommissions(session.tenantId, commissionIds);
+  return payCommissions(session.tenantId, commissionIds, buildUserSnapshot(session));
 }
 
 /**
@@ -87,7 +97,7 @@ export async function settleCommissionsAction(
 ): Promise<ActionResult<{ paidCount: number; expenseTransactionId: string }>> {
   const session = await requirePermission("financeiro.comissoes", "edit");
 
-  return settleCommissions(session.tenantId, professionalId, accountId);
+  return settleCommissions(session.tenantId, professionalId, accountId, buildUserSnapshot(session));
 }
 
 /**
@@ -121,6 +131,15 @@ export async function getCashRegisterOverviewAction() {
 }
 
 /**
+ * Server Action: detalhe de uma sessão de caixa (para drill-down no histórico).
+ * Leitura pura — não invalida caches.
+ */
+export async function getCashSessionDetailAction(sessionId: string) {
+  const session = await requirePermission("financeiro.caixa", "view");
+  return getCashSessionDetail(session.tenantId, sessionId);
+}
+
+/**
  * Server Action: abre o caixa operacional para o tenant autenticado.
  */
 export async function openCashRegisterAction(data: {
@@ -135,7 +154,12 @@ export async function openCashRegisterAction(data: {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  return openCashRegister(session.tenantId, session.id, parsed.data);
+  return openCashRegister(
+    session.tenantId,
+    session.id,
+    parsed.data,
+    buildUserSnapshot(session)
+  );
 }
 
 /**
@@ -153,11 +177,18 @@ export async function closeCashRegisterAction(data: {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  return closeCashRegister(session.tenantId, session.id, parsed.data);
+  return closeCashRegister(
+    session.tenantId,
+    session.id,
+    parsed.data,
+    buildUserSnapshot(session)
+  );
 }
 
 /**
- * Server Action: registra sangria ou suprimento diretamente no caixa aberto.
+ * Server Action: registra uma movimentação "livre" diretamente no caixa aberto.
+ * Mantido para compatibilidade; novos fluxos de sangria/reforço devem usar
+ * `recordCashMovementAction`.
  */
 export async function createManualCashTransactionAction(data: {
   accountId: string;
@@ -174,4 +205,36 @@ export async function createManualCashTransactionAction(data: {
   }
 
   return createManualCashTransaction(session.tenantId, parsed.data);
+}
+
+/**
+ * Server Action: registra uma sangria ou reforço vinculado à sessão de caixa aberta.
+ */
+export async function recordCashMovementAction(data: {
+  sessionId: string;
+  type: "WITHDRAWAL" | "REINFORCEMENT";
+  amount: number;
+  reason: string;
+  notes?: string;
+}): Promise<ActionResult<{ transactionId: string }>> {
+  const session = await requirePermission("financeiro.caixa", "edit");
+  const parsed = cashMovementSchema.safeParse(data);
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const result = await recordCashMovement(
+    session.tenantId,
+    session.id,
+    parsed.data,
+    buildUserSnapshot(session)
+  );
+
+  if (result.success) {
+    revalidatePath("/financeiro/caixa");
+    revalidatePath("/financeiro");
+  }
+
+  return result;
 }

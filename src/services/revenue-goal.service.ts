@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { recordAudit, type AuditActor } from "@/lib/audit";
 import { getProjectedIncomeBetween } from "@/services/financial.service";
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -86,6 +87,7 @@ type UpsertRevenueGoalInput = {
   month: string;
   targetAmount: number;
   userId: string;
+  actor?: AuditActor;
 };
 
 /**
@@ -104,21 +106,56 @@ export async function upsertRevenueGoal(
 
   const amount = roundCurrency(input.targetAmount);
 
-  const record = await db.revenueGoal.upsert({
-    where: { tenantId_month: { tenantId: input.tenantId, month: input.month } },
-    update: {
-      targetAmount: amount,
-      createdById: input.userId,
-    },
-    create: {
-      tenantId: input.tenantId,
-      month: input.month,
-      targetAmount: amount,
-      createdById: input.userId,
-    },
-    include: {
-      createdBy: { select: { id: true, name: true } },
-    },
+  const record = await db.$transaction(async (tx) => {
+    const previous = await tx.revenueGoal.findUnique({
+      where: { tenantId_month: { tenantId: input.tenantId, month: input.month } },
+      select: { targetAmount: true },
+    });
+
+    const saved = await tx.revenueGoal.upsert({
+      where: { tenantId_month: { tenantId: input.tenantId, month: input.month } },
+      update: {
+        targetAmount: amount,
+        createdById: input.userId,
+      },
+      create: {
+        tenantId: input.tenantId,
+        month: input.month,
+        targetAmount: amount,
+        createdById: input.userId,
+      },
+      include: {
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+
+    if (input.actor) {
+      const previousAmount = previous ? Number(previous.targetAmount) : null;
+      const formattedAmount = amount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+      const summary = previousAmount == null
+        ? `Meta de ${input.month} definida em ${formattedAmount}`
+        : `Meta de ${input.month} atualizada para ${formattedAmount}`;
+      await recordAudit(tx, {
+        tenantId: input.tenantId,
+        actor: input.actor,
+        action: "GOAL_SET",
+        entityType: "RevenueGoal",
+        entityId: saved.id,
+        summary,
+        changes: previousAmount != null && previousAmount !== amount
+          ? { targetAmount: { from: previousAmount, to: amount } }
+          : undefined,
+        snapshot: {
+          month: input.month,
+          targetAmount: amount,
+        },
+      });
+    }
+
+    return saved;
   });
 
   return {

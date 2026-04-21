@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { recordAudit, type AuditActor } from "@/lib/audit";
 import {
   normalizeAppointmentStatus,
   type AppointmentStoredStatus,
@@ -18,12 +19,51 @@ import {
   type PaymentMethodValue,
 } from "@/lib/payment-methods";
 import type { Role } from "@/generated/prisma/enums";
-import type {
-  CloseCashRegisterInput,
-  ManualCashTransactionInput,
-  OpenCashRegisterInput,
-} from "@/lib/validators/financial";
+import {
+  closeCashRegister,
+  createManualCashTransaction,
+  getCashRegisterOverview,
+  getCashSessionDetail,
+  getCashSessionMovements,
+  getOpenSessionTransactions,
+  getRecentCashSessions,
+  openCashRegister,
+  recordCashMovement,
+  type CashAccountOption,
+  type CashRegisterOverview,
+  type CashSessionDetail,
+  type CashSessionHistoryFilters,
+  type CashSessionHistoryResult,
+  type CashSessionMovement,
+  type CashSessionMovementKind,
+  type CashSessionPaymentMethodSale,
+  type CashSessionSummary,
+} from "@/services/cash-register.service";
 import type { ActionResult } from "@/types";
+
+// Re-exports mantidos para compatibilidade com imports antigos.
+export {
+  closeCashRegister,
+  createManualCashTransaction,
+  getCashRegisterOverview,
+  getCashSessionDetail,
+  getCashSessionMovements,
+  getOpenSessionTransactions,
+  getRecentCashSessions,
+  openCashRegister,
+  recordCashMovement,
+};
+export type {
+  CashAccountOption,
+  CashRegisterOverview,
+  CashSessionDetail,
+  CashSessionHistoryFilters,
+  CashSessionHistoryResult,
+  CashSessionMovement,
+  CashSessionMovementKind,
+  CashSessionPaymentMethodSale,
+  CashSessionSummary,
+};
 
 type CheckoutOptions = {
   paymentMethod?: PaymentMethodValue;
@@ -56,43 +96,8 @@ export type FinancialAlert = {
 type StatementTypeFilter = "ALL" | "INCOME" | "EXPENSE";
 type StatementStatusFilter = "ALL" | "PENDING" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED";
 
-type AppointmentDescriptionInput = {
-  customerName: string | null | undefined;
-  serviceNames: string[];
-  installmentNumber?: number | null;
-  totalInstallments?: number | null;
-};
-
-/**
- * Monta a descrição humana de uma transação vinculada a agendamento.
- * Formato: "Cliente — Serviço" ou "Cliente — Serviço +N" / "Cliente — Serviço (i/N)".
- */
-export function buildAppointmentDescription(
-  input: AppointmentDescriptionInput
-): string {
-  const customer = input.customerName?.trim() || "Cliente avulso";
-  const services = input.serviceNames.filter(Boolean);
-
-  let servicePart: string;
-  if (services.length === 0) {
-    servicePart = "Atendimento";
-  } else if (services.length === 1) {
-    servicePart = services[0]!;
-  } else {
-    servicePart = `${services[0]} +${services.length - 1}`;
-  }
-
-  const hasInstallments =
-    typeof input.installmentNumber === "number" &&
-    typeof input.totalInstallments === "number" &&
-    input.totalInstallments > 1;
-
-  const installmentPart = hasInstallments
-    ? ` (${input.installmentNumber}/${input.totalInstallments})`
-    : "";
-
-  return `${customer} — ${servicePart}${installmentPart}`;
-}
+import { buildAppointmentDescription } from "@/lib/appointment-description";
+export { buildAppointmentDescription };
 type CommissionViewerScope = {
   userId: string;
   role: Role;
@@ -125,51 +130,8 @@ export type FinancialStatementResult = {
   entries: FinancialStatementEntry[];
 };
 
-export type CashAccountOption = {
-  id: string;
-  name: string;
-  balance: number;
-};
-
-export type CashRegisterOverview = {
-  accounts: CashAccountOption[];
-  currentSession: {
-    id: string;
-    status: "OPEN" | "CLOSED";
-    accountId: string;
-    accountName: string;
-    openedAt: string;
-    openedByName: string;
-    openedByAvatarUrl: string | null;
-    openingAmount: number;
-    openingNotes: string | null;
-    totalEntries: number;
-    totalExpenses: number;
-    expectedBalance: number;
-  } | null;
-  recentSessions: Array<{
-    id: string;
-    accountName: string;
-    openedAt: string;
-    closedAt: string | null;
-    openedByName: string;
-    closedByName: string | null;
-    openingAmount: number;
-    closingAmount: number | null;
-    expectedBalance: number;
-    difference: number | null;
-    status: "OPEN" | "CLOSED";
-  }>;
-};
-
-export type CashSessionMovement = {
-  id: string;
-  occurredAt: string;
-  description: string;
-  paymentMethod: PaymentMethodValue;
-  type: "INCOME" | "EXPENSE";
-  amount: number;
-};
+// Tipos de caixa foram movidos para `@/services/cash-register.service` e
+// re-exportados no topo deste arquivo.
 
 export type FinancialOverview = {
   period: {
@@ -266,181 +228,9 @@ function getPeriodBounds(startDate: CivilDate, endDate: CivilDate) {
   return { start, endExclusive };
 }
 
-async function getCashSessionMovementTotals(
-  tenantId: string,
-  accountId: string,
-  openedAt: Date,
-  closedAt?: Date | null
-) {
-  const dateWindow = {
-    gte: openedAt,
-    lt: closedAt ?? new Date(),
-  };
-
-  const [incomeAggregate, expenseAggregate] = await Promise.all([
-    db.transaction.aggregate({
-      where: {
-        tenantId,
-        accountId,
-        type: "INCOME",
-        paymentStatus: "PAID",
-        OR: [
-          {
-            createdAt: dateWindow,
-          },
-          {
-            paidAt: dateWindow,
-          },
-        ],
-      },
-      _sum: {
-        amount: true,
-      },
-    }),
-    db.transaction.aggregate({
-      where: {
-        tenantId,
-        accountId,
-        type: "EXPENSE",
-        paymentStatus: "PAID",
-        OR: [
-          {
-            createdAt: dateWindow,
-          },
-          {
-            paidAt: dateWindow,
-          },
-        ],
-      },
-      _sum: {
-        amount: true,
-      },
-    }),
-  ]);
-
-  return {
-    totalEntries: roundCurrency(Number(incomeAggregate._sum.amount ?? 0)),
-    totalExpenses: roundCurrency(Number(expenseAggregate._sum.amount ?? 0)),
-  };
-}
-
-export async function getOpenSessionTransactions(
-  tenantId: string,
-  accountId: string,
-  openedAt: Date
-): Promise<CashSessionMovement[]> {
-  const transactions = await db.transaction.findMany({
-    where: {
-      tenantId,
-      accountId,
-      paymentStatus: "PAID",
-      OR: [
-        {
-          createdAt: {
-            gte: openedAt,
-          },
-        },
-        {
-          paidAt: {
-            gte: openedAt,
-          },
-        },
-      ],
-    },
-    select: {
-      id: true,
-      type: true,
-      amount: true,
-      description: true,
-      paymentMethod: true,
-      createdAt: true,
-      paidAt: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  return transactions
-    .map((transaction) => ({
-      id: transaction.id,
-      occurredAt: (transaction.paidAt ?? transaction.createdAt).toISOString(),
-      description:
-        transaction.description ??
-        (transaction.type === "INCOME" ? "Movimentacao manual de entrada" : "Movimentacao manual de saida"),
-      paymentMethod: transaction.paymentMethod as PaymentMethodValue,
-      type: transaction.type,
-      amount: Number(transaction.amount),
-    }))
-    .sort((left, right) => +new Date(right.occurredAt) - +new Date(left.occurredAt));
-}
-
-export async function createManualCashTransaction(
-  tenantId: string,
-  input: ManualCashTransactionInput
-): Promise<ActionResult<{ transactionId: string }>> {
-  try {
-    const result = await db.$transaction(async (tx) => {
-      const openSession = await tx.cashRegisterSession.findFirst({
-        where: {
-          tenantId,
-          accountId: input.accountId,
-          status: "OPEN",
-        },
-        select: {
-          id: true,
-          accountId: true,
-        },
-        orderBy: {
-          openedAt: "desc",
-        },
-      });
-
-      if (!openSession) {
-        throw new Error("Nenhum caixa aberto foi encontrado para a conta selecionada.");
-      }
-
-      const paidAt = new Date();
-      const transaction = await tx.transaction.create({
-        data: {
-          tenantId,
-          accountId: input.accountId,
-          type: input.type,
-          paymentMethod: input.paymentMethod,
-          paymentStatus: "PAID",
-          amount: input.amount,
-          description: input.description,
-          paidAt,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      await tx.financialAccount.update({
-        where: {
-          id: input.accountId,
-        },
-        data: {
-          balance:
-            input.type === "INCOME"
-              ? { increment: input.amount }
-              : { decrement: input.amount },
-        },
-      });
-
-      return {
-        transactionId: transaction.id,
-      };
-    });
-
-    return { success: true, data: result };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Erro ao registrar a movimentacao manual.";
-    return { success: false, error: message };
-  }
-}
+// Funções de caixa (getOpenSessionTransactions, createManualCashTransaction,
+// getCashRegisterOverview, openCashRegister, closeCashRegister) foram movidas
+// para `@/services/cash-register.service` e re-exportadas no topo deste arquivo.
 
 /**
  * Finaliza um agendamento executando TODO o fluxo financeiro e operacional
@@ -472,7 +262,8 @@ export async function createManualCashTransaction(
 export async function checkoutAppointment(
   tenantId: string,
   appointmentId: string,
-  options: CheckoutOptions
+  options: CheckoutOptions,
+  actor?: AuditActor
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
   const {
     paymentMethod = "CASH",
@@ -586,6 +377,29 @@ export async function checkoutAppointment(
           where: { id: appointmentId },
           data: { status: finalStatus },
         });
+
+        if (actor) {
+          const amountNumber = Number(appointment.transaction?.amount ?? 0);
+          await recordAudit(tx, {
+            tenantId,
+            actor,
+            action: "PAYMENT_MARKED",
+            entityType: "Transaction",
+            entityId: appointment.transaction!.id,
+            summary: `Pagamento registrado no checkout · ${amountNumber.toLocaleString(
+              "pt-BR",
+              { style: "currency", currency: "BRL" }
+            )}`,
+            snapshot: {
+              appointmentId,
+              transactionId: appointment.transaction!.id,
+              accountId: destinationAccount.id,
+              paymentMethod,
+              amount: amountNumber,
+            },
+            metadata: { appointmentId },
+          });
+        }
       });
 
       return {
@@ -790,6 +604,41 @@ export async function checkoutAppointment(
         data: { status: finalStatus },
       });
 
+      if (actor && createdTransactionIds.length > 0) {
+        const summaryAmount = totalAmount.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        const summary =
+          installments > 1
+            ? `Checkout parcelado (${installments}x) · ${summaryAmount}`
+            : `Checkout à vista · ${summaryAmount}`;
+
+        await recordAudit(tx, {
+          tenantId,
+          actor,
+          action: "CREATE",
+          entityType: "Transaction",
+          entityId: createdTransactionIds[0],
+          summary,
+          snapshot: {
+            appointmentId,
+            customerName,
+            serviceNames,
+            paymentMethod,
+            accountId: destinationAccount.id,
+            installments,
+            totalAmount,
+            transactionIds: createdTransactionIds,
+            commissionIds: createdCommissionIds,
+          },
+          metadata: {
+            appointmentId,
+            transactionIds: createdTransactionIds,
+          },
+        });
+      }
+
       return { transactionIds: createdTransactionIds, commissionIds: createdCommissionIds };
     });
 
@@ -807,7 +656,8 @@ export async function checkoutAppointment(
  */
 export async function payCommissions(
   tenantId: string,
-  commissionIds: string[]
+  commissionIds: string[],
+  actor?: AuditActor
 ): Promise<ActionResult<{ paidCount: number }>> {
   if (commissionIds.length === 0) {
     return { success: false, error: "Nenhuma comissão informada." };
@@ -834,6 +684,8 @@ export async function payCommissions(
         );
       }
 
+      const paidAt = new Date();
+
       // Atualiza todas as comissões para PAID em lote
       await tx.commission.updateMany({
         where: {
@@ -842,9 +694,33 @@ export async function payCommissions(
         },
         data: {
           status: "PAID",
-          paidAt: new Date(),
+          paidAt,
         },
       });
+
+      if (actor) {
+        for (const commission of commissions) {
+          const commissionValue = Number(commission.commissionValue);
+          await recordAudit(tx, {
+            tenantId,
+            actor,
+            action: "COMMISSION_PAID",
+            entityType: "Commission",
+            entityId: commission.id,
+            summary: `Comissão paga · ${commissionValue.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}`,
+            snapshot: {
+              commissionId: commission.id,
+              professionalId: commission.professionalId,
+              appointmentId: commission.appointmentId,
+              commissionValue,
+              paidAt: paidAt.toISOString(),
+            },
+          });
+        }
+      }
 
       return { paidCount: commissions.length };
     });
@@ -1017,7 +893,8 @@ async function resolveScopedProfessionalId(
 export async function settleCommissions(
   tenantId: string,
   professionalId: string,
-  accountId?: string
+  accountId?: string,
+  actor?: AuditActor
 ): Promise<ActionResult<{ paidCount: number; expenseTransactionId: string }>> {
   try {
     const result = await db.$transaction(async (tx) => {
@@ -1046,9 +923,10 @@ export async function settleCommissions(
 
       // ETAPA 1: Marca todas as comissões como PAID
       const commissionIds = pendingCommissions.map((c) => c.id);
+      const paidAt = new Date();
       await tx.commission.updateMany({
         where: { id: { in: commissionIds }, tenantId },
-        data: { status: "PAID", paidAt: new Date() },
+        data: { status: "PAID", paidAt },
       });
 
       // ETAPA 2: Cria Transaction EXPENSE para registrar a saída no caixa
@@ -1060,7 +938,7 @@ export async function settleCommissions(
           paymentMethod: "CASH",
           paymentStatus: "PAID",
           amount: roundedTotal,
-          paidAt: new Date(),
+          paidAt,
           description: `Acerto de comissões — ${profName} (${commissionIds.length} serviço${commissionIds.length > 1 ? "s" : ""})`,
         },
       });
@@ -1071,6 +949,61 @@ export async function settleCommissions(
           where: { id: accountId },
           data: { balance: { decrement: roundedTotal } },
         });
+      }
+
+      if (actor) {
+        const formattedTotal = roundedTotal.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+
+        await recordAudit(tx, {
+          tenantId,
+          actor,
+          action: "PAYOUT_CREATED",
+          entityType: "Transaction",
+          entityId: expenseTransaction.id,
+          summary: `Acerto de comissões — ${profName} · ${formattedTotal} (${commissionIds.length} comissão${commissionIds.length > 1 ? "ões" : ""})`,
+          snapshot: {
+            professionalId,
+            professionalName: profName,
+            totalAmount: roundedTotal,
+            commissionCount: commissionIds.length,
+            commissionIds,
+            accountId: accountId ?? null,
+            transactionId: expenseTransaction.id,
+            paidAt: paidAt.toISOString(),
+          },
+          metadata: {
+            transactionId: expenseTransaction.id,
+            commissionIds,
+          },
+        });
+
+        for (const commission of pendingCommissions) {
+          const commissionValue = Number(commission.commissionValue);
+          await recordAudit(tx, {
+            tenantId,
+            actor,
+            action: "COMMISSION_PAID",
+            entityType: "Commission",
+            entityId: commission.id,
+            summary: `Comissão paga no acerto de ${profName} · ${commissionValue.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}`,
+            snapshot: {
+              commissionId: commission.id,
+              professionalId,
+              appointmentId: commission.appointmentId,
+              commissionValue,
+              paidAt: paidAt.toISOString(),
+            },
+            metadata: {
+              transactionId: expenseTransaction.id,
+            },
+          });
+        }
       }
 
       return {
@@ -1201,268 +1134,8 @@ export async function getFinancialStatement(
   };
 }
 
-/**
- * Retorna o estado atual do caixa operacional do tenant, incluindo a sessão aberta
- * e o histórico recente de aberturas/fechamentos.
- */
-export async function getCashRegisterOverview(
-  tenantId: string
-): Promise<CashRegisterOverview> {
-  const [accounts, currentSession, recentSessions] = await Promise.all([
-    db.financialAccount.findMany({
-      where: {
-        tenantId,
-        type: "CASH",
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        balance: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-    }),
-    db.cashRegisterSession.findFirst({
-      where: {
-        tenantId,
-        status: "OPEN",
-      },
-      include: {
-        account: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        openedByUser: {
-          select: {
-            name: true,
-            avatarUrl: true,
-          },
-        },
-      },
-      orderBy: {
-        openedAt: "desc",
-      },
-    }),
-    db.cashRegisterSession.findMany({
-      where: {
-        tenantId,
-      },
-      include: {
-        account: {
-          select: {
-            name: true,
-          },
-        },
-        openedByUser: {
-          select: {
-            name: true,
-          },
-        },
-        closedByUser: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        openedAt: "desc",
-      },
-      take: 8,
-    }),
-  ]);
-
-  const currentSessionWithTotals = currentSession
-    ? await (async () => {
-        const totals = await getCashSessionMovementTotals(
-          tenantId,
-          currentSession.accountId,
-          currentSession.openedAt,
-          null
-        );
-
-        return {
-          id: currentSession.id,
-          status: currentSession.status,
-          accountId: currentSession.account.id,
-          accountName: currentSession.account.name,
-          openedAt: currentSession.openedAt.toISOString(),
-          openedByName: currentSession.openedByUser.name,
-          openedByAvatarUrl: currentSession.openedByUser.avatarUrl ?? null,
-          openingAmount: Number(currentSession.openingAmount),
-          openingNotes: currentSession.openingNotes ?? null,
-          totalEntries: totals.totalEntries,
-          totalExpenses: totals.totalExpenses,
-          expectedBalance: roundCurrency(
-            Number(currentSession.openingAmount) + totals.totalEntries - totals.totalExpenses
-          ),
-        };
-      })()
-    : null;
-
-  const recentSessionsWithTotals = await Promise.all(
-    recentSessions.map(async (session) => {
-      const totals = await getCashSessionMovementTotals(
-        tenantId,
-        session.accountId,
-        session.openedAt,
-        session.closedAt
-      );
-
-      const expectedBalance = roundCurrency(
-        Number(session.openingAmount) + totals.totalEntries - totals.totalExpenses
-      );
-      const closingAmount = session.closingAmount != null ? Number(session.closingAmount) : null;
-
-      return {
-        id: session.id,
-        accountName: session.account.name,
-        openedAt: session.openedAt.toISOString(),
-        closedAt: session.closedAt?.toISOString() ?? null,
-        openedByName: session.openedByUser.name,
-        closedByName: session.closedByUser?.name ?? null,
-        openingAmount: Number(session.openingAmount),
-        closingAmount,
-        expectedBalance,
-        difference:
-          closingAmount != null ? roundCurrency(closingAmount - expectedBalance) : null,
-        status: session.status,
-      };
-    })
-  );
-
-  return {
-    accounts: accounts.map((account) => ({
-      id: account.id,
-      name: account.name,
-      balance: Number(account.balance),
-    })),
-    currentSession: currentSessionWithTotals,
-    recentSessions: recentSessionsWithTotals,
-  };
-}
-
-/**
- * Abre um novo caixa operacional para o tenant.
- * Garante que exista apenas uma sessão aberta por vez.
- */
-export async function openCashRegister(
-  tenantId: string,
-  userId: string,
-  input: OpenCashRegisterInput
-): Promise<ActionResult<{ sessionId: string }>> {
-  try {
-    const result = await db.$transaction(async (tx) => {
-      const existingOpenSession = await tx.cashRegisterSession.findFirst({
-        where: {
-          tenantId,
-          status: "OPEN",
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (existingOpenSession) {
-        throw new Error("Já existe um caixa aberto para este estabelecimento.");
-      }
-
-      const account = await tx.financialAccount.findFirst({
-        where: {
-          id: input.accountId,
-          tenantId,
-          isActive: true,
-          type: "CASH",
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!account) {
-        throw new Error("Conta caixa inválida para abertura.");
-      }
-
-      const session = await tx.cashRegisterSession.create({
-        data: {
-          tenantId,
-          accountId: account.id,
-          openedByUserId: userId,
-          openingAmount: input.openingAmount,
-          openingNotes: input.openingNotes ?? null,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      return {
-        sessionId: session.id,
-      };
-    });
-
-    return { success: true, data: result };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro ao abrir o caixa.";
-    return { success: false, error: message };
-  }
-}
-
-/**
- * Fecha um caixa operacional aberto e registra o valor apurado no encerramento.
- */
-export async function closeCashRegister(
-  tenantId: string,
-  userId: string,
-  input: CloseCashRegisterInput
-): Promise<ActionResult<{ sessionId: string }>> {
-  try {
-    const result = await db.$transaction(async (tx) => {
-      const session = await tx.cashRegisterSession.findFirst({
-        where: {
-          id: input.sessionId,
-          tenantId,
-          status: "OPEN",
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!session) {
-        throw new Error("Nenhum caixa aberto encontrado para fechamento.");
-      }
-
-      const updated = await tx.cashRegisterSession.update({
-        where: {
-          id: session.id,
-        },
-        data: {
-          status: "CLOSED",
-          closedByUserId: userId,
-          closingAmount: input.closingAmount,
-          closingNotes: input.closingNotes ?? null,
-          closedAt: new Date(),
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      return {
-        sessionId: updated.id,
-      };
-    });
-
-    return { success: true, data: result };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro ao fechar o caixa.";
-    return { success: false, error: message };
-  }
-}
+// getCashRegisterOverview / openCashRegister / closeCashRegister foram movidos
+// para `@/services/cash-register.service` e re-exportados no topo deste arquivo.
 
 /**
  * Consolida a home do módulo Financeiro em um único payload.

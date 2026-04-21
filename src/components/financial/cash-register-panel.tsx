@@ -1,17 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowDownToLine,
   ArrowUpToLine,
   CheckCircle2,
+  ChevronsRight,
   Clock3,
+  Download,
   Landmark,
+  ShoppingBag,
   Wallet,
 } from "lucide-react";
-import { openCashRegisterAction, closeCashRegisterAction } from "@/actions/financial.actions";
+
+import {
+  closeCashRegisterAction,
+  openCashRegisterAction,
+} from "@/actions/financial.actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +33,19 @@ import {
   SelectTrigger,
   SelectValueLabel,
 } from "@/components/ui/select";
-import { ManualTransactionModal } from "@/components/financial/manual-transaction-modal";
+import {
+  CashMovementModal,
+  type CashMovementType,
+} from "@/components/financial/cash-movement-modal";
+import { CashHistoryFilters } from "@/components/financial/cash-history-filters";
+import { CashSessionDetailDialog } from "@/components/financial/cash-session-detail-dialog";
 import { SessionMovementsTable } from "@/components/financial/session-movements-table";
+import {
+  CASH_HISTORY_DEFAULT_LIMIT,
+  CASH_HISTORY_MAX_LIMIT,
+  CASH_HISTORY_PAGE_STEP,
+} from "@/lib/cash-history-filters";
+import { cn } from "@/lib/utils";
 import type { CashSessionMovement } from "@/services/financial.service";
 
 type CashAccount = {
@@ -47,11 +66,16 @@ type CashSession = {
   openingNotes: string | null;
   totalEntries: number;
   totalExpenses: number;
+  totalSales: number;
+  totalReinforcements: number;
+  totalWithdrawals: number;
+  totalOtherExpenses: number;
   expectedBalance: number;
 };
 
 type RecentCashSession = {
   id: string;
+  accountId: string;
   accountName: string;
   openedAt: string;
   closedAt: string | null;
@@ -62,6 +86,10 @@ type RecentCashSession = {
   expectedBalance: number;
   difference: number | null;
   status: "OPEN" | "CLOSED";
+  totalSales: number;
+  totalReinforcements: number;
+  totalWithdrawals: number;
+  totalOtherExpenses: number;
 };
 
 function formatCurrency(value: number) {
@@ -92,6 +120,13 @@ function getInitials(name: string) {
     .join("");
 }
 
+export type CashHistoryFilterState = {
+  accountId: string;
+  fromInput: string;
+  toInput: string;
+  limit: number;
+};
+
 /**
  * Painel operacional de caixa com abertura, fechamento e histórico recente.
  */
@@ -101,32 +136,58 @@ export function CashRegisterPanel({
   currentSession,
   sessionMovements,
   recentSessions,
+  historyHasMore,
+  historyFilters,
+  lastClosedAccountBalances,
 }: {
   accounts: CashAccount[];
   canEdit: boolean;
   currentSession: CashSession | null;
   sessionMovements: CashSessionMovement[];
   recentSessions: RecentCashSession[];
+  historyHasMore: boolean;
+  historyFilters: CashHistoryFilterState;
+  lastClosedAccountBalances?: Record<string, number>;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const firstAccountId = accounts[0]?.id ?? "";
   const [selectedAccountId, setSelectedAccountId] = useState(firstAccountId);
-  const [openingAmount, setOpeningAmount] = useState("");
+  const suggestedOpeningAmount =
+    lastClosedAccountBalances?.[selectedAccountId] ?? null;
+  const [openingAmount, setOpeningAmount] = useState(
+    suggestedOpeningAmount != null ? String(suggestedOpeningAmount) : ""
+  );
+  const [openingUsedSuggestion, setOpeningUsedSuggestion] = useState(
+    suggestedOpeningAmount != null
+  );
   const [openingNotes, setOpeningNotes] = useState("");
   const [closingAmount, setClosingAmount] = useState(
     currentSession ? String(currentSession.expectedBalance) : ""
   );
   const [closingNotes, setClosingNotes] = useState("");
-  const [manualTransactionType, setManualTransactionType] = useState<"INCOME" | "EXPENSE">(
-    "INCOME"
-  );
-  const [isManualTransactionModalOpen, setIsManualTransactionModalOpen] = useState(false);
+  const [cashMovementType, setCashMovementType] =
+    useState<CashMovementType>("WITHDRAWAL");
+  const [isCashMovementModalOpen, setIsCashMovementModalOpen] = useState(false);
+  const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedAccountId(firstAccountId);
   }, [firstAccountId]);
+
+  useEffect(() => {
+    const suggestion = lastClosedAccountBalances?.[selectedAccountId];
+    if (suggestion != null) {
+      setOpeningAmount(String(suggestion));
+      setOpeningUsedSuggestion(true);
+    } else {
+      setOpeningAmount("");
+      setOpeningUsedSuggestion(false);
+    }
+  }, [selectedAccountId, lastClosedAccountBalances]);
 
   useEffect(() => {
     setClosingAmount(currentSession ? String(currentSession.expectedBalance) : "");
@@ -145,6 +206,19 @@ export function CashRegisterPanel({
     [accounts]
   );
 
+  const parsedClosingAmount = Number(closingAmount || 0);
+  const closingDifference = currentSession
+    ? parsedClosingAmount - currentSession.expectedBalance
+    : 0;
+  const closingDifferenceAbs = Math.abs(closingDifference);
+  const closingDifferenceThreshold = currentSession
+    ? Math.max(currentSession.expectedBalance * 0.05, 50)
+    : 0;
+  const showClosingWarning =
+    currentSession != null &&
+    closingAmount !== "" &&
+    closingDifferenceAbs > closingDifferenceThreshold;
+
   function handleOpenCashRegister() {
     startTransition(async () => {
       const result = await openCashRegisterAction({
@@ -161,6 +235,7 @@ export function CashRegisterPanel({
       toast.success("Caixa aberto com sucesso.");
       setOpeningAmount("");
       setOpeningNotes("");
+      setOpeningUsedSuggestion(false);
       router.refresh();
     });
   }
@@ -186,9 +261,9 @@ export function CashRegisterPanel({
     });
   }
 
-  function openManualTransactionModal(type: "INCOME" | "EXPENSE") {
-    setManualTransactionType(type);
-    setIsManualTransactionModalOpen(true);
+  function openCashMovementModal(type: CashMovementType) {
+    setCashMovementType(type);
+    setIsCashMovementModalOpen(true);
   }
 
   return (
@@ -209,7 +284,9 @@ export function CashRegisterPanel({
                   </div>
                   <div>
                     <p className="font-semibold">Caixa aberto</p>
-                    <p className="text-sm text-muted-foreground">{currentSession.accountName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {currentSession.accountName}
+                    </p>
                   </div>
                 </>
               ) : (
@@ -219,7 +296,9 @@ export function CashRegisterPanel({
                   </div>
                   <div>
                     <p className="font-semibold">Caixa fechado</p>
-                    <p className="text-sm text-muted-foreground">Nenhuma sessão em andamento</p>
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma sessão em andamento
+                    </p>
                   </div>
                 </>
               )}
@@ -230,16 +309,31 @@ export function CashRegisterPanel({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Entradas no Caixa Aberto
+              Movimento do turno
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {formatCurrency(currentSession?.totalEntries ?? 0)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Somatório de lançamentos pagos na conta caixa
-            </p>
+            {currentSession ? (
+              <div className="space-y-1.5">
+                <p className="text-2xl font-bold tabular-nums">
+                  {formatCurrency(
+                    currentSession.totalSales +
+                      currentSession.totalReinforcements -
+                      currentSession.totalWithdrawals
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Vendas {formatCurrency(currentSession.totalSales)} · Reforços{" "}
+                  {formatCurrency(currentSession.totalReinforcements)} · Sangrias{" "}
+                  −{formatCurrency(currentSession.totalWithdrawals)}
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-2xl font-bold text-muted-foreground">—</p>
+                <p className="text-xs text-muted-foreground">Nenhuma sessão aberta</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -254,7 +348,7 @@ export function CashRegisterPanel({
               {formatCurrency(currentSession?.expectedBalance ?? 0)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Valor inicial + entradas − saídas
+              Inicial + vendas + reforços − sangrias
             </p>
           </CardContent>
         </Card>
@@ -271,7 +365,8 @@ export function CashRegisterPanel({
           <CardContent className="space-y-4">
             {accounts.length === 0 ? (
               <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-200">
-                Nenhuma conta do tipo caixa está ativa. Ative uma conta financeira do tipo CASH para operar o módulo.
+                Nenhuma conta do tipo caixa está ativa. Ative uma conta financeira do tipo
+                CASH para operar o módulo.
               </div>
             ) : (
               <>
@@ -311,9 +406,18 @@ export function CashRegisterPanel({
                       min="0"
                       step="0.01"
                       value={openingAmount}
-                      onChange={(event) => setOpeningAmount(event.target.value)}
+                      onChange={(event) => {
+                        setOpeningAmount(event.target.value);
+                        setOpeningUsedSuggestion(false);
+                      }}
                       placeholder="0,00"
                     />
+                    {openingUsedSuggestion && suggestedOpeningAmount != null ? (
+                      <p className="text-xs text-muted-foreground">
+                        Valor baseado no fechamento anterior (
+                        {formatCurrency(suggestedOpeningAmount)}).
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -339,8 +443,8 @@ export function CashRegisterPanel({
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                    Esta conta pode ser visualizada, mas apenas usuários com permissão de edição
-                    podem abrir novas sessões de caixa.
+                    Esta conta pode ser visualizada, mas apenas usuários com permissão
+                    de edição podem abrir novas sessões de caixa.
                   </div>
                 )}
               </>
@@ -363,7 +467,7 @@ export function CashRegisterPanel({
                   <CardTitle>Caixa aberto</CardTitle>
                   <div className="space-y-0.5 text-sm">
                     <p className="font-medium text-foreground">
-                      Responsavel: {currentSession.openedByName}
+                      Responsável: {currentSession.openedByName}
                     </p>
                     <p className="text-muted-foreground">
                       Abertura em {formatDateTime(currentSession.openedAt)}
@@ -372,58 +476,90 @@ export function CashRegisterPanel({
                   </div>
                 </div>
               </div>
-
-              {canEdit ? (
-                <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => openManualTransactionModal("EXPENSE")}
-                  >
-                    <ArrowDownToLine className="h-4 w-4" />
-                    Sangria (Retirada)
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="gap-2 text-emerald-700 dark:text-emerald-300"
-                    onClick={() => openManualTransactionModal("INCOME")}
-                  >
-                    <ArrowUpToLine className="h-4 w-4" />
-                    Suprimento (Entrada)
-                  </Button>
-                </div>
-              ) : null}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                label="Valor inicial"
-                value={formatCurrency(currentSession.openingAmount)}
+              <KpiBlock
+                label="Vendas"
+                value={formatCurrency(currentSession.totalSales)}
+                icon={<ShoppingBag className="h-4 w-4" aria-hidden="true" />}
+                accentClass="text-emerald-600 dark:text-emerald-400"
+                wrapperClass="bg-emerald-500/10"
               />
-              <MetricCard
-                label="Entradas"
-                value={formatCurrency(currentSession.totalEntries)}
+              <KpiBlock
+                label="Reforços"
+                value={formatCurrency(currentSession.totalReinforcements)}
+                icon={<ArrowUpToLine className="h-4 w-4" aria-hidden="true" />}
+                accentClass="text-sky-600 dark:text-sky-400"
+                wrapperClass="bg-sky-500/10"
               />
-              <MetricCard
-                label="Saídas"
-                value={formatCurrency(currentSession.totalExpenses)}
+              <KpiBlock
+                label="Sangrias"
+                value={formatCurrency(currentSession.totalWithdrawals)}
+                icon={<ArrowDownToLine className="h-4 w-4" aria-hidden="true" />}
+                accentClass="text-red-600 dark:text-red-400"
+                wrapperClass="bg-red-500/10"
               />
-              <MetricCard
+              <KpiBlock
                 label="Saldo esperado"
                 value={formatCurrency(currentSession.expectedBalance)}
+                icon={<Wallet className="h-4 w-4" aria-hidden="true" />}
+                accentClass="text-primary"
+                wrapperClass="bg-primary/10"
                 highlight
               />
             </div>
 
             {currentSession.openingNotes ? (
               <div className="rounded-xl border bg-muted/20 p-4 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Observação de abertura:</span>{" "}
+                <span className="font-medium text-foreground">
+                  Observação de abertura:
+                </span>{" "}
                 {currentSession.openingNotes}
               </div>
             ) : null}
+
+            <div className="rounded-xl border bg-muted/10 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Composição do saldo esperado
+              </p>
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <CompositionRow
+                  label="Valor inicial"
+                  value={formatCurrency(currentSession.openingAmount)}
+                />
+                <CompositionRow
+                  label="+ Vendas"
+                  value={formatCurrency(currentSession.totalSales)}
+                  accent="text-emerald-600 dark:text-emerald-400"
+                />
+                <CompositionRow
+                  label="+ Reforços"
+                  value={formatCurrency(currentSession.totalReinforcements)}
+                  accent="text-sky-600 dark:text-sky-400"
+                />
+                <CompositionRow
+                  label="− Sangrias"
+                  value={`-${formatCurrency(currentSession.totalWithdrawals)}`}
+                  accent="text-red-600 dark:text-red-400"
+                />
+                {currentSession.totalOtherExpenses > 0 ? (
+                  <CompositionRow
+                    label="− Outras saídas"
+                    value={`-${formatCurrency(currentSession.totalOtherExpenses)}`}
+                    accent="text-muted-foreground"
+                  />
+                ) : null}
+                <div className="border-t pt-2">
+                  <CompositionRow
+                    label="= Saldo esperado"
+                    value={formatCurrency(currentSession.expectedBalance)}
+                    emphasize
+                  />
+                </div>
+              </dl>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
@@ -436,11 +572,32 @@ export function CashRegisterPanel({
                   onChange={(event) => setClosingAmount(event.target.value)}
                   placeholder="0,00"
                 />
+                {showClosingWarning ? (
+                  <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                    <AlertTriangle
+                      className="mt-0.5 h-3 w-3 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>
+                      Diferença de {formatCurrency(closingDifferenceAbs)} detectada.
+                      Conferir contagem ou registrar sangria pendente.
+                    </span>
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Diferença estimada</label>
-                <div className="flex h-8 items-center rounded-lg border border-input bg-muted/20 px-2.5 text-sm">
-                  {formatCurrency(Number(closingAmount || 0) - currentSession.expectedBalance)}
+                <div
+                  className={cn(
+                    "flex h-8 items-center rounded-lg border border-input bg-muted/20 px-2.5 text-sm tabular-nums",
+                    closingDifference === 0
+                      ? "text-muted-foreground"
+                      : closingDifference > 0
+                        ? "text-emerald-600"
+                        : "text-red-600"
+                  )}
+                >
+                  {formatCurrency(closingDifference)}
                 </div>
               </div>
             </div>
@@ -456,7 +613,11 @@ export function CashRegisterPanel({
 
             {canEdit ? (
               <div className="flex justify-end">
-                <Button onClick={handleCloseCashRegister} disabled={isPending} className="gap-2">
+                <Button
+                  onClick={handleCloseCashRegister}
+                  disabled={isPending}
+                  className="gap-2"
+                >
                   <Wallet className="h-4 w-4" />
                   {isPending ? "Fechando…" : "Fechar caixa"}
                 </Button>
@@ -471,9 +632,10 @@ export function CashRegisterPanel({
           <CardHeader className="gap-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <CardTitle>Extrato da Sessao Atual</CardTitle>
+                <CardTitle>Extrato da sessão atual</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Movimentacoes do turno atual do caixa aberto, com entradas e saidas mais recentes primeiro.
+                  Movimentações do turno atual, com filtro por tipo e ordenação pelas mais
+                  recentes primeiro.
                 </p>
               </div>
               {canEdit ? (
@@ -482,7 +644,7 @@ export function CashRegisterPanel({
                     variant="destructive"
                     size="sm"
                     className="gap-2"
-                    onClick={() => openManualTransactionModal("EXPENSE")}
+                    onClick={() => openCashMovementModal("WITHDRAWAL")}
                   >
                     <ArrowDownToLine className="h-4 w-4" />
                     Sangria
@@ -491,10 +653,10 @@ export function CashRegisterPanel({
                     variant="secondary"
                     size="sm"
                     className="gap-2 text-emerald-700 dark:text-emerald-300"
-                    onClick={() => openManualTransactionModal("INCOME")}
+                    onClick={() => openCashMovementModal("REINFORCEMENT")}
                   >
                     <ArrowUpToLine className="h-4 w-4" />
-                    Suprimento
+                    Reforço
                   </Button>
                 </div>
               ) : null}
@@ -507,110 +669,256 @@ export function CashRegisterPanel({
       ) : null}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Histórico recente</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Últimas sessões de caixa do estabelecimento.
-          </p>
+        <CardHeader className="gap-3">
+          <div>
+            <CardTitle>Histórico de sessões</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Clique em uma sessão para ver o extrato completo e baixar o Z.
+            </p>
+          </div>
+          <CashHistoryFilters
+            accounts={accounts}
+            initialAccountId={historyFilters.accountId}
+            initialFromInput={historyFilters.fromInput}
+            initialToInput={historyFilters.toInput}
+            initialLimit={historyFilters.limit}
+          />
         </CardHeader>
         <CardContent>
           {recentSessions.length === 0 ? (
             <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Nenhuma sessão de caixa registrada ainda.
+              Nenhuma sessão encontrada para este filtro.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-2 font-medium">Conta</th>
-                    <th className="pb-2 font-medium">Abertura</th>
-                    <th className="pb-2 font-medium">Fechamento</th>
-                    <th className="pb-2 font-medium text-right">Esperado</th>
-                    <th className="pb-2 font-medium text-right">Apurado</th>
-                    <th className="pb-2 font-medium text-right">Diferença</th>
-                    <th className="pb-2 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentSessions.map((session) => (
-                    <tr key={session.id} className="border-b last:border-0">
-                      <td className="py-3">
-                        <div className="font-medium">{session.accountName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {session.openedByName}
-                          {session.closedByName ? ` → ${session.closedByName}` : ""}
-                        </div>
-                      </td>
-                      <td className="py-3">{formatDateTime(session.openedAt)}</td>
-                      <td className="py-3">{formatDateTime(session.closedAt)}</td>
-                      <td className="py-3 text-right">{formatCurrency(session.expectedBalance)}</td>
-                      <td className="py-3 text-right">
-                        {session.closingAmount != null ? formatCurrency(session.closingAmount) : "—"}
-                      </td>
-                      <td className="py-3 text-right">
-                        {session.difference != null ? (
-                          <span
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="pb-2 font-medium">Conta</th>
+                      <th className="pb-2 font-medium">Abertura</th>
+                      <th className="pb-2 font-medium">Fechamento</th>
+                      <th className="pb-2 font-medium text-right">Esperado</th>
+                      <th className="pb-2 font-medium text-right">Apurado</th>
+                      <th className="pb-2 font-medium text-right">Diferença</th>
+                      <th className="pb-2 font-medium">Status</th>
+                      <th
+                        className="hidden pb-2 font-medium md:table-cell"
+                        aria-label="Ações"
+                      />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentSessions.map((session) => (
+                      <tr
+                        key={session.id}
+                        className="cursor-pointer border-b last:border-0 hover:bg-muted/30"
+                        onClick={() => setDetailSessionId(session.id)}
+                      >
+                        <td className="py-3">
+                          <div className="font-medium">{session.accountName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {session.openedByName}
+                            {session.closedByName ? ` → ${session.closedByName}` : ""}
+                          </div>
+                        </td>
+                        <td className="py-3">{formatDateTime(session.openedAt)}</td>
+                        <td className="py-3">{formatDateTime(session.closedAt)}</td>
+                        <td className="py-3 text-right tabular-nums">
+                          {formatCurrency(session.expectedBalance)}
+                        </td>
+                        <td className="py-3 text-right tabular-nums">
+                          {session.closingAmount != null
+                            ? formatCurrency(session.closingAmount)
+                            : "—"}
+                        </td>
+                        <td className="py-3 text-right tabular-nums">
+                          {session.difference != null ? (
+                            <span
+                              className={
+                                session.difference === 0
+                                  ? "text-muted-foreground"
+                                  : session.difference > 0
+                                    ? "text-emerald-600"
+                                    : "text-red-600"
+                              }
+                            >
+                              {formatCurrency(session.difference)}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="py-3">
+                          <Badge
+                            variant="outline"
                             className={
-                              session.difference === 0
-                                ? "text-muted-foreground"
-                                : session.difference > 0
-                                  ? "text-emerald-600"
-                                  : "text-red-600"
+                              session.status === "OPEN"
+                                ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                                : "border-border text-muted-foreground"
                             }
                           >
-                            {formatCurrency(session.difference)}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="py-3">
-                        <Badge
-                          variant="outline"
-                          className={
-                            session.status === "OPEN"
-                              ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
-                              : "border-border text-muted-foreground"
-                          }
-                        >
-                          {session.status === "OPEN" ? "Aberto" : "Fechado"}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            {session.status === "OPEN" ? "Aberto" : "Fechado"}
+                          </Badge>
+                        </td>
+                        <td className="hidden py-3 text-right md:table-cell">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                            aria-label={`Baixar Z da sessão de ${session.accountName}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              window.location.assign(
+                                `/api/financeiro/export/cash-session?sessionId=${encodeURIComponent(session.id)}&format=csv`
+                              );
+                            }}
+                          >
+                            <Download className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {historyHasMore ? (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={
+                      isPending || historyFilters.limit >= CASH_HISTORY_MAX_LIMIT
+                    }
+                    onClick={() => {
+                      const nextLimit = Math.min(
+                        historyFilters.limit + CASH_HISTORY_PAGE_STEP,
+                        CASH_HISTORY_MAX_LIMIT
+                      );
+                      const params = new URLSearchParams(searchParams?.toString() ?? "");
+                      if (nextLimit === CASH_HISTORY_DEFAULT_LIMIT) {
+                        params.delete("limit");
+                      } else {
+                        params.set("limit", String(nextLimit));
+                      }
+                      const query = params.toString();
+                      startTransition(() => {
+                        router.push(query ? `${pathname}?${query}` : pathname);
+                      });
+                    }}
+                  >
+                    <ChevronsRight className="h-4 w-4" aria-hidden="true" />
+                    Ver mais {CASH_HISTORY_PAGE_STEP} sessões
+                  </Button>
+                </div>
+              ) : null}
+            </>
           )}
         </CardContent>
       </Card>
 
       {currentSession && canEdit ? (
-        <ManualTransactionModal
-          open={isManualTransactionModalOpen}
-          onOpenChange={setIsManualTransactionModalOpen}
-          accountId={currentSession.accountId}
-          type={manualTransactionType}
+        <CashMovementModal
+          open={isCashMovementModalOpen}
+          onOpenChange={setIsCashMovementModalOpen}
+          sessionId={currentSession.id}
+          type={cashMovementType}
+          expectedBalance={currentSession.expectedBalance}
         />
       ) : null}
+
+      <CashSessionDetailDialog
+        open={detailSessionId !== null}
+        onOpenChange={(next) => {
+          if (!next) setDetailSessionId(null);
+        }}
+        sessionId={detailSessionId}
+      />
     </div>
   );
 }
 
-function MetricCard({
+function KpiBlock({
   label,
   value,
+  icon,
+  accentClass,
+  wrapperClass,
   highlight = false,
 }: {
   label: string;
   value: string;
+  icon: React.ReactNode;
+  accentClass: string;
+  wrapperClass: string;
   highlight?: boolean;
 }) {
   return (
-    <div className="rounded-xl border bg-muted/20 p-4">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${highlight ? "text-primary" : ""}`}>{value}</p>
+    <div
+      className={cn(
+        "rounded-xl border p-4",
+        highlight ? "border-primary/30 bg-primary/5" : "bg-muted/10"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-md",
+            wrapperClass,
+            accentClass
+          )}
+        >
+          {icon}
+        </span>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      </div>
+      <p
+        className={cn(
+          "mt-2 text-lg font-semibold tabular-nums",
+          highlight ? "text-primary" : ""
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
+
+function CompositionRow({
+  label,
+  value,
+  accent,
+  emphasize = false,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt
+        className={cn(
+          "text-muted-foreground",
+          emphasize && "font-semibold text-foreground"
+        )}
+      >
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "font-medium tabular-nums",
+          emphasize && "text-foreground",
+          accent
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+

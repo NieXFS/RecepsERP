@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CirclePlus,
+  History,
   Pencil,
   Receipt,
   Tags,
@@ -52,6 +53,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AuditTimelineDialog } from "@/components/financial/audit-timeline-dialog";
 
 type AccountOption = {
   id: string;
@@ -115,6 +117,7 @@ export function ExpensePanel({
     open: boolean;
     expense?: MonthlyExpense;
   }>({ open: false });
+  const [auditExpenseId, setAuditExpenseId] = useState<string | null>(null);
 
   const filteredExpenses = useMemo(() => {
     return summary.expenses.filter((expense) => {
@@ -425,6 +428,14 @@ export function ExpensePanel({
                         <td className="py-3">
                           <div className="flex flex-wrap justify-end gap-2">
                             {paymentActionButton}
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              onClick={() => setAuditExpenseId(expense.id)}
+                            >
+                              <History className="h-3 w-3" />
+                              Histórico
+                            </Button>
                             {canEdit ? (
                               <Button
                                 size="xs"
@@ -574,6 +585,14 @@ export function ExpensePanel({
           </AlertDialogContent>
         </AlertDialog>
       ) : null}
+      <AuditTimelineDialog
+        entityType="Expense"
+        entityId={auditExpenseId}
+        open={auditExpenseId !== null}
+        onOpenChange={(open) => {
+          if (!open) setAuditExpenseId(null);
+        }}
+      />
     </div>
   );
 }

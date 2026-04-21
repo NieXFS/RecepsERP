@@ -56,6 +56,22 @@ export const manualCashTransactionSchema = z.object({
   ]),
 });
 
+export const CASH_MOVEMENT_TYPE_VALUES = ["WITHDRAWAL", "REINFORCEMENT"] as const;
+
+export const cashMovementSchema = z.object({
+  sessionId: z.string().min(1, "Sessão de caixa inválida."),
+  type: z.enum(CASH_MOVEMENT_TYPE_VALUES, {
+    message: "Tipo de movimento inválido.",
+  }),
+  amount: z.coerce.number().positive("Informe um valor maior que zero."),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Informe o motivo da movimentação.")
+    .max(200, "Motivo muito longo."),
+  notes: optionalTrimmedString,
+});
+
 export const createFinancialAccountSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome da conta."),
   type: z.enum(FINANCIAL_ACCOUNT_TYPE_VALUES).default("BANK"),
@@ -69,5 +85,6 @@ export const deactivateFinancialAccountSchema = z.object({
 export type OpenCashRegisterInput = z.infer<typeof openCashRegisterSchema>;
 export type CloseCashRegisterInput = z.infer<typeof closeCashRegisterSchema>;
 export type ManualCashTransactionInput = z.infer<typeof manualCashTransactionSchema>;
+export type CashMovementInput = z.infer<typeof cashMovementSchema>;
 export type CreateFinancialAccountInput = z.infer<typeof createFinancialAccountSchema>;
 export type DeactivateFinancialAccountInput = z.infer<typeof deactivateFinancialAccountSchema>;

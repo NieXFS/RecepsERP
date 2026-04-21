@@ -6,6 +6,7 @@ import {
   ChartColumn,
   CircleDollarSign,
   ReceiptText,
+  ScrollText,
   Tags,
   WalletCards,
 } from "lucide-react";
@@ -42,6 +43,12 @@ const tabs = [
     label: "Caixa",
     icon: CircleDollarSign,
     permission: "financeiro.caixa",
+  },
+  {
+    href: "/financeiro/auditoria",
+    label: "Auditoria",
+    icon: ScrollText,
+    permission: "financeiro.auditoria",
   },
 ] as const;
 
