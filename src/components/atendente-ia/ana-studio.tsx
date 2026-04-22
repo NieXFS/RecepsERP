@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -65,12 +65,6 @@ export function AnaStudio({
   const [isPending, startTransition] = useTransition();
   const [baseline, setBaseline] = useState<AnaFormState>(() => toFormState(settings));
   const [form, setForm] = useState<AnaFormState>(() => toFormState(settings));
-
-  useEffect(() => {
-    const next = toFormState(settings);
-    setBaseline(next);
-    setForm(next);
-  }, [settings]);
 
   const whatsappConnected = Boolean(settings.phoneNumberId && settings.isActive);
   const dirty = !shallowEqual(form, baseline);

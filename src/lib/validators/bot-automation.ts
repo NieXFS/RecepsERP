@@ -16,11 +16,15 @@ export const saveAutomationSchema = z.object({
     .trim()
     .min(1, "Informe o texto da mensagem.")
     .max(900, "O texto pode ter no máximo 900 caracteres."),
-  windowDays: z.coerce
-    .number()
-    .int("Informe um número inteiro de dias.")
-    .min(1, "Mínimo de 1 dia.")
-    .max(365, "Máximo de 365 dias.")
+  windowDays: z
+    .union([
+      z.coerce
+        .number()
+        .int("Informe um número inteiro de dias.")
+        .min(7, "Mínimo de 7 dias.")
+        .max(365, "Máximo de 365 dias."),
+      z.null(),
+    ])
     .optional(),
 });
 

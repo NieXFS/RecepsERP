@@ -60,6 +60,7 @@ export async function createCustomerAction(
     city: parsed.data.city || undefined,
     state: parsed.data.state || undefined,
     notes: parsed.data.notes || undefined,
+    optOutAutomations: parsed.data.optOutAutomations,
   });
 }
 
@@ -106,6 +107,7 @@ export async function updateCustomerAction(
     city: parsed.data.city || undefined,
     state: parsed.data.state || undefined,
     notes: parsed.data.notes || undefined,
+    optOutAutomations: parsed.data.optOutAutomations,
   });
 }
 

@@ -47,6 +47,7 @@ export const customerSchema = z.object({
   city: optionalTextField,
   state: optionalTextField,
   notes: optionalTextField,
+  optOutAutomations: z.coerce.boolean().optional(),
 });
 
 export const createCustomerSchema = customerSchema;

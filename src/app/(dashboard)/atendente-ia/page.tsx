@@ -28,8 +28,19 @@ export default async function AtendenteIAPage() {
     }),
   ]);
 
+  const studioKey = [
+    settings.botName,
+    settings.greetingMessage ?? "",
+    settings.fallbackMessage ?? "",
+    settings.botIsAlwaysActive ? "1" : "0",
+    settings.botActiveStart,
+    settings.botActiveEnd,
+    settings.timezone,
+  ].join("|");
+
   return (
     <AnaStudio
+      key={studioKey}
       settings={settings}
       automations={automations}
       tenantName={tenant?.name ?? "nosso negócio"}

@@ -42,6 +42,7 @@ type CustomerProfile = {
   city: string | null;
   state: string | null;
   notes: string | null;
+  optOutAutomations: boolean;
   totalSpent: number;
   visitCount: number;
   createdAt: string;
@@ -200,6 +201,7 @@ export function ProfileHeader({ profile }: { profile: CustomerProfile }) {
                 city: profile.city,
                 state: profile.state,
                 notes: profile.notes,
+                optOutAutomations: profile.optOutAutomations,
               }}
               refreshOnSuccess={false}
               onCancel={() => setIsEditOpen(false)}

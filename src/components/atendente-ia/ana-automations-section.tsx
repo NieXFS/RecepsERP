@@ -4,15 +4,13 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Cake,
-  Calendar,
-  CalendarX,
-  CheckCircle2,
+  CalendarClock,
   ChevronDown,
-  Clock3,
-  Lock,
+  MessageSquareHeart,
   RefreshCw,
   Send,
   Sparkles,
+  UserX,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,48 +33,72 @@ const TEMPLATE_MAX = 900;
 type AutomationType = BotAutomationVM["type"];
 type MetaStatus = BotAutomationVM["metaTemplateStatus"];
 
-const TYPE_META: Record<
-  AutomationType,
-  {
-    title: string;
-    subtitle: string;
-    icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-    comingSoon: boolean;
-  }
-> = {
+type TypeConfig = {
+  title: string;
+  subtitle: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  showWindowDays: boolean;
+  previewValues: (tenantName: string) => Record<string, string>;
+};
+
+const TYPE_CONFIG: Record<AutomationType, TypeConfig> = {
   BIRTHDAY: {
     title: "Aniversário",
-    subtitle: "Mensagem automática no aniversário do cliente.",
+    subtitle: "Parabeniza o cliente no dia do aniversário.",
     icon: Cake,
-    comingSoon: false,
+    showWindowDays: false,
+    previewValues: (tenantName) => ({ nome: "Maria", negocio: tenantName }),
   },
   INACTIVE: {
     title: "Clientes inativos",
-    subtitle: "Reativação de quem não vem há um tempo.",
-    icon: Clock3,
-    comingSoon: true,
+    subtitle: "Reativa quem não aparece há algum tempo.",
+    icon: UserX,
+    showWindowDays: true,
+    previewValues: (tenantName) => ({
+      nome: "Maria",
+      negocio: tenantName,
+      ultimo_servico: "Limpeza de pele",
+    }),
   },
   POST_APPOINTMENT: {
     title: "Pós-atendimento",
-    subtitle: "Agradecimento após o serviço.",
-    icon: CheckCircle2,
-    comingSoon: true,
+    subtitle: "Agradece cerca de 24h depois do serviço.",
+    icon: MessageSquareHeart,
+    showWindowDays: false,
+    previewValues: (tenantName) => ({
+      nome: "Maria",
+      negocio: tenantName,
+      servico: "Corte de cabelo",
+      profissional: "Julia",
+    }),
   },
   RESCHEDULE: {
     title: "Remarcação",
-    subtitle: "Aviso quando um horário precisa ser ajustado.",
-    icon: CalendarX,
-    comingSoon: true,
+    subtitle: "Convida o cliente a reagendar após cancelamento/no-show.",
+    icon: CalendarClock,
+    showWindowDays: false,
+    previewValues: (tenantName) => ({
+      nome: "Maria",
+      negocio: tenantName,
+      servico: "Corte de cabelo",
+      data_original: "10 de abril",
+    }),
   },
 };
+
+const ORDER: AutomationType[] = [
+  "BIRTHDAY",
+  "INACTIVE",
+  "POST_APPOINTMENT",
+  "RESCHEDULE",
+];
 
 function statusBadge(status: MetaStatus, rejectionReason: string | null) {
   switch (status) {
     case "DRAFT":
       return {
         label: "Rascunho",
-        className:
-          "bg-muted text-muted-foreground border-border/60",
+        className: "bg-muted text-muted-foreground border-border/60",
       };
     case "PENDING_APPROVAL":
       return {
@@ -101,8 +123,7 @@ function statusBadge(status: MetaStatus, rejectionReason: string | null) {
     case "DELETED":
       return {
         label: "Template removido",
-        className:
-          "bg-muted text-muted-foreground border-border/60",
+        className: "bg-muted text-muted-foreground border-border/60",
       };
     default:
       return { label: status, className: "bg-muted text-muted-foreground" };
@@ -118,12 +139,7 @@ export function AnaAutomationsSection({
   tenantName: string;
   style?: React.CSSProperties;
 }) {
-  const birthday = automations.find((a) => a.type === "BIRTHDAY");
-  const othersInOrder: AutomationType[] = [
-    "INACTIVE",
-    "POST_APPOINTMENT",
-    "RESCHEDULE",
-  ];
+  const byType = new Map(automations.map((a) => [a.type, a] as const));
 
   return (
     <AnaSectionCard
@@ -133,58 +149,23 @@ export function AnaAutomationsSection({
       style={style}
     >
       <div className="flex flex-col gap-4">
-        {birthday ? (
-          <BirthdayCard automation={birthday} tenantName={tenantName} />
-        ) : null}
-        {othersInOrder.map((type) => {
-          const row = automations.find((a) => a.type === type);
-          return <ComingSoonCard key={type} type={type} enabled={row?.enabled ?? false} />;
+        {ORDER.map((type) => {
+          const row = byType.get(type);
+          if (!row) return null;
+          return (
+            <AutomationCard
+              key={type}
+              automation={row}
+              tenantName={tenantName}
+            />
+          );
         })}
       </div>
     </AnaSectionCard>
   );
 }
 
-function ComingSoonCard({
-  type,
-  enabled,
-}: {
-  type: AutomationType;
-  enabled: boolean;
-}) {
-  const meta = TYPE_META[type];
-  const Icon = meta.icon;
-  return (
-    <div
-      className="flex items-start gap-3 rounded-xl border border-dashed border-border/50 bg-muted/20 p-4 opacity-70"
-      aria-label={`${meta.title} (em breve)`}
-    >
-      <span
-        aria-hidden="true"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
-      >
-        <Icon className="h-4 w-4" aria-hidden />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium">{meta.title}</p>
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-            Em breve
-          </span>
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{meta.subtitle}</p>
-      </div>
-      {enabled ? (
-        <Badge variant="outline" className="text-[10px]">
-          Configurada
-        </Badge>
-      ) : null}
-    </div>
-  );
-}
-
-function BirthdayCard({
+function AutomationCard({
   automation,
   tenantName,
 }: {
@@ -192,12 +173,17 @@ function BirthdayCard({
   tenantName: string;
 }) {
   const router = useRouter();
-  const meta = TYPE_META[automation.type];
-  const Icon = meta.icon;
+  const config = TYPE_CONFIG[automation.type];
+  const Icon = config.icon;
 
   const [enabled, setEnabled] = useState(automation.enabled);
   const [templateText, setTemplateText] = useState(automation.templateText);
-  const [status, setStatus] = useState<MetaStatus>(automation.metaTemplateStatus);
+  const [windowDays, setWindowDays] = useState<number | null>(
+    automation.windowDays
+  );
+  const [status, setStatus] = useState<MetaStatus>(
+    automation.metaTemplateStatus
+  );
   const [rejectionReason, setRejectionReason] = useState(
     automation.metaTemplateRejectionReason
   );
@@ -217,26 +203,32 @@ function BirthdayCard({
   const toggleDisabled = !canToggleOn && !enabled;
 
   const baseline = automation;
+  const windowDirty =
+    config.showWindowDays &&
+    (windowDays ?? null) !== (baseline.windowDays ?? null);
   const dirty =
-    enabled !== baseline.enabled || templateText !== baseline.templateText;
+    enabled !== baseline.enabled ||
+    templateText !== baseline.templateText ||
+    windowDirty;
 
   const length = templateText.length;
   const overLimit = length > TEMPLATE_MAX;
   const templateInvalid = templateText.trim().length === 0 || overLimit;
+  const windowInvalid =
+    config.showWindowDays &&
+    windowDays !== null &&
+    (windowDays < 7 || windowDays > 365);
 
   const availableVars = automation.availableVars;
 
   const previewText = useMemo(() => {
-    const values: Record<string, string> = {
-      nome: "Maria",
-      negocio: tenantName,
-    };
+    const values = config.previewValues(tenantName);
     return templateText.replace(
       /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g,
       (match, name: string) =>
         Object.prototype.hasOwnProperty.call(values, name) ? values[name] : match
     );
-  }, [templateText, tenantName]);
+  }, [templateText, tenantName, config]);
 
   function insertVariable(name: string) {
     const el = textareaRef.current;
@@ -261,11 +253,16 @@ function BirthdayCard({
       toast.error("Revise o texto da mensagem antes de salvar.");
       return;
     }
+    if (windowInvalid) {
+      toast.error("O período de inatividade deve estar entre 7 e 365 dias.");
+      return;
+    }
     startSaveTransition(async () => {
       const result = await saveBotAutomationAction({
         type: automation.type,
         enabled,
         templateText,
+        ...(config.showWindowDays ? { windowDays } : {}),
       });
       if (!result.success) {
         toast.error(result.error);
@@ -277,13 +274,16 @@ function BirthdayCard({
       setLastSyncedAt(result.data.metaLastSyncedAt);
       setEnabled(result.data.enabled);
       setTemplateText(result.data.templateText);
+      setWindowDays(result.data.windowDays);
       router.refresh();
     });
   }
 
   function handleSync() {
     startSyncTransition(async () => {
-      const result = await syncBotAutomationStatusAction({ type: automation.type });
+      const result = await syncBotAutomationStatusAction({
+        type: automation.type,
+      });
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -324,7 +324,7 @@ function BirthdayCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold">{meta.title}</p>
+            <p className="text-sm font-semibold">{config.title}</p>
             <Badge
               variant="outline"
               aria-live="polite"
@@ -348,7 +348,9 @@ function BirthdayCard({
               Verificar agora
             </Button>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">{meta.subtitle}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {config.subtitle}
+          </p>
           {lastSyncedAt ? (
             <p className="mt-1 text-[11px] text-muted-foreground">
               Última sincronização:{" "}
@@ -414,7 +416,6 @@ function BirthdayCard({
           value={templateText}
           onChange={(event) => setTemplateText(event.target.value)}
           aria-invalid={templateInvalid ? true : undefined}
-          placeholder="Feliz aniversário, {{nome}}! Aqui da {{negocio}}..."
         />
 
         <div className="flex flex-wrap items-center gap-2">
@@ -434,6 +435,40 @@ function BirthdayCard({
           ))}
         </div>
 
+        {config.showWindowDays ? (
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="grid gap-1">
+              <Label
+                htmlFor={`automation-window-${automation.type}`}
+                className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                Período de inatividade (dias)
+              </Label>
+              <Input
+                id={`automation-window-${automation.type}`}
+                type="number"
+                min={7}
+                max={365}
+                value={windowDays ?? ""}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  if (raw === "") {
+                    setWindowDays(null);
+                    return;
+                  }
+                  const parsed = Number.parseInt(raw, 10);
+                  setWindowDays(Number.isFinite(parsed) ? parsed : null);
+                }}
+                aria-invalid={windowInvalid ? true : undefined}
+                className="h-9 w-28"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              A Ana só envia a reativação depois desse período sem visita.
+            </p>
+          </div>
+        ) : null}
+
         <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 p-3">
           <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             Pré-visualização
@@ -445,7 +480,9 @@ function BirthdayCard({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={!dirty || templateInvalid || savingPending}
+            disabled={
+              !dirty || templateInvalid || windowInvalid || savingPending
+            }
             className="gap-1.5"
           >
             {savingPending ? "Salvando..." : "Salvar"}
@@ -501,7 +538,7 @@ function BirthdayCard({
                     : "Enviar teste agora"
                 }
               >
-                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <Send className="h-3.5 w-3.5" aria-hidden="true" />
                 {testPending ? "Enviando..." : "Disparar teste"}
               </Button>
             </div>

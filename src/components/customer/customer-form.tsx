@@ -42,6 +42,7 @@ export type CustomerFormInitialData = {
   city?: string | null;
   state?: string | null;
   notes?: string | null;
+  optOutAutomations?: boolean | null;
 };
 
 type CustomerFormProps = {
@@ -105,6 +106,9 @@ export function CustomerForm({
   const [city, setCity] = useState(initialData?.city ?? "");
   const [state, setState] = useState(initialData?.state ?? "");
   const [notes, setNotes] = useState(initialData?.notes ?? "");
+  const [automationsOptIn, setAutomationsOptIn] = useState(
+    !(initialData?.optOutAutomations ?? false)
+  );
 
   const isEditing = Boolean(initialData?.id);
   const resolvedSubmitLabel =
@@ -125,6 +129,7 @@ export function CustomerForm({
     setCity(initialData?.city ?? "");
     setState(initialData?.state ?? "");
     setNotes(initialData?.notes ?? "");
+    setAutomationsOptIn(!(initialData?.optOutAutomations ?? false));
   }, [initialData]);
 
   function resetForm() {
@@ -142,6 +147,7 @@ export function CustomerForm({
     setCity("");
     setState("");
     setNotes("");
+    setAutomationsOptIn(true);
   }
 
   function handleSubmit() {
@@ -160,6 +166,7 @@ export function CustomerForm({
       city,
       state,
       notes,
+      optOutAutomations: !automationsOptIn,
     };
 
     startTransition(async () => {
@@ -210,6 +217,36 @@ export function CustomerForm({
               placeholder="(11) 99999-9999"
               disabled={isPending}
             />
+          </div>
+
+          <div className="grid gap-1">
+            <label
+              htmlFor="customer-automations-opt-in"
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                automationsOptIn
+                  ? "border-primary/40 bg-primary/5"
+                  : "border-border bg-muted/30",
+                isPending && "cursor-not-allowed opacity-70"
+              )}
+            >
+              <input
+                id="customer-automations-opt-in"
+                type="checkbox"
+                checked={automationsOptIn}
+                disabled={isPending}
+                onChange={(e) => setAutomationsOptIn(e.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              <span className="flex-1">
+                Receber automações da Ana no WhatsApp
+              </span>
+            </label>
+            {!automationsOptIn ? (
+              <p className="text-xs text-muted-foreground">
+                Cliente optou por não receber automações.
+              </p>
+            ) : null}
           </div>
 
           {mode === "full" ? (

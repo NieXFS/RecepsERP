@@ -157,6 +157,7 @@ export async function createCustomer(
       city: normalizedCity,
       state: normalizedState,
       notes: normalizedNotes,
+      optOutAutomations: data.optOutAutomations ?? false,
       isActive: true,
     },
   });
@@ -269,6 +270,9 @@ export async function updateCustomer(
       city: normalizedCity,
       state: normalizedState,
       notes: normalizedNotes,
+      ...(typeof data.optOutAutomations === "boolean"
+        ? { optOutAutomations: data.optOutAutomations }
+        : {}),
     },
   });
 
@@ -314,6 +318,7 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     state: customer.state,
     zipCode: customer.zipCode,
     notes: customer.notes,
+    optOutAutomations: customer.optOutAutomations,
     totalSpent: Number(customer.totalSpent),
     visitCount: customer.visitCount,
     createdAt: customer.createdAt.toISOString(),
