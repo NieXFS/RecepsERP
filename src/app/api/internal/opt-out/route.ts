@@ -67,12 +67,20 @@ export async function POST(request: Request) {
     }
 
     const candidates = new Set<string>();
-    candidates.add(customerPhone);
-    if (customerPhone.startsWith("55") && customerPhone.length > 2) {
-      candidates.add(customerPhone.slice(2));
-    } else {
-      candidates.add(`55${customerPhone}`);
-    }
+    const digitsOnly = customerPhone;
+
+    const withCountry = digitsOnly.startsWith("55")
+      ? digitsOnly
+      : `55${digitsOnly}`;
+    const withoutCountry =
+      digitsOnly.startsWith("55") && digitsOnly.length > 2
+        ? digitsOnly.slice(2)
+        : digitsOnly;
+
+    candidates.add(withCountry);
+    candidates.add(`+${withCountry}`);
+    candidates.add(withoutCountry);
+    candidates.add(`+${withoutCountry}`);
 
     const customer = await db.customer.findFirst({
       where: {
