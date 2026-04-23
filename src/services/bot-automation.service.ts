@@ -13,14 +13,13 @@ import {
   AVAILABLE_VARS_BY_TYPE,
   convertToPositional,
   isValidVariableMap,
-  renderForMeta,
   renderPreview,
   type VariableMapEntry,
 } from "@/lib/automation-template";
 import {
   createMessageTemplate,
-  deleteMessageTemplate,
   getMessageTemplateStatus,
+  MetaTemplateQuarantineError,
   sendTemplateMessage,
 } from "@/lib/whatsapp-cloud";
 import type { SaveAutomationInput } from "@/lib/validators/bot-automation";
@@ -59,7 +58,7 @@ const DEFAULT_WINDOW_DAYS: Record<
   RESCHEDULE: null,
 };
 
-const VARIABLE_EXAMPLES: Record<string, string> = {
+export const VARIABLE_EXAMPLES: Record<string, string> = {
   nome: "Maria",
   negocio: "Receps Admin",
   servico: "Corte de cabelo",
@@ -68,12 +67,72 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   ultimo_servico: "Corte de cabelo",
 };
 
+type NamedBodyCtx = {
+  customerName: string;
+  businessName: string;
+  serviceName?: string;
+  professionalName?: string;
+  originalDate?: string;
+  lastServiceName?: string;
+};
+
+function buildNamedBodyVariables(
+  type: (typeof BotAutomationType)[keyof typeof BotAutomationType],
+  ctx: NamedBodyCtx
+): Array<{ name: string; text: string }> {
+  switch (type) {
+    case BotAutomationType.BIRTHDAY:
+      return [
+        { name: "nome", text: ctx.customerName },
+        { name: "negocio", text: ctx.businessName },
+      ];
+    case BotAutomationType.INACTIVE:
+      return [
+        { name: "nome", text: ctx.customerName },
+        { name: "negocio", text: ctx.businessName },
+        { name: "ultimo_servico", text: ctx.lastServiceName ?? "" },
+      ];
+    case BotAutomationType.POST_APPOINTMENT:
+      return [
+        { name: "nome", text: ctx.customerName },
+        { name: "negocio", text: ctx.businessName },
+        { name: "servico", text: ctx.serviceName ?? "" },
+        { name: "profissional", text: ctx.professionalName ?? "" },
+      ];
+    case BotAutomationType.RESCHEDULE:
+      return [
+        { name: "nome", text: ctx.customerName },
+        { name: "servico", text: ctx.serviceName ?? "" },
+        { name: "data_original", text: ctx.originalDate ?? "" },
+        { name: "negocio", text: ctx.businessName },
+      ];
+    default:
+      return [];
+  }
+}
+
+function filterByVariableMap(
+  named: Array<{ name: string; text: string }>,
+  variableMap: VariableMapEntry[]
+): Array<{ name: string; text: string }> {
+  const allowed = new Set(variableMap.map((v) => v.varName));
+  return named.filter((entry) => allowed.has(entry.name));
+}
+
 function capitalizeVarName(raw: string): string {
   return raw
     .split("_")
     .filter((part) => part.length > 0)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+const SYNC_LOCK_WINDOW_MS = 30_000;
+
+function baseTemplateName(
+  type: (typeof BotAutomationType)[keyof typeof BotAutomationType]
+): string {
+  return `receps_${type.toLowerCase()}`;
 }
 
 function extractNamedParams(
@@ -104,11 +163,14 @@ export type BotAutomationVM = {
   templateText: string;
   windowDays: number | null;
   metaTemplateName: string | null;
+  metaTemplateVersion: number;
   metaTemplateLanguage: string;
   metaCategory: string;
   metaTemplateStatus: (typeof MetaTemplateStatus)[keyof typeof MetaTemplateStatus];
   metaTemplateRejectionReason: string | null;
   metaLastSyncedAt: string | null;
+  lastSyncStartedAt: string | null;
+  lastSyncError: string | null;
   availableVars: string[];
   canSend: boolean;
 };
@@ -129,11 +191,16 @@ export function toBotAutomationVM(row: BotAutomationWithDerived): BotAutomationV
     templateText: row.templateText,
     windowDays: row.windowDays,
     metaTemplateName: row.metaTemplateName,
+    metaTemplateVersion: row.metaTemplateVersion,
     metaTemplateLanguage: row.metaTemplateLanguage,
     metaCategory: row.metaCategory,
     metaTemplateStatus: row.metaTemplateStatus,
     metaTemplateRejectionReason: row.metaTemplateRejectionReason,
     metaLastSyncedAt: row.metaLastSyncedAt ? row.metaLastSyncedAt.toISOString() : null,
+    lastSyncStartedAt: row.lastSyncStartedAt
+      ? row.lastSyncStartedAt.toISOString()
+      : null,
+    lastSyncError: row.lastSyncError,
     availableVars: [...row.availableVars],
     canSend: row.canSend,
   };
@@ -192,14 +259,6 @@ export async function getAutomationsForTenant(
   return rows;
 }
 
-async function getTenantSlug(tenantId: string): Promise<string> {
-  const tenant = await db.tenant.findUnique({
-    where: { id: tenantId },
-    select: { slug: true },
-  });
-  return tenant?.slug ?? "tenant";
-}
-
 async function getBotCredentials(tenantId: string): Promise<{
   wabaId: string;
   phoneNumberId: string;
@@ -239,9 +298,11 @@ export async function saveAutomation(
     textChanged || current.metaTemplateName === null;
 
   let metaTemplateName = current.metaTemplateName;
+  let metaTemplateVersion = current.metaTemplateVersion;
   let metaTemplateStatus = current.metaTemplateStatus;
   let metaTemplateRejectionReason = current.metaTemplateRejectionReason;
   let metaLastSyncedAt = current.metaLastSyncedAt;
+  let lastSyncError: string | null = current.lastSyncError;
 
   if (needsCreateTemplate && input.enabled) {
     const credentials = await getBotCredentials(tenantId);
@@ -250,32 +311,47 @@ export async function saveAutomation(
         "Configure o WhatsApp (wabaId, phoneNumberId e accessToken) antes de ativar a automação."
       );
     }
-    const slug = await getTenantSlug(tenantId);
-    const safeSlug = slug.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-    const newName = `receps_${input.type.toLowerCase()}_${safeSlug}_${Date.now().toString(36)}`;
+    const nextVersion = current.metaTemplateName
+      ? current.metaTemplateVersion + 1
+      : 1;
+    const nextName = `${baseTemplateName(input.type)}_v${nextVersion}`;
 
     const namedParams = extractNamedParams(input.templateText);
-    const created = await createMessageTemplate({
-      wabaId: credentials.wabaId,
-      accessToken: credentials.accessToken,
-      apiVersion: credentials.apiVersion,
-      name: newName,
-      category: current.metaCategory,
-      languageCode: current.metaTemplateLanguage,
-      bodyText: input.templateText,
-      namedParams: namedParams.length > 0 ? namedParams : undefined,
-    });
+    try {
+      const created = await createMessageTemplate({
+        wabaId: credentials.wabaId,
+        accessToken: credentials.accessToken,
+        apiVersion: credentials.apiVersion,
+        name: nextName,
+        category: current.metaCategory,
+        languageCode: current.metaTemplateLanguage,
+        bodyText: input.templateText,
+        namedParams: namedParams.length > 0 ? namedParams : undefined,
+      });
 
-    metaTemplateName = newName;
-    metaTemplateStatus = MetaTemplateStatus.PENDING_APPROVAL;
-    metaTemplateRejectionReason = null;
-    metaLastSyncedAt = new Date();
+      metaTemplateName = nextName;
+      metaTemplateVersion = nextVersion;
+      metaTemplateStatus = MetaTemplateStatus.PENDING_APPROVAL;
+      metaTemplateRejectionReason = null;
+      metaLastSyncedAt = new Date();
+      lastSyncError = null;
 
-    // Best-effort: se a Meta já retornou status diferente de PENDING, usamos.
-    if (created.status === "APPROVED") {
-      metaTemplateStatus = MetaTemplateStatus.APPROVED;
-    } else if (created.status === "REJECTED") {
-      metaTemplateStatus = MetaTemplateStatus.REJECTED;
+      // Best-effort: se a Meta já retornou status diferente de PENDING, usamos.
+      if (created.status === "APPROVED") {
+        metaTemplateStatus = MetaTemplateStatus.APPROVED;
+      } else if (created.status === "REJECTED") {
+        metaTemplateStatus = MetaTemplateStatus.REJECTED;
+      }
+    } catch (error) {
+      if (error instanceof MetaTemplateQuarantineError) {
+        lastSyncError = "QUARANTINE";
+        metaLastSyncedAt = new Date();
+        await db.botAutomation.update({
+          where: { tenantId_type: { tenantId, type: input.type } },
+          data: { lastSyncError, metaLastSyncedAt },
+        });
+      }
+      throw error;
     }
   }
 
@@ -290,13 +366,22 @@ export async function saveAutomation(
           : (current.windowDays ?? null),
       variableMap,
       metaTemplateName,
+      metaTemplateVersion,
       metaTemplateStatus,
       metaTemplateRejectionReason,
       metaLastSyncedAt,
+      lastSyncError,
     },
   });
 
   return decorate(updated);
+}
+
+export class SyncDebouncedError extends Error {
+  constructor() {
+    super("Sincronização recente em andamento");
+    this.name = "SyncDebouncedError";
+  }
 }
 
 export async function syncTemplateStatus(
@@ -309,10 +394,22 @@ export async function syncTemplateStatus(
     return current;
   }
 
+  if (
+    current.lastSyncStartedAt &&
+    Date.now() - current.lastSyncStartedAt.getTime() < SYNC_LOCK_WINDOW_MS
+  ) {
+    throw new SyncDebouncedError();
+  }
+
   const credentials = await getBotCredentials(tenantId);
   if (!credentials) {
     return current;
   }
+
+  await db.botAutomation.update({
+    where: { tenantId_type: { tenantId, type } },
+    data: { lastSyncStartedAt: new Date() },
+  });
 
   const result = await getMessageTemplateStatus({
     wabaId: credentials.wabaId,
@@ -355,52 +452,13 @@ export async function syncTemplateStatus(
     }
   }
 
-  if (
-    nextStatus === MetaTemplateStatus.REJECTED &&
-    nextRejection === "INVALID_FORMAT" &&
-    current.metaTemplateName
-  ) {
-    try {
-      await deleteMessageTemplate({
-        wabaId: credentials.wabaId,
-        accessToken: credentials.accessToken,
-        apiVersion: credentials.apiVersion,
-        name: current.metaTemplateName,
-      });
-
-      const namedParams = extractNamedParams(current.templateText);
-      const created = await createMessageTemplate({
-        wabaId: credentials.wabaId,
-        accessToken: credentials.accessToken,
-        apiVersion: credentials.apiVersion,
-        name: current.metaTemplateName,
-        category: current.metaCategory,
-        languageCode: current.metaTemplateLanguage,
-        bodyText: current.templateText,
-        namedParams: namedParams.length > 0 ? namedParams : undefined,
-      });
-
-      nextStatus =
-        created.status === "APPROVED"
-          ? MetaTemplateStatus.APPROVED
-          : created.status === "REJECTED"
-            ? MetaTemplateStatus.REJECTED
-            : MetaTemplateStatus.PENDING_APPROVAL;
-      nextRejection = null;
-    } catch (recreateError) {
-      console.error(
-        `[bot-automation] falha ao recriar template após INVALID_FORMAT | tenantId=${tenantId} | type=${type}`,
-        recreateError
-      );
-    }
-  }
-
   const updated = await db.botAutomation.update({
     where: { tenantId_type: { tenantId, type } },
     data: {
       metaTemplateStatus: nextStatus,
       metaTemplateRejectionReason: nextRejection,
       metaLastSyncedAt: new Date(),
+      lastSyncError: null,
     },
   });
 
@@ -540,7 +598,13 @@ export async function runBirthdayAutomation(
         continue;
       }
 
-      const bodyVariables = renderForMeta(variableMap, values);
+      const bodyVariables = filterByVariableMap(
+        buildNamedBodyVariables(BotAutomationType.BIRTHDAY, {
+          customerName: values.nome,
+          businessName: values.negocio,
+        }),
+        variableMap
+      );
 
       try {
         const { messageId } = await sendTemplateMessage({
@@ -687,7 +751,17 @@ async function dispatchAndLog(params: {
   }
 
   const renderedMessage = renderPreview(automation.templateText, values);
-  const bodyVariables = renderForMeta(variableMap, values);
+  const bodyVariables = filterByVariableMap(
+    buildNamedBodyVariables(automation.type, {
+      customerName: values.nome ?? "",
+      businessName: values.negocio ?? "",
+      serviceName: values.servico,
+      professionalName: values.profissional,
+      originalDate: values.data_original,
+      lastServiceName: values.ultimo_servico,
+    }),
+    variableMap
+  );
 
   try {
     const { messageId } = await sendTemplateMessage({
@@ -1095,28 +1169,26 @@ export async function sendAutomationTest(
   if (!credentials) {
     throw new Error("Configure o WhatsApp antes de disparar testes.");
   }
-  const tenant = await db.tenant.findUnique({
-    where: { id: tenantId },
-    select: { name: true },
-  });
-  if (!tenant) {
-    throw new Error("Tenant não encontrado.");
-  }
 
-  const defaults: Record<string, string> = {
-    nome: "Maria",
-    negocio: tenant.name,
-    ultimo_servico: "Limpeza de pele",
-    servico: "Corte de cabelo",
-    profissional: "Julia",
-    data_original: "amanhã às 15h",
+  const values: Record<string, string> = {
+    ...VARIABLE_EXAMPLES,
+    ...(overrideValues ?? {}),
   };
-  const values = { ...defaults, ...(overrideValues ?? {}) };
 
   const variableMap = isValidVariableMap(automation.variableMap)
     ? automation.variableMap
     : [];
-  const bodyVariables = renderForMeta(variableMap, values);
+  const bodyVariables = filterByVariableMap(
+    buildNamedBodyVariables(automation.type, {
+      customerName: values.nome ?? "",
+      businessName: values.negocio ?? "",
+      serviceName: values.servico,
+      professionalName: values.profissional,
+      originalDate: values.data_original,
+      lastServiceName: values.ultimo_servico,
+    }),
+    variableMap
+  );
 
   const { messageId } = await sendTemplateMessage({
     phoneNumberId: credentials.phoneNumberId,

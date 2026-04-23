@@ -1351,11 +1351,14 @@ model BotAutomation {
   templateText                String             @db.Text
   windowDays                  Int? // Usado apenas pelo INACTIVE
   metaTemplateName            String?
+  metaTemplateVersion         Int                @default(1)
   metaTemplateLanguage        String             @default("pt_BR")
   metaCategory                String             @default("MARKETING")
   metaTemplateStatus          MetaTemplateStatus @default(DRAFT)
   metaTemplateRejectionReason String?
   metaLastSyncedAt            DateTime?
+  lastSyncStartedAt           DateTime?
+  lastSyncError               String?
   variableMap                 Json // [{position:1, varName:"nome"}, ...]
   createdAt                   DateTime           @default(now())
   updatedAt                   DateTime           @updatedAt

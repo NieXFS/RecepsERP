@@ -11,9 +11,11 @@ import {
   saveAutomation,
   sendAutomationTest,
   syncTemplateStatus,
+  SyncDebouncedError,
   toBotAutomationVM,
   type BotAutomationVM,
 } from "@/services/bot-automation.service";
+import { MetaTemplateQuarantineError } from "@/lib/whatsapp-cloud";
 import type { ActionResult } from "@/types";
 
 async function assertAdmin() {
@@ -46,6 +48,14 @@ export async function saveBotAutomationAction(
     revalidatePath("/atendente-ia");
     return { success: true, data: toBotAutomationVM(row) };
   } catch (error) {
+    if (error instanceof MetaTemplateQuarantineError) {
+      revalidatePath("/atendente-ia");
+      return {
+        success: false,
+        error:
+          "Aguardando Meta liberar o nome anterior (~10 min). Tente novamente em alguns minutos.",
+      };
+    }
     const message =
       error instanceof Error ? error.message : "Não foi possível salvar a automação.";
     return { success: false, error: message };
@@ -71,6 +81,12 @@ export async function syncBotAutomationStatusAction(
     revalidatePath("/atendente-ia");
     return { success: true, data: toBotAutomationVM(row) };
   } catch (error) {
+    if (error instanceof SyncDebouncedError) {
+      return {
+        success: false,
+        error: "Sincronização recente em andamento. Aguarde alguns segundos.",
+      };
+    }
     const message =
       error instanceof Error
         ? error.message

@@ -8,7 +8,7 @@ type SendTemplateParams = {
   to: string;
   templateName: string;
   languageCode: string;
-  bodyVariables: string[];
+  bodyVariables: Array<{ name: string; text: string }>;
 };
 
 type CreateTemplateParams = {
@@ -22,12 +22,12 @@ type CreateTemplateParams = {
   namedParams?: Array<{ name: string; example: string }>;
 };
 
-type DeleteTemplateParams = {
-  wabaId: string;
-  accessToken: string;
-  apiVersion: string;
-  name: string;
-};
+export class MetaTemplateQuarantineError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MetaTemplateQuarantineError";
+  }
+}
 
 type GetTemplateStatusParams = {
   wabaId: string;
@@ -111,8 +111,9 @@ export async function sendTemplateMessage(
           ? [
               {
                 type: "body",
-                parameters: params.bodyVariables.map((text) => ({
+                parameters: params.bodyVariables.map(({ name, text }) => ({
                   type: "text",
+                  parameter_name: name,
                   text,
                 })),
               },
@@ -193,14 +194,21 @@ export async function createMessageTemplate(
   const parsed = await parseResponse(response);
 
   if (!parsed.ok) {
-    throw new Error(
-      formatMetaError(
-        parsed.status,
-        parsed.body,
-        parsed.rawText,
-        "Falha ao criar template WhatsApp."
-      )
+    const err = (parsed.body as MetaErrorShape | null)?.error;
+    const rawMessage = `${err?.message ?? ""} ${err?.error_user_msg ?? ""}`;
+    const isQuarantine =
+      err?.code === 100 &&
+      /being\s+deleted|está\s+sendo\s+exclu/i.test(rawMessage);
+    const formatted = formatMetaError(
+      parsed.status,
+      parsed.body,
+      parsed.rawText,
+      "Falha ao criar template WhatsApp."
     );
+    if (isQuarantine) {
+      throw new MetaTemplateQuarantineError(formatted);
+    }
+    throw new Error(formatted);
   }
 
   const body = parsed.body as { id?: string; status?: string } | null;
@@ -261,38 +269,3 @@ export async function getMessageTemplateStatus(
   };
 }
 
-export async function deleteMessageTemplate(
-  params: DeleteTemplateParams
-): Promise<void> {
-  const qs = new URLSearchParams({ name: params.name });
-  const url = `${GRAPH_HOST}/${params.apiVersion}/${params.wabaId}/message_templates?${qs.toString()}`;
-
-  const response = await doFetch(url, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${params.accessToken}`,
-    },
-  });
-
-  const parsed = await parseResponse(response);
-
-  if (parsed.ok) return;
-
-  const err = (parsed.body as MetaErrorShape | null)?.error;
-  const code = err?.code;
-  const message = err?.message ?? "";
-  const alreadyGone =
-    parsed.status === 404 ||
-    code === 100 ||
-    /not\s*exist|no\s*template|was\s*not\s*found/i.test(message);
-  if (alreadyGone) return;
-
-  throw new Error(
-    formatMetaError(
-      parsed.status,
-      parsed.body,
-      parsed.rawText,
-      "Falha ao deletar template WhatsApp."
-    )
-  );
-}
