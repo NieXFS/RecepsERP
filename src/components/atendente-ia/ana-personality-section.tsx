@@ -1,19 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquareText, Sparkles } from "lucide-react";
+import { MessageSquareText, RotateCcw, Sparkles } from "lucide-react";
 import { AnaSectionCard } from "./ana-section-card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DEFAULT_BOT_SYSTEM_PROMPT } from "@/lib/bot-config";
 
 const SUPPORT_PROMPT_MESSAGE =
   "Olá, sou administrador no Receps ERP e quero ajustar a personalidade da minha atendente Ana.";
@@ -30,16 +32,20 @@ export function AnaPersonalitySection({
   botName,
   systemPrompt,
   onBotNameChange,
+  onSystemPromptChange,
   style,
 }: {
   botName: string;
   systemPrompt: string;
   onBotNameChange: (value: string) => void;
+  onSystemPromptChange: (value: string) => void;
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const supportUrl = getSupportUrl();
   const promptPreview = systemPrompt.split("\n").slice(0, 4).join("\n");
+  const isDefault = systemPrompt === DEFAULT_BOT_SYSTEM_PROMPT;
 
   return (
     <AnaSectionCard
@@ -69,29 +75,73 @@ export function AnaPersonalitySection({
           <Label className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Prompt de personalidade
           </Label>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-              render={
-                <Button variant="ghost" size="sm" className="text-primary">
-                  Ver completo
-                </Button>
-              }
-            />
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Prompt de personalidade da Ana</DialogTitle>
-                <DialogDescription>
-                  Esse é o roteiro que a Ana segue nas conversas. Ajustes são feitos pelo
-                  time de suporte pra garantir consistência.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="max-h-[60vh] overflow-auto rounded-lg border bg-muted/30 p-4">
-                <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/90">
-                  {systemPrompt}
-                </p>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-1">
+            <Dialog open={restoreOpen} onOpenChange={setRestoreOpen}>
+              <DialogTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground"
+                    disabled={isDefault}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    Restaurar padrão
+                  </Button>
+                }
+              />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Restaurar prompt padrão da Ana?</DialogTitle>
+                  <DialogDescription>
+                    Isso vai substituir o prompt atual pelo padrão recomendado
+                    da Receps. As alterações personalizadas serão perdidas.
+                    Você ainda precisa clicar em &quot;Salvar alterações&quot;
+                    para aplicar.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setRestoreOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      onSystemPromptChange(DEFAULT_BOT_SYSTEM_PROMPT);
+                      setRestoreOpen(false);
+                    }}
+                  >
+                    Restaurar padrão
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger
+                render={
+                  <Button variant="ghost" size="sm" className="text-primary">
+                    Ver completo
+                  </Button>
+                }
+              />
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Prompt de personalidade da Ana</DialogTitle>
+                  <DialogDescription>
+                    Esse é o roteiro que a Ana segue nas conversas. Ajustes são feitos pelo
+                    time de suporte pra garantir consistência.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-auto rounded-lg border bg-muted/30 p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/90">
+                    {systemPrompt}
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
         <div className="rounded-xl border border-dashed border-primary/20 bg-muted/20 p-4">
           <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/80 line-clamp-5">

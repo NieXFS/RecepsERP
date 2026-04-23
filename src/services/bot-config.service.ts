@@ -311,6 +311,7 @@ export async function upsertBotConfig(
     where: { tenantId },
     update: {
       botName: input.botName,
+      systemPrompt: input.systemPrompt,
       greetingMessage: input.greetingMessage || null,
       fallbackMessage: input.fallbackMessage || null,
       botIsAlwaysActive: input.botIsAlwaysActive,
@@ -321,6 +322,7 @@ export async function upsertBotConfig(
     create: {
       ...getDefaultBotConfigCreateData(tenantId),
       botName: input.botName,
+      systemPrompt: input.systemPrompt,
       greetingMessage: input.greetingMessage || null,
       fallbackMessage: input.fallbackMessage || null,
       botIsAlwaysActive: input.botIsAlwaysActive,

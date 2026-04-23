@@ -19,6 +19,14 @@ type CreateTemplateParams = {
   category: string;
   languageCode: string;
   bodyText: string;
+  namedParams?: Array<{ name: string; example: string }>;
+};
+
+type DeleteTemplateParams = {
+  wabaId: string;
+  accessToken: string;
+  apiVersion: string;
+  name: string;
 };
 
 type GetTemplateStatusParams = {
@@ -148,12 +156,30 @@ export async function createMessageTemplate(
   params: CreateTemplateParams
 ): Promise<{ templateId: string; status: string }> {
   const url = `${GRAPH_HOST}/${params.apiVersion}/${params.wabaId}/message_templates`;
-  const payload = {
+  const hasNamedParams = Boolean(
+    params.namedParams && params.namedParams.length > 0
+  );
+  const bodyComponent: Record<string, unknown> = {
+    type: "BODY",
+    text: params.bodyText,
+  };
+  if (hasNamedParams) {
+    bodyComponent.example = {
+      body_text_named_params: params.namedParams!.map((p) => ({
+        param_name: p.name,
+        example: p.example,
+      })),
+    };
+  }
+  const payload: Record<string, unknown> = {
     name: params.name,
     language: params.languageCode,
     category: params.category,
-    components: [{ type: "BODY", text: params.bodyText }],
+    components: [bodyComponent],
   };
+  if (hasNamedParams) {
+    payload.parameter_format = "NAMED";
+  }
 
   const response = await doFetch(url, {
     method: "POST",
@@ -235,6 +261,38 @@ export async function getMessageTemplateStatus(
   };
 }
 
-export async function deleteMessageTemplate(): Promise<never> {
-  throw new Error("deleteMessageTemplate: NotImplemented");
+export async function deleteMessageTemplate(
+  params: DeleteTemplateParams
+): Promise<void> {
+  const qs = new URLSearchParams({ name: params.name });
+  const url = `${GRAPH_HOST}/${params.apiVersion}/${params.wabaId}/message_templates?${qs.toString()}`;
+
+  const response = await doFetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+    },
+  });
+
+  const parsed = await parseResponse(response);
+
+  if (parsed.ok) return;
+
+  const err = (parsed.body as MetaErrorShape | null)?.error;
+  const code = err?.code;
+  const message = err?.message ?? "";
+  const alreadyGone =
+    parsed.status === 404 ||
+    code === 100 ||
+    /not\s*exist|no\s*template|was\s*not\s*found/i.test(message);
+  if (alreadyGone) return;
+
+  throw new Error(
+    formatMetaError(
+      parsed.status,
+      parsed.body,
+      parsed.rawText,
+      "Falha ao deletar template WhatsApp."
+    )
+  );
 }

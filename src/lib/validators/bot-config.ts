@@ -7,6 +7,10 @@ const timeField = z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido
 export const botConfigSettingsSchema = z
   .object({
     botName: z.string().trim().min(2, "Informe o nome da atendente."),
+    systemPrompt: z
+      .string()
+      .trim()
+      .min(20, "Informe instruções mais completas para a atendente."),
     greetingMessage: optionalTextField,
     fallbackMessage: optionalTextField,
     botIsAlwaysActive: z.coerce.boolean(),

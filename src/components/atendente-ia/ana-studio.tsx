@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 type AnaFormState = {
   botName: string;
+  systemPrompt: string;
   greetingMessage: string;
   fallbackMessage: string;
   botIsAlwaysActive: boolean;
@@ -31,6 +32,7 @@ type AnaFormState = {
 function toFormState(settings: BotSettingsRecord): AnaFormState {
   return {
     botName: settings.botName,
+    systemPrompt: settings.systemPrompt,
     greetingMessage: settings.greetingMessage ?? "",
     fallbackMessage: settings.fallbackMessage ?? "",
     botIsAlwaysActive: settings.botIsAlwaysActive,
@@ -43,6 +45,7 @@ function toFormState(settings: BotSettingsRecord): AnaFormState {
 function shallowEqual(a: AnaFormState, b: AnaFormState) {
   return (
     a.botName === b.botName &&
+    a.systemPrompt === b.systemPrompt &&
     a.greetingMessage === b.greetingMessage &&
     a.fallbackMessage === b.fallbackMessage &&
     a.botIsAlwaysActive === b.botIsAlwaysActive &&
@@ -73,7 +76,7 @@ export function AnaStudio({
     () =>
       computeAnaReadiness({
         botName: form.botName,
-        systemPrompt: settings.systemPrompt,
+        systemPrompt: form.systemPrompt,
         greetingMessage: form.greetingMessage,
         fallbackMessage: form.fallbackMessage,
         botIsAlwaysActive: form.botIsAlwaysActive,
@@ -81,7 +84,7 @@ export function AnaStudio({
         botActiveEnd: form.botActiveEnd,
         whatsappConnected,
       }),
-    [form, settings.systemPrompt, whatsappConnected]
+    [form, whatsappConnected]
   );
 
   const update = useCallback(<K extends keyof AnaFormState>(key: K, value: AnaFormState[K]) => {
@@ -117,8 +120,9 @@ export function AnaStudio({
         <div className="flex flex-col gap-5">
           <AnaPersonalitySection
             botName={form.botName}
-            systemPrompt={settings.systemPrompt}
+            systemPrompt={form.systemPrompt}
             onBotNameChange={(value) => update("botName", value)}
+            onSystemPromptChange={(value) => update("systemPrompt", value)}
             style={{ animation: "fade-in-up 0.4s cubic-bezier(0.2,0,0,1) both", animationDelay: "80ms" }}
           />
 

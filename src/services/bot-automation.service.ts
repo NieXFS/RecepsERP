@@ -19,6 +19,7 @@ import {
 } from "@/lib/automation-template";
 import {
   createMessageTemplate,
+  deleteMessageTemplate,
   getMessageTemplateStatus,
   sendTemplateMessage,
 } from "@/lib/whatsapp-cloud";
@@ -57,6 +58,39 @@ const DEFAULT_WINDOW_DAYS: Record<
   POST_APPOINTMENT: null,
   RESCHEDULE: null,
 };
+
+const VARIABLE_EXAMPLES: Record<string, string> = {
+  nome: "Maria",
+  negocio: "Receps Admin",
+  servico: "Corte de cabelo",
+  profissional: "Julia",
+  data_original: "23/04 às 15h",
+  ultimo_servico: "Corte de cabelo",
+};
+
+function capitalizeVarName(raw: string): string {
+  return raw
+    .split("_")
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function extractNamedParams(
+  bodyText: string
+): Array<{ name: string; example: string }> {
+  const pattern = /\{\{(\w+)\}\}/g;
+  const seen = new Set<string>();
+  const result: Array<{ name: string; example: string }> = [];
+  for (const match of bodyText.matchAll(pattern)) {
+    const name = match[1];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const example = VARIABLE_EXAMPLES[name] ?? capitalizeVarName(name);
+    result.push({ name, example });
+  }
+  return result;
+}
 
 export type BotAutomationWithDerived = BotAutomationModel & {
   canSend: boolean;
@@ -198,7 +232,7 @@ export async function saveAutomation(
 ): Promise<BotAutomationWithDerived> {
   const current = await getOrCreateAutomation(tenantId, input.type);
 
-  const { metaText, variableMap } = convertToPositional(input.templateText, input.type);
+  const { variableMap } = convertToPositional(input.templateText, input.type);
 
   const textChanged = input.templateText !== current.templateText;
   const needsCreateTemplate =
@@ -220,6 +254,7 @@ export async function saveAutomation(
     const safeSlug = slug.replace(/[^a-z0-9]/gi, "_").toLowerCase();
     const newName = `receps_${input.type.toLowerCase()}_${safeSlug}_${Date.now().toString(36)}`;
 
+    const namedParams = extractNamedParams(input.templateText);
     const created = await createMessageTemplate({
       wabaId: credentials.wabaId,
       accessToken: credentials.accessToken,
@@ -227,7 +262,8 @@ export async function saveAutomation(
       name: newName,
       category: current.metaCategory,
       languageCode: current.metaTemplateLanguage,
-      bodyText: metaText,
+      bodyText: input.templateText,
+      namedParams: namedParams.length > 0 ? namedParams : undefined,
     });
 
     metaTemplateName = newName;
@@ -316,6 +352,46 @@ export async function syncTemplateStatus(
       default:
         // Mantém status atual em caso desconhecido.
         break;
+    }
+  }
+
+  if (
+    nextStatus === MetaTemplateStatus.REJECTED &&
+    nextRejection === "INVALID_FORMAT" &&
+    current.metaTemplateName
+  ) {
+    try {
+      await deleteMessageTemplate({
+        wabaId: credentials.wabaId,
+        accessToken: credentials.accessToken,
+        apiVersion: credentials.apiVersion,
+        name: current.metaTemplateName,
+      });
+
+      const namedParams = extractNamedParams(current.templateText);
+      const created = await createMessageTemplate({
+        wabaId: credentials.wabaId,
+        accessToken: credentials.accessToken,
+        apiVersion: credentials.apiVersion,
+        name: current.metaTemplateName,
+        category: current.metaCategory,
+        languageCode: current.metaTemplateLanguage,
+        bodyText: current.templateText,
+        namedParams: namedParams.length > 0 ? namedParams : undefined,
+      });
+
+      nextStatus =
+        created.status === "APPROVED"
+          ? MetaTemplateStatus.APPROVED
+          : created.status === "REJECTED"
+            ? MetaTemplateStatus.REJECTED
+            : MetaTemplateStatus.PENDING_APPROVAL;
+      nextRejection = null;
+    } catch (recreateError) {
+      console.error(
+        `[bot-automation] falha ao recriar template após INVALID_FORMAT | tenantId=${tenantId} | type=${type}`,
+        recreateError
+      );
     }
   }
 
