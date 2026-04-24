@@ -16,7 +16,7 @@ import {
   Package,
   ShoppingBag,
   Landmark,
-  FileText,
+  LifeBuoy,
   Settings,
   Bot,
   Lock,
@@ -34,7 +34,8 @@ import {
 } from "@/components/layout/module-upsell-dialog";
 
 type NavItem = {
-  module: TenantModule;
+  /** Module gate. Quando ausente, o item é sempre visível e nunca fica bloqueado. */
+  module?: TenantModule;
   visibleForModules?: readonly TenantModule[];
   href: string;
   label: string;
@@ -80,8 +81,8 @@ const navItems: NavItem[] = [
   // --- Atendente IA ---
   { module: "ATENDENTE_IA", href: "/atendente-ia", label: "Atendente IA", icon: Bot, group: "bot" },
 
-  // --- Grupo clínico/config ---
-  { module: "PRONTUARIOS", href: "/prontuarios", label: "Prontuários", icon: FileText, group: "config" },
+  // --- Ajuda + config ---
+  { href: "/ajuda", label: "Ajuda", icon: LifeBuoy, group: "config" },
   { module: "CONFIGURACOES", href: "/configuracoes", label: "Configurações", icon: Settings, group: "config" },
 ];
 
@@ -109,20 +110,29 @@ export function Sidebar({
   const visibleModuleSet = new Set(allowedModules);
   const [upsellModule, setUpsellModule] = useState<TenantModule | null>(null);
 
-  const visibleItems = navItems.map((item) => ({
-    ...item,
-    href: getPreferredModuleHref(item.module, permissions),
-    isLocked: !(item.visibleForModules ?? [item.module]).some((module) =>
-      visibleModuleSet.has(module)
-    ),
-  }));
+  const visibleItems = navItems.map((item) => {
+    if (!item.module) {
+      return { ...item, isLocked: false };
+    }
+    const moduleId = item.module;
+    return {
+      ...item,
+      href: getPreferredModuleHref(moduleId, permissions),
+      isLocked: !(item.visibleForModules ?? [moduleId]).some((module) =>
+        visibleModuleSet.has(module)
+      ),
+    };
+  });
 
   const mainItems = visibleItems.filter((i) => i.group === "main");
   const botItems = visibleItems.filter((i) => i.group === "bot");
   const managementItems = visibleItems.filter((i) => i.group === "management");
   const configItems = visibleItems.filter((i) => i.group === "config");
   const activeUpsellItem = upsellModule
-    ? navItems.find((item) => item.module === upsellModule) ?? null
+    ? navItems.find(
+        (item): item is NavItem & { module: TenantModule } =>
+          item.module === upsellModule
+      ) ?? null
     : null;
 
   const initials = userName
@@ -275,7 +285,10 @@ function NavGroup({
           pathname === prefix || pathname?.startsWith(prefix + "/")
         );
         const Icon = item.icon;
-        const tooltipLabel = item.isLocked ? getModuleUpsellTooltip(item.module) : null;
+        const tooltipLabel =
+          item.isLocked && item.module
+            ? getModuleUpsellTooltip(item.module)
+            : null;
 
         const baseClasses = collapsed
           ? "mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ease-out"
@@ -307,14 +320,15 @@ function NavGroup({
           </>
         );
 
-        if (item.isLocked) {
+        if (item.isLocked && item.module) {
+          const lockedModule = item.module;
           const trigger = (
             <button
               key={item.href}
               type="button"
               title={collapsed ? item.label : undefined}
               className={cn(itemClasses, collapsed ? "relative" : undefined, "w-full")}
-              onClick={() => onLockedItemClick(item.module)}
+              onClick={() => onLockedItemClick(lockedModule)}
             >
               {content}
             </button>

@@ -1,11 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Clock, User } from "lucide-react";
 import {
   APPOINTMENT_STATUS_CARD_STYLES,
   getAppointmentStatusLabel,
   normalizeAppointmentStatus,
+  type AppointmentWorkflowStatus,
 } from "@/lib/appointments/status";
 import { CALENDAR_SLOT_HEIGHT_PX, getTenantScheduleBounds } from "@/lib/tenant-schedule";
 import type { CalendarAppointment, CalendarScheduleConfig } from "./types";
@@ -15,6 +15,26 @@ type AppointmentCardProps = {
   scheduleConfig: CalendarScheduleConfig;
   onClick?: () => void;
 };
+
+/**
+ * Mapa de cores fortes para o accent pill à esquerda do card.
+ * Alinhado com o leftBorder do APPOINTMENT_STATUS_CARD_STYLES mas expresso
+ * como bg utility para usar num elemento absolute (não border-left).
+ */
+const STATUS_ACCENT_CLASSES: Record<AppointmentWorkflowStatus, string> = {
+  SCHEDULED: "bg-blue-500",
+  CONFIRMED: "bg-emerald-500",
+  WAITING: "bg-amber-500",
+  IN_PROGRESS: "bg-purple-500",
+  COMPLETED: "bg-slate-400",
+  PAID: "bg-emerald-600",
+  CANCELLED: "bg-red-500",
+  NO_SHOW: "bg-orange-500",
+};
+
+function formatPrice(totalPrice: number) {
+  return `R$ ${totalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+}
 
 /**
  * Card visual posicionado sobre o grid da agenda.
@@ -47,12 +67,15 @@ export function AppointmentCard({
   const style =
     APPOINTMENT_STATUS_CARD_STYLES[normalizedStatus] ??
     APPOINTMENT_STATUS_CARD_STYLES.SCHEDULED;
+  const accentClass = STATUS_ACCENT_CLASSES[normalizedStatus];
   const statusLabel = getAppointmentStatusLabel(appointment.status);
   const serviceLabel =
     appointment.services.map((service) => service.name).join(", ") ||
     "Serviço não informado";
 
   const timeLabel = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")} – ${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  const priceLabel =
+    appointment.totalPrice > 0 ? formatPrice(appointment.totalPrice) : null;
   const cardHeight = Math.max(height - 2, 32);
   const isDense = cardHeight < 40;
   const isCompact = cardHeight < 72;
@@ -72,14 +95,13 @@ export function AppointmentCard({
         }
       }}
       className={cn(
-        "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-[10px] cursor-pointer",
+        "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-[12px] cursor-pointer",
         "transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
         "shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
-        "hover:z-20 hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-lg hover:shadow-primary/15",
+        "hover:z-20 hover:translate-x-[2px] hover:shadow-lg hover:shadow-primary/15",
         "active:scale-[0.98]",
-        isCompact ? "px-2 py-1" : "px-2.5 py-1.5",
+        isCompact ? "px-2.5 py-1.5 pl-3" : "px-3 py-2 pl-3.5",
         style.bg,
-        style.leftBorder,
         style.text
       )}
       style={{ top: `${topOffset}px`, height: `${cardHeight}px` }}
@@ -88,64 +110,73 @@ export function AppointmentCard({
       tabIndex={onClick ? 0 : undefined}
       aria-label={`Agendamento: ${appointment.customerName}, ${serviceLabel}, ${timeLabel}, status ${statusLabel}`}
     >
+      {/* Left accent pill (inset, not full-height border) */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute left-0 w-[3px] rounded-full",
+          isDense ? "top-1 bottom-1" : "top-2 bottom-2",
+          accentClass
+        )}
+      />
+
       {isDense ? (
-        <div className="flex h-full flex-col justify-center gap-0.5 leading-[1.05]">
-          <div className="flex items-center justify-between gap-1">
-            <span className="min-w-0 truncate text-[10px] font-semibold">
-              {appointment.customerName}
+        // isDense (<40px) — só time + price. Cliente/serviço sacrificados
+        // porque não há espaço suficiente pra renderizar sem corte.
+        <div className="flex h-full items-center justify-between gap-1.5 leading-[1.05]">
+          <span className="min-w-0 truncate text-[10px] font-bold tabular-nums tracking-[0.02em] opacity-85">
+            {timeLabel}
+          </span>
+          {priceLabel && (
+            <span className="shrink-0 text-[10px] font-bold tabular-nums">
+              {priceLabel}
             </span>
-            <span
-              className={cn(
-                "shrink-0 whitespace-nowrap rounded-full px-1 py-0.5 text-[8px] font-medium",
-                style.badge
-              )}
-            >
-              {statusLabel}
+          )}
+        </div>
+      ) : isCompact ? (
+        // isCompact (40-72px) — time + cliente + price. Serviço omitido.
+        <div className="flex h-full flex-col leading-[1.1]">
+          <div className="flex items-start justify-between gap-2">
+            <span className="shrink-0 text-[10.5px] font-bold tabular-nums tracking-[0.02em] opacity-85">
+              {timeLabel}
             </span>
+            {priceLabel && (
+              <span className="shrink-0 text-[10.5px] font-bold tabular-nums">
+                {priceLabel}
+              </span>
+            )}
           </div>
-          <div className="truncate text-[9px] opacity-80">
-            {timeLabel} · {serviceLabel}
-          </div>
+          <span className="mt-0.5 truncate text-[12.5px] font-bold tracking-[-0.01em]">
+            {appointment.customerName}
+          </span>
         </div>
       ) : (
-        <div
-          className={cn(
-            "flex h-full flex-col leading-[1.1]",
-            isCompact ? "justify-between gap-0.5" : "gap-0.5"
-          )}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {!isCompact && <User className="h-3 w-3 shrink-0" aria-hidden="true" />}
-              <span className={cn("truncate font-semibold", isCompact ? "text-[11px]" : "text-xs")}>
-                {appointment.customerName}
-              </span>
-            </div>
-            <span
-              className={cn(
-                "shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 font-medium",
-                isCompact ? "text-[9px]" : "text-[10px]",
-                style.badge
-              )}
-            >
-              {statusLabel}
+        // Full (>=72px) — time + cliente + serviço + price (+ recursos se >=96).
+        <div className="flex h-full flex-col leading-[1.1]">
+          <div className="flex items-start justify-between gap-2">
+            <span className="shrink-0 text-[11px] font-bold tabular-nums tracking-[0.02em] opacity-85">
+              {timeLabel}
             </span>
+            {priceLabel && (
+              <span className="shrink-0 text-[11.5px] font-bold tabular-nums">
+                {priceLabel}
+              </span>
+            )}
           </div>
 
-          <div className={cn("flex items-center gap-1 opacity-80", isCompact ? "text-[10px]" : "text-[11px]")}>
-            {!isCompact && <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />}
-            <span>{timeLabel}</span>
-          </div>
+          <span className="mt-[3px] truncate text-[13.5px] font-bold tracking-[-0.01em]">
+            {appointment.customerName}
+          </span>
 
-          <div className={cn("truncate opacity-75", isCompact ? "text-[10px]" : "text-[11px]")}>
+          <span className="mt-[3px] truncate text-[11.5px] opacity-80">
             {serviceLabel}
-          </div>
+          </span>
 
           {showResources && appointment.roomName && (
-            <div className="truncate text-[10px] opacity-60">
+            <span className="mt-1 truncate text-[10.5px] opacity-60">
               {appointment.roomName}
               {appointment.equipments.length > 0 && ` · ${appointment.equipments.join(", ")}`}
-            </div>
+            </span>
           )}
         </div>
       )}

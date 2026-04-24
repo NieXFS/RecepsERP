@@ -1,7 +1,7 @@
 "use client";
 
-import type { ComponentType } from "react";
-import { useMemo, useState, useTransition } from "react";
+import type { ComponentType, KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -17,7 +17,6 @@ import {
 import { updateAppointmentStatusAction } from "@/actions/appointment.actions";
 import { checkoutAppointmentAction } from "@/actions/financial.actions";
 import {
-  APPOINTMENT_STATUS_BADGE_VARIANTS,
   APPOINTMENT_STATUS_LABELS,
   APPOINTMENT_VISIBLE_STATUS_ORDER,
   getAllowedAppointmentTransitions,
@@ -26,7 +25,6 @@ import {
   normalizeAppointmentStatus,
   type AppointmentWorkflowStatus,
 } from "@/lib/appointments/status";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -86,6 +84,22 @@ const SECONDARY_STATUSES: AppointmentWorkflowStatus[] = [
   "PAID",
   "CANCELLED",
   "NO_SHOW",
+];
+
+type KanbanTab = "in-progress" | "closed" | "all";
+
+const KANBAN_TABS: ReadonlyArray<{
+  id: KanbanTab;
+  label: string;
+  statuses: AppointmentWorkflowStatus[];
+}> = [
+  { id: "in-progress", label: "Em progresso", statuses: PRIMARY_STATUSES },
+  { id: "closed", label: "Encerramentos do dia", statuses: SECONDARY_STATUSES },
+  {
+    id: "all",
+    label: "Todos",
+    statuses: [...PRIMARY_STATUSES, ...SECONDARY_STATUSES],
+  },
 ];
 
 const STATUS_DESCRIPTIONS: Record<AppointmentWorkflowStatus, string> = {
@@ -162,67 +176,73 @@ export function AgendaOperationsPanel({
     }));
   }, [groupedAppointments]);
 
-  const totalCount = counters.reduce((sum, c) => sum + c.count, 0);
+  const [kanbanTab, setKanbanTab] = useState<KanbanTab>("in-progress");
+  const tablistRef = useRef<HTMLDivElement | null>(null);
+  const activeStatuses =
+    KANBAN_TABS.find((tab) => tab.id === kanbanTab)?.statuses ??
+    PRIMARY_STATUSES;
+
+  function handleTabKeyDown(
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    currentIdx: number
+  ) {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+      return;
+    }
+    event.preventDefault();
+    const dir = event.key === "ArrowRight" ? 1 : -1;
+    const nextIdx =
+      (currentIdx + dir + KANBAN_TABS.length) % KANBAN_TABS.length;
+    setKanbanTab(KANBAN_TABS[nextIdx].id);
+    const buttons = tablistRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]'
+    );
+    buttons?.[nextIdx]?.focus();
+  }
 
   return (
     <section className="flex flex-col gap-[18px]">
-      {/* Status strip — 8 colunas com dot + label + count */}
+      {/* Status strip — 8 pills em 2-tier (dot+label / contagem / sub) */}
       <div
         className={cn(
           "relative overflow-hidden rounded-[22px] bg-card px-6 py-5",
           "shadow-[0_1px_2px_rgba(15,23,42,0.04),_0_8px_24px_-12px_rgba(15,23,42,0.06)]"
         )}
+        aria-label={`Resumo do dia ${dateLabel}`}
       >
         <span
           aria-hidden="true"
           className="absolute inset-y-[18px] left-0 w-[3px] rounded-full bg-gradient-to-b from-primary to-chart-2"
         />
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3 pl-2">
-          <div>
-            <h3 className="text-[19px] font-extrabold tracking-[-0.025em] text-foreground">
-              Operação do dia
-            </h3>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              Confirmação, recepção, andamento e encerramento dos atendimentos de{" "}
-              <b className="font-bold capitalize text-foreground">{dateLabel}</b>.
-            </p>
-          </div>
-          <div className="text-[12px] text-muted-foreground">
-            Total no dia:{" "}
-            <b className="font-bold text-foreground tabular-nums">
-              {totalCount} agendamento(s)
-            </b>
-          </div>
-        </div>
         <div
-          className="grid grid-cols-2 gap-2 pl-2 sm:grid-cols-4 xl:grid-cols-8"
+          className="grid grid-cols-2 gap-3 pl-3 sm:grid-cols-4 xl:grid-cols-8"
           aria-live="polite"
           aria-atomic="true"
         >
           {counters.map((counter) => {
-            const { dot, tint } = STATUS_PILL_COLORS[counter.status];
+            const { dot } = STATUS_PILL_COLORS[counter.status];
             return (
               <div
                 key={counter.status}
                 className={cn(
-                  "group flex items-center gap-2.5 rounded-[12px] bg-muted/50 px-3 py-2.5 transition-colors duration-150",
-                  tint
+                  "rounded-[14px] bg-transparent px-3 py-2.5 transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
+                  "hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-12px_rgba(139,92,246,0.35)]"
                 )}
               >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "h-2 w-2 shrink-0 rounded-full transition-transform duration-150 group-hover:scale-125",
-                    dot
-                  )}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[11.5px] font-semibold text-foreground">
-                    {counter.label}
-                  </p>
-                  <p className="text-[10.5px] text-muted-foreground tabular-nums">
-                    {counter.count} agendamento(s)
-                  </p>
+                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">
+                  <span
+                    aria-hidden="true"
+                    className={cn("h-2 w-2 shrink-0 rounded-full", dot)}
+                  />
+                  <span className="truncate">{counter.label}</span>
+                </div>
+                <div className="text-[22px] font-extrabold leading-none tracking-[-0.03em] tabular-nums text-foreground">
+                  {counter.count}
+                </div>
+                <div className="mt-1.5 text-[11px] text-muted-foreground tabular-nums">
+                  {counter.count === 1
+                    ? "1 agendamento"
+                    : `${counter.count} agendamentos`}
                 </div>
               </div>
             );
@@ -230,60 +250,68 @@ export function AgendaOperationsPanel({
         </div>
       </div>
 
-      <LaneGrid
-        title="Fluxo operacional"
-        statuses={PRIMARY_STATUSES}
-        groupedAppointments={groupedAppointments}
-        hasOpenCashRegister={hasOpenCashRegister}
-        openCashRegisterAccountId={openCashRegisterAccountId}
-        financialAccounts={financialAccounts}
-      />
+      <div className="flex flex-col gap-4">
+        <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-[16px] font-bold tracking-[-0.01em] text-foreground">
+              Fluxo operacional
+            </h3>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">
+              Confirmação, recepção, andamento e encerramentos dos atendimentos.
+            </p>
+          </div>
+          <div
+            ref={tablistRef}
+            role="tablist"
+            aria-label="Filtro do fluxo operacional"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-muted/30 p-1"
+          >
+            {KANBAN_TABS.map((tab, idx) => {
+              const active = kanbanTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  id={`kanban-tab-${tab.id}`}
+                  aria-selected={active}
+                  aria-controls="kanban-grid"
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => setKanbanTab(tab.id)}
+                  onKeyDown={(event) => handleTabKeyDown(event, idx)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
+                    active
+                      ? "bg-violet-500 text-white shadow-sm shadow-violet-500/25"
+                      : "text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </header>
 
-      <LaneGrid
-        title="Encerramentos do dia"
-        statuses={SECONDARY_STATUSES}
-        groupedAppointments={groupedAppointments}
-        hasOpenCashRegister={hasOpenCashRegister}
-        openCashRegisterAccountId={openCashRegisterAccountId}
-        financialAccounts={financialAccounts}
-      />
-    </section>
-  );
-}
-
-function LaneGrid({
-  title,
-  statuses,
-  groupedAppointments,
-  hasOpenCashRegister,
-  openCashRegisterAccountId,
-  financialAccounts,
-}: {
-  title: string;
-  statuses: AppointmentWorkflowStatus[];
-  groupedAppointments: Map<AppointmentWorkflowStatus, OperationalAppointment[]>;
-  hasOpenCashRegister: boolean;
-  openCashRegisterAccountId: string | null;
-  financialAccounts: CalendarFinancialAccount[];
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <h4 className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
-        {title}
-      </h4>
-      <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-4">
-        {statuses.map((status) => (
-          <StatusLane
-            key={status}
-            status={status}
-            appointments={groupedAppointments.get(status) ?? []}
-            hasOpenCashRegister={hasOpenCashRegister}
-            openCashRegisterAccountId={openCashRegisterAccountId}
-            financialAccounts={financialAccounts}
-          />
-        ))}
+        <div
+          id="kanban-grid"
+          role="tabpanel"
+          aria-labelledby={`kanban-tab-${kanbanTab}`}
+          className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-4"
+        >
+          {activeStatuses.map((status) => (
+            <StatusLane
+              key={status}
+              status={status}
+              appointments={groupedAppointments.get(status) ?? []}
+              hasOpenCashRegister={hasOpenCashRegister}
+              openCashRegisterAccountId={openCashRegisterAccountId}
+              financialAccounts={financialAccounts}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -334,7 +362,7 @@ function StatusLane({
       </div>
       <div className="flex flex-col gap-2.5 px-4">
         {appointments.length === 0 ? (
-          <div className="animate-fade-in rounded-[12px] border border-dashed border-border/70 px-3 py-5 text-center text-[12px] text-muted-foreground/70">
+          <div className="animate-fade-in rounded-[14px] border-[1.5px] border-dashed border-violet-500/20 px-3 py-[22px] text-center text-[12px] text-muted-foreground dark:border-violet-400/20">
             Nenhum agendamento neste status.
           </div>
         ) : (
@@ -513,44 +541,52 @@ function OperationalAppointmentCard({
     minute: "2-digit",
   });
 
-  const { dot } = STATUS_PILL_COLORS[normalizedStatus];
-
   return (
-    <div className="group animate-fade-in-up relative overflow-hidden rounded-[14px] bg-muted/40 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted/70 hover:shadow-md">
+    <div
+      className={cn(
+        "group animate-fade-in-up relative rounded-[14px] p-3.5 pl-4 transition-all duration-200",
+        "bg-[#FCFBFF] shadow-[inset_0_0_0_1px_rgba(139,92,246,0.08)]",
+        "dark:bg-card dark:shadow-none",
+        "hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgba(139,92,246,0.22)]"
+      )}
+    >
       <span
         aria-hidden="true"
-        className={cn("absolute inset-y-2 left-0 w-[2.5px] rounded-full", dot)}
+        className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full bg-violet-500 dark:bg-violet-400"
       />
-      <div className="flex items-start justify-between gap-3 pl-2">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-bold text-foreground">
+          <p className="truncate text-[14px] font-bold tracking-[-0.01em] text-foreground">
             {appointment.customerName}
           </p>
           <p className="mt-0.5 text-[11.5px] text-muted-foreground tabular-nums">
-            {timeLabel} · {appointment.professionalName}
+            {timeLabel} · com {appointment.professionalName}
           </p>
         </div>
-        <Badge
-          variant={APPOINTMENT_STATUS_BADGE_VARIANTS[normalizedStatus]}
-          className="shrink-0 text-[10px]"
+        <span
+          className={cn(
+            "inline-flex shrink-0 rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.05em]",
+            "bg-violet-50 text-violet-700",
+            "dark:bg-violet-500/10 dark:text-violet-300"
+          )}
         >
           {getAppointmentStatusLabel(appointment.status)}
-        </Badge>
+        </span>
       </div>
 
-      <div className="mt-2 space-y-1 pl-2">
-        <p className="line-clamp-2 text-[11.5px] text-muted-foreground">
+      <div className="mt-2.5 space-y-1">
+        <p className="line-clamp-2 text-[12px] text-muted-foreground">
           {appointment.services.join(", ")}
         </p>
         {appointment.totalPrice > 0 && (
-          <p className="text-[12px] font-semibold text-foreground tabular-nums">
+          <p className="text-[14px] font-extrabold tracking-[-0.02em] tabular-nums text-emerald-600 dark:text-emerald-400">
             R$ {appointment.totalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </p>
         )}
       </div>
 
       {availableActions.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5 pl-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {availableActions.map((action) => {
             const Icon = action.icon;
             return (
@@ -560,7 +596,7 @@ function OperationalAppointmentCard({
                 variant={action.variant}
                 disabled={isPending}
                 onClick={() => handleActionClick(action.nextStatus)}
-                className="h-8 gap-1 rounded-[9px] text-[11.5px]"
+                className="h-8 gap-1 rounded-[9px] text-[11.5px] font-semibold"
               >
                 <Icon className="h-3 w-3" aria-hidden={true} />
                 {action.label}

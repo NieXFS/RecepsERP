@@ -30,6 +30,7 @@ import {
 } from "@/lib/civil-date";
 import { getTenantScheduleBounds } from "@/lib/tenant-schedule";
 import { useSwipeNavigation } from "@/hooks/use-swipe-navigation";
+import { cn } from "@/lib/utils";
 
 type DailyCalendarProps = {
   date: string;
@@ -113,6 +114,30 @@ export function DailyCalendar({
     }
     return map;
   }, [professionals, appointments]);
+
+  // "HH:MM – HH:MM" da faixa de operação do tenant.
+  const operatingBandLabel = useMemo(() => {
+    const fmt = (m: number) =>
+      `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    return `${fmt(scheduleBounds.startMinutes)} – ${fmt(scheduleBounds.endMinutes)}`;
+  }, [scheduleBounds]);
+
+  // Taxa de ocupação do dia: minutos agendados / minutos disponíveis totais.
+  // `appointments` já vem filtrado (sem CANCELLED/NO_SHOW) via o page.tsx.
+  const occupationPercent = useMemo(() => {
+    if (professionals.length === 0) return 0;
+    const totalAvailable =
+      (scheduleBounds.endMinutes - scheduleBounds.startMinutes) *
+      professionals.length;
+    if (totalAvailable <= 0) return 0;
+    const totalOccupied = appointments.reduce((sum, apt) => {
+      const duration =
+        (new Date(apt.endTime).getTime() - new Date(apt.startTime).getTime()) /
+        60000;
+      return sum + Math.max(0, duration);
+    }, 0);
+    return Math.round((totalOccupied / totalAvailable) * 100);
+  }, [appointments, professionals.length, scheduleBounds]);
 
   // Altura total do grid baseada na quantidade de slots
   const totalGridHeight = timeSlots.length * CALENDAR_CONFIG.SLOT_HEIGHT_PX;
@@ -377,82 +402,168 @@ export function DailyCalendar({
           </table>
 
           <div
-            ref={gridRef}
-            role="grid"
-            aria-label={`Agenda de ${dateFormatted}`}
-            className="relative flex-1 h-[62vh] min-h-[520px] overflow-x-auto overflow-y-auto rounded-[22px] bg-card pb-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),_0_8px_24px_-12px_rgba(15,23,42,0.06)]"
-            {...swipeHandlers}
+            className={cn(
+              "relative flex flex-1 flex-col h-[62vh] min-h-[520px] overflow-hidden rounded-[22px] bg-card",
+              "shadow-[0_1px_2px_rgba(15,23,42,0.04),_0_8px_24px_-12px_rgba(15,23,42,0.06)]"
+            )}
           >
-            <div className="min-w-full w-max snap-x snap-mandatory md:snap-none">
-              {/* Cabeçalho de colunas: Profissionais */}
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: `80px repeat(${professionals.length}, minmax(220px, 1fr))`,
-                }}
-              >
-                {/* Célula vazia no canto (coluna de horários) */}
-                <div className="sticky top-0 left-0 z-30 w-[80px] min-w-[80px] bg-card/95 px-3 pb-3 pt-4 text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
-                  Horário
+            {/* ---- HEADER INTERNO DO TIMELINE CARD ---- */}
+            <div className="flex items-start justify-between gap-4 border-b border-border/50 px-6 pt-5 pb-4">
+              <div className="min-w-0">
+                <h3 className="flex items-center gap-2.5 text-[18px] font-extrabold tracking-[-0.025em] text-foreground">
+                  <span
+                    aria-hidden="true"
+                    className="relative inline-flex h-2 w-2"
+                  >
+                    <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-60" />
+                    <span className="relative inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                  Linha do tempo do dia
+                </h3>
+                <p className="mt-1.5 text-[12.5px] text-muted-foreground">
+                  Faixa:{" "}
+                  <b className="font-bold tabular-nums text-foreground">
+                    {operatingBandLabel}
+                  </b>
+                  <span className="mx-[7px] opacity-40">·</span>
+                  Profissionais ativos:{" "}
+                  <b className="font-bold tabular-nums text-foreground">
+                    {professionals.length}
+                  </b>
+                  <span className="mx-[7px] opacity-40">·</span>
+                  Ocupação:{" "}
+                  <b className="font-bold tabular-nums text-foreground">
+                    {occupationPercent}%
+                  </b>
+                  <span className="mx-[7px] opacity-40">·</span>
+                  Total:{" "}
+                  <b className="font-bold tabular-nums text-foreground">
+                    {appointments.length}
+                  </b>{" "}
+                  {appointments.length === 1 ? "agendamento" : "agendamentos"}
+                </p>
+              </div>
+              <TimelineViewToggle />
+            </div>
+
+            <div
+              ref={gridRef}
+              role="grid"
+              aria-label={`Agenda de ${dateFormatted}`}
+              className="relative flex-1 overflow-x-auto overflow-y-auto pb-4"
+              {...swipeHandlers}
+            >
+              <div className="min-w-full w-max snap-x snap-mandatory md:snap-none">
+                {/* Cabeçalho de colunas: Profissionais */}
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `62px repeat(${professionals.length}, minmax(220px, 1fr))`,
+                  }}
+                >
+                  {/* Célula vazia no canto (coluna de horários) */}
+                  <div className="sticky top-0 left-0 z-30 w-[62px] min-w-[62px] bg-card/95 px-2 pb-3 pt-4 text-[9.5px] font-bold uppercase tracking-[0.16em] text-muted-foreground backdrop-blur">
+                    Horário
+                  </div>
+
+                  {/* Uma coluna por profissional */}
+                  {professionals.map((prof) => {
+                    const count = appointmentsByProfessional.get(prof.id)?.length ?? 0;
+                    const initial = prof.name.trim().charAt(0).toUpperCase() || "?";
+                    return (
+                      <div
+                        key={prof.id}
+                        role="columnheader"
+                        className="sticky top-0 z-20 min-w-[220px] bg-card/95 px-3 pb-3 pt-4 backdrop-blur"
+                      >
+                        <div className="relative flex items-center gap-3 overflow-hidden rounded-[14px] bg-violet-500/[0.08] px-3 py-2.5 dark:bg-violet-500/15">
+                          <span
+                            aria-hidden="true"
+                            className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-primary"
+                          />
+                          <span
+                            aria-hidden="true"
+                            className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-violet-700 text-[13px] font-bold text-white shadow-sm shadow-primary/25"
+                          >
+                            {initial}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13.5px] font-bold tracking-[-0.01em] text-foreground">
+                              {prof.name}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {prof.specialty ?? "Profissional"} · {count}{" "}
+                              {count === 1 ? "agendamento" : "agendamentos"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Uma coluna por profissional */}
-                {professionals.map((prof) => {
-                  const count = appointmentsByProfessional.get(prof.id)?.length ?? 0;
-                  return (
-                    <div
-                      key={prof.id}
-                      role="columnheader"
-                      className="sticky top-0 z-20 min-w-[220px] bg-card/95 px-3 pb-3 pt-4 backdrop-blur"
-                    >
-                      <div className="relative overflow-hidden rounded-[14px] bg-gradient-to-br from-primary/12 to-primary/4 px-3.5 py-2.5 dark:from-primary/20 dark:to-primary/8">
-                        <span
-                          aria-hidden="true"
-                          className="absolute inset-y-[10px] left-0 w-[2.5px] rounded-full bg-primary"
-                        />
-                        <p className="truncate text-[13px] font-bold text-foreground">
-                          {prof.name}
-                        </p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {prof.specialty ?? "Profissional"} · {count} agendamento(s)
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Corpo do grid: Slots de horário × Profissionais */}
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: `80px repeat(${professionals.length}, minmax(220px, 1fr))`,
-                }}
-              >
-                {/* Coluna de horários (eixo Y) */}
+                {/* Corpo do grid: Slots de horário × Profissionais.
+                    pt-3 dá folga no topo pra o primeiro rótulo (que usa -mt-2)
+                    não ficar cortado sob o header sticky.
+                    relative é necessário pra ancorar a linha "AGORA" única. */}
                 <div
-                  className="sticky left-0 relative z-20 w-[80px] min-w-[80px] bg-card"
-                  style={{ height: `${totalGridHeight}px` }}
+                  className="relative grid pt-3"
+                  style={{
+                    gridTemplateColumns: `62px repeat(${professionals.length}, minmax(220px, 1fr))`,
+                  }}
                 >
-                  {timeSlots.map((slot, i) => (
-                    <div
-                      key={slot.label}
-                      className="absolute flex w-full items-start justify-end pr-3 text-[11px] font-semibold text-muted-foreground tabular-nums"
-                      style={{
-                        top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
-                        height: `${CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
-                      }}
-                    >
-                      <span className="-mt-2">{slot.label}</span>
-                    </div>
-                  ))}
+                  {/* Coluna de horários (eixo Y) */}
+                  <div
+                    className="sticky left-0 relative z-20 w-[62px] min-w-[62px] bg-card"
+                    style={{ height: `${totalGridHeight}px` }}
+                  >
+                    {timeSlots.map((slot, i) => {
+                      // Só renderiza label nos sub-slots quando o tenant usa intervalo
+                      // de 60min; pra 15/30/45 mostra apenas nas horas cheias.
+                      // slot.minute === 0 sempre cobre os dois casos.
+                      const showLabel = slot.minute === 0;
+                      return (
+                        <div
+                          key={slot.label}
+                          className="absolute flex w-full items-start justify-end pr-2 text-[10.5px] font-semibold text-muted-foreground tabular-nums"
+                          style={{
+                            top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
+                            height: `${CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
+                          }}
+                        >
+                          {showLabel && (
+                            <>
+                              <span className="-mt-2">{slot.label}</span>
+                              {/* Tick mark na borda direita, apenas nas horas cheias */}
+                              <span
+                                aria-hidden="true"
+                                className="absolute right-0 top-0 h-px w-1.5 bg-border/60"
+                              />
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   {showNowLine && (
-                    <div
-                      className="pointer-events-none absolute right-2 z-30 -mt-2.5 rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-red-500/35 tabular-nums"
-                      style={{ top: `${nowLineTop}px` }}
-                    >
-                      {nowFormatted}
-                    </div>
+                    <>
+                      {/* Eyebrow "AGORA" empilhado logo ACIMA da linha, dentro da hour column (sticky).
+                          A hour column tem 62px — não cabe eyebrow + badge lado a lado, então
+                          ficam empilhados (eyebrow acima da linha, badge abaixo). */}
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-1 z-40 rounded-sm bg-violet-500/10 px-1 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.1em] text-violet-600 dark:bg-violet-400/15 dark:text-violet-300"
+                        style={{ top: `${nowLineTop - 14}px` }}
+                      >
+                        Agora
+                      </div>
+                      {/* Badge da hora corrente, empilhado logo abaixo da linha. */}
+                      <div
+                        className="pointer-events-none absolute right-1 z-40 rounded-md bg-violet-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-violet-500/35 tabular-nums dark:bg-violet-400 dark:text-violet-950 dark:shadow-violet-400/40"
+                        style={{ top: `${nowLineTop + 4}px` }}
+                      >
+                        {nowFormatted}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -464,14 +575,43 @@ export function DailyCalendar({
                   return (
                     <div
                       key={prof.id}
-                      className="relative min-w-[220px] snap-start"
+                      className={cn(
+                        "relative min-w-[220px] snap-start",
+                        // Stripe pattern sutil marcando cada slot (sub-hora).
+                        // Hora cheia é reforçada pelo divisor separado abaixo.
+                        "bg-[image:repeating-linear-gradient(to_bottom,transparent_0px_47px,rgba(15,23,42,0.035)_47px_48px)]",
+                        "dark:bg-[image:repeating-linear-gradient(to_bottom,transparent_0px_47px,rgba(255,255,255,0.04)_47px_48px)]"
+                      )}
                       style={{ height: `${totalGridHeight}px` }}
                     >
-                      {/* Linhas horizontais de cada slot (fundo clicável) */}
+                      {/* Divisores horizontais — apenas nas horas cheias. Pointer-events:none
+                          pra não roubar clique dos slots clicáveis acima. */}
+                      {timeSlots.map((slot, i) => {
+                        if (slot.minute !== 0) return null;
+                        return (
+                          <div
+                            key={`hr-${slot.hour}`}
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-0 right-0 h-px bg-border/50 dark:bg-border/30"
+                            style={{ top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px` }}
+                          />
+                        );
+                      })}
+
+                      {/* Slots clicáveis — sem borda em rest, dashed violet no hover/focus */}
                       {timeSlots.map((slot, i) => (
                         <div
                           key={slot.label}
-                          className="group absolute w-full cursor-pointer border-t border-dashed border-border/60 transition-all duration-200 hover:bg-primary/[0.06] active:bg-primary/[0.1]"
+                          className={cn(
+                            "group absolute left-1.5 right-1.5 cursor-pointer rounded-[12px]",
+                            "border-[1.5px] border-transparent",
+                            "transition-[background-color,border-color,border-style] duration-150",
+                            "hover:border-dashed hover:border-violet-500/30 hover:bg-violet-500/[0.05]",
+                            "focus-visible:border-dashed focus-visible:border-violet-500/30 focus-visible:bg-violet-500/[0.05] focus-visible:outline-none",
+                            "active:bg-violet-500/[0.1]",
+                            "dark:hover:border-violet-400/30 dark:hover:bg-violet-400/[0.08]",
+                            "dark:focus-visible:border-violet-400/30 dark:focus-visible:bg-violet-400/[0.08]"
+                          )}
                           style={{
                             top: `${i * CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
                             height: `${CALENDAR_CONFIG.SLOT_HEIGHT_PX}px`,
@@ -481,10 +621,9 @@ export function DailyCalendar({
                             handleSlotClick(prof, slot.hour, slot.minute)
                           }
                         >
-                          {/* Ícone de + aparece no hover */}
-                          <div className="flex h-full items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                          <div className="flex h-full items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
                             <Plus
-                              className="h-4 w-4 text-primary/55"
+                              className="h-[18px] w-[18px] text-violet-500 dark:text-violet-400"
                               aria-hidden="true"
                             />
                           </div>
@@ -504,42 +643,43 @@ export function DailyCalendar({
                           />
                         </div>
                       ))}
-
-                      {/* Linha "agora" (apenas no dia atual) */}
-                      {showNowLine && (
-                        <div
-                          className="pointer-events-none absolute left-0 right-0 z-10"
-                          style={{ top: `${nowLineTop}px` }}
-                        >
-                          <div className="flex items-center">
-                            <div className="-ml-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow-md shadow-red-500/45 animate-pulse-ring" />
-                            <div
-                              className="h-[1.5px] flex-1"
-                              style={{
-                                background:
-                                  "repeating-linear-gradient(90deg, rgb(239 68 68 / 0.85) 0 6px, transparent 6px 10px)",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
+
+                {/* Linha "AGORA" — única, atravessando todas as colunas de profissional.
+                    Começa em left-[62px] (= largura da hour column) e vai até right-0.
+                    z-20 fica acima dos cards (z-10) mas abaixo do hour column sticky. */}
+                {showNowLine && (
+                  <>
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-[62px] right-0 z-20 h-0 border-t-[1.5px] border-dashed border-violet-500/60 dark:border-violet-400/60"
+                      style={{ top: `${nowLineTop}px` }}
+                    />
+                    {/* Dot violeta no fim do board */}
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute right-0 z-30 h-2 w-2 -translate-y-1/2 translate-x-1/2 rounded-full bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.2)] dark:bg-violet-400 dark:shadow-[0_0_0_3px_rgba(139,92,246,0.35)]"
+                      style={{ top: `${nowLineTop}px` }}
+                    />
+                  </>
+                )}
               </div>
 
-              {appointments.length === 0 && professionals.length > 0 && (
-                <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center px-6">
-                  <div className="animate-fade-in text-center text-muted-foreground/60">
-                    <CalendarX2
-                      className="mx-auto mb-2 h-10 w-10"
-                      aria-hidden="true"
-                    />
-                    <p className="text-sm font-medium">Nenhum agendamento hoje</p>
-                    <p className="text-xs">Clique em um horário para agendar</p>
+                {appointments.length === 0 && professionals.length > 0 && (
+                  <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center px-6">
+                    <div className="animate-fade-in text-center text-muted-foreground/60">
+                      <CalendarX2
+                        className="mx-auto mb-2 h-10 w-10"
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-medium">Nenhum agendamento hoje</p>
+                      <p className="text-xs">Clique em um horário para agendar</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </>
@@ -580,5 +720,52 @@ export function DailyCalendar({
         financialAccounts={financialAccounts}
       />
     </>
+  );
+}
+
+/**
+ * Toggle visual Dia/Semana/Mês do timeline card.
+ * Apenas "Dia" é interativo (e já é o estado atual — noop).
+ * Semana e Mês ficam desabilitados com tooltip "Em breve" até
+ * serem implementados (escopo fora do Batch B).
+ */
+function TimelineViewToggle() {
+  return (
+    <div
+      role="tablist"
+      aria-label="Visualização do calendário"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-[10px] bg-muted/60 p-0.5"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected="true"
+        className="rounded-md bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-primary-foreground shadow-sm shadow-primary/25"
+      >
+        Dia
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-disabled="true"
+        disabled
+        title="Em breve"
+        className="cursor-not-allowed rounded-md px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground/70"
+      >
+        Semana
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-disabled="true"
+        disabled
+        title="Em breve"
+        className="cursor-not-allowed rounded-md px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground/70"
+      >
+        Mês
+      </button>
+    </div>
   );
 }
