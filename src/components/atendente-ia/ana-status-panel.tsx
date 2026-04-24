@@ -3,7 +3,11 @@
 import { MessageCircle, PlayCircle, Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { maskPhoneNumberId } from "@/lib/bot-config";
+import {
+  maskPhoneNumberId,
+  META_CONNECTION_SOURCES,
+  type MetaConnectionSource,
+} from "@/lib/bot-config";
 import {
   Tooltip,
   TooltipContent,
@@ -11,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { MetaConnectButton } from "./meta-connect-button";
 
 const SUPPORT_CONNECT_MESSAGE =
   "Olá, gostaria de conectar um número WhatsApp à minha atendente Ana no Receps.";
@@ -32,11 +37,41 @@ const STATS: Array<{ id: string; label: string; value: string }> = [
 export function AnaStatusPanel({
   whatsappConnected,
   phoneNumberId,
+  metaConnectionSource,
+  metaConnectedAt,
+  embeddedSignupEnabled,
+  metaAppId,
+  metaConfigId,
 }: {
   whatsappConnected: boolean;
   phoneNumberId: string | null;
+  metaConnectionSource: MetaConnectionSource | null;
+  metaConnectedAt: string | null;
+  embeddedSignupEnabled: boolean;
+  metaAppId: string;
+  metaConfigId: string;
 }) {
   const supportUrl = getSupportUrl();
+  const embeddedSignupConnected =
+    metaConnectionSource === META_CONNECTION_SOURCES.EMBEDDED_SIGNUP &&
+    Boolean(phoneNumberId);
+  const manualConnectionActive = whatsappConnected && !embeddedSignupConnected;
+  const formattedConnectedAt = metaConnectedAt
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(
+        new Date(metaConnectedAt)
+      )
+    : null;
+
+  const panelTitle = whatsappConnected ? "Ana está ativa" : "Aguardando ativação";
+  const panelDescription = embeddedSignupEnabled
+    ? embeddedSignupConnected
+      ? "Seu número já foi autorizado pela Meta e está pronto para atender."
+      : manualConnectionActive
+        ? "Seu número segue ativo, mas você já pode substituir essa conexão pelo fluxo oficial da Meta."
+        : "Conecte o WhatsApp da sua empresa em poucos cliques pelo Facebook."
+    : whatsappConnected
+      ? "A Ana já está respondendo mensagens no seu número."
+      : "O suporte precisa conectar seu número WhatsApp pra ela começar.";
 
   return (
     <div className="space-y-5 rounded-2xl border border-primary/10 bg-card/70 p-5 backdrop-blur-sm ring-1 ring-primary/5">
@@ -62,13 +97,11 @@ export function AnaStatusPanel({
               )}
             />
             <h3 className="font-heading text-sm font-semibold leading-tight">
-              {whatsappConnected ? "Ana está ativa" : "Aguardando ativação"}
+              {panelTitle}
             </h3>
           </div>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {whatsappConnected
-              ? "A Ana já está respondendo mensagens no seu número."
-              : "O suporte precisa conectar seu número WhatsApp pra ela começar."}
+            {panelDescription}
           </p>
           {whatsappConnected && phoneNumberId && (
             <Badge variant="outline" className="mt-2">
@@ -100,6 +133,87 @@ export function AnaStatusPanel({
       </dl>
 
       <div className="space-y-2 border-t border-border/60 pt-4">
+        {embeddedSignupEnabled ? (
+          embeddedSignupConnected && phoneNumberId ? (
+            <div className="space-y-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">WhatsApp conectado</p>
+                  <p className="text-xs text-muted-foreground">
+                    {maskPhoneNumberId(phoneNumberId)}
+                  </p>
+                  {formattedConnectedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Conectado em {formattedConnectedAt}
+                    </p>
+                  )}
+                </div>
+                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  Meta
+                </Badge>
+              </div>
+
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Se quiser trocar a conta ou o número conectado, você pode refazer a
+                autorização e substituir a conexão atual.
+              </p>
+
+              <MetaConnectButton
+                appId={metaAppId}
+                configId={metaConfigId}
+                enabled={embeddedSignupEnabled}
+                alreadyConnected
+              />
+            </div>
+          ) : manualConnectionActive && phoneNumberId ? (
+            <div className="space-y-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">WhatsApp ativo via configuração manual</p>
+                  <p className="text-xs text-muted-foreground">
+                    {maskPhoneNumberId(phoneNumberId)}
+                  </p>
+                </div>
+                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300">
+                  Manual
+                </Badge>
+              </div>
+
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Seu número continua funcionando normalmente. Se preferir, reconecte
+                agora pelo fluxo Embedded Signup para substituir as credenciais salvas
+                manualmente.
+              </p>
+
+              <MetaConnectButton
+                appId={metaAppId}
+                configId={metaConfigId}
+                enabled={embeddedSignupEnabled}
+                alreadyConnected
+              />
+            </div>
+          ) : (
+            <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <div className="space-y-1">
+                <p className="font-heading text-base font-semibold">
+                  Conecte o WhatsApp do seu negócio pra começar
+                </p>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Autorize a Receps pela Meta e a conexão do seu número será salva
+                  automaticamente.
+                </p>
+              </div>
+
+              <MetaConnectButton
+                appId={metaAppId}
+                configId={metaConfigId}
+                enabled={embeddedSignupEnabled}
+                alreadyConnected={false}
+              />
+            </div>
+          )
+        ) : null}
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger
@@ -120,7 +234,7 @@ export function AnaStatusPanel({
           </Tooltip>
         </TooltipProvider>
 
-        {!whatsappConnected && supportUrl && (
+        {!embeddedSignupEnabled && !whatsappConnected && supportUrl && (
           <a
             href={supportUrl}
             target="_blank"

@@ -36,7 +36,13 @@ export default async function AtendenteIAPage() {
     settings.botActiveStart,
     settings.botActiveEnd,
     settings.timezone,
+    settings.metaConnectionSource ?? "",
+    settings.metaConnectedAt ?? "",
   ].join("|");
+
+  const embeddedSignupEnabled = process.env.META_EMBEDDED_SIGNUP_ENABLED === "true";
+  const metaAppId = process.env.META_APP_ID?.trim() ?? "";
+  const metaConfigId = process.env.META_EMBEDDED_SIGNUP_CONFIG_ID?.trim() ?? "";
 
   return (
     <AnaStudio
@@ -44,6 +50,9 @@ export default async function AtendenteIAPage() {
       settings={settings}
       automations={automations}
       tenantName={tenant?.name ?? "nosso negócio"}
+      embeddedSignupEnabled={embeddedSignupEnabled}
+      metaAppId={metaAppId}
+      metaConfigId={metaConfigId}
     />
   );
 }

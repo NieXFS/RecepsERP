@@ -5,6 +5,8 @@ import {
   DEFAULT_BOT_GREETING_MESSAGE,
   DEFAULT_BOT_NAME,
   DEFAULT_BOT_SYSTEM_PROMPT,
+  META_CONNECTION_SOURCES,
+  type MetaConnectionSource,
 } from "@/lib/bot-config";
 import type {
   AdminBotConfigInput,
@@ -24,6 +26,8 @@ export type BotSettingsRecord = {
   timezone: string;
   phoneNumberId: string | null;
   isActive: boolean;
+  metaConnectionSource: MetaConnectionSource | null;
+  metaConnectedAt: string | null;
 };
 
 export type TenantBotRuntimeConfig = {
@@ -65,8 +69,17 @@ export type AdminBotConfigRecord = {
   phoneNumberId: string | null;
   waAccessToken: string | null;
   waVerifyToken: string | null;
+  waRegistrationPin: string | null;
   waApiVersion: string;
   isActive: boolean;
+};
+
+export type EmbeddedSignupBotConfigInput = {
+  wabaId: string;
+  phoneNumberId: string;
+  waAccessToken: string;
+  waApiVersion: string;
+  waRegistrationPin: string;
 };
 
 function createDefaultBotSettings(): BotSettingsRecord {
@@ -81,6 +94,8 @@ function createDefaultBotSettings(): BotSettingsRecord {
     timezone: "America/Sao_Paulo",
     phoneNumberId: null,
     isActive: false,
+    metaConnectionSource: null,
+    metaConnectedAt: null,
   };
 }
 
@@ -104,6 +119,7 @@ function createDefaultAdminBotConfig(tenantId: string): AdminBotConfigRecord {
     phoneNumberId: null,
     waAccessToken: null,
     waVerifyToken: null,
+    waRegistrationPin: null,
     waApiVersion: "v21.0",
     isActive: false,
   };
@@ -173,6 +189,8 @@ export async function getBotConfigByTenantId(
       timezone: true,
       phoneNumberId: true,
       isActive: true,
+      metaConnectionSource: true,
+      metaConnectedAt: true,
     },
   });
 
@@ -191,6 +209,10 @@ export async function getBotConfigByTenantId(
     timezone: botConfig.timezone,
     phoneNumberId: botConfig.phoneNumberId,
     isActive: botConfig.isActive,
+    metaConnectionSource: isMetaConnectionSource(botConfig.metaConnectionSource)
+      ? botConfig.metaConnectionSource
+      : null,
+    metaConnectedAt: botConfig.metaConnectedAt?.toISOString() ?? null,
   };
 }
 
@@ -276,9 +298,17 @@ export async function getBotConfigByTenantIdAdmin(
     phoneNumberId: botConfig.phoneNumberId ?? null,
     waAccessToken: botConfig.waAccessToken ?? null,
     waVerifyToken: botConfig.waVerifyToken ?? null,
+    waRegistrationPin: botConfig.waRegistrationPin ?? null,
     waApiVersion: botConfig.waApiVersion,
     isActive: botConfig.isActive,
   };
+}
+
+function isMetaConnectionSource(value: string | null | undefined): value is MetaConnectionSource {
+  return (
+    value === META_CONNECTION_SOURCES.MANUAL ||
+    value === META_CONNECTION_SOURCES.EMBEDDED_SIGNUP
+  );
 }
 
 export async function hasActiveBotVerifyToken(
@@ -337,6 +367,81 @@ export async function upsertBotConfig(
   return {
     success: true,
     data: { botName: input.botName },
+  };
+}
+
+export async function connectBotConfigViaEmbeddedSignup(
+  tenantId: string,
+  input: EmbeddedSignupBotConfigInput
+): Promise<ActionResult<{ tenantId: string; phoneNumberId: string }>> {
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true },
+  });
+
+  if (!tenant) {
+    return { success: false, error: "Estabelecimento não encontrado." };
+  }
+
+  const existing = await db.botConfig.findUnique({
+    where: { tenantId },
+    select: {
+      waApiVersion: true,
+    },
+  });
+
+  const connectedAt = new Date();
+  const nextApiVersion = existing?.waApiVersion?.trim() || input.waApiVersion;
+
+  try {
+    await db.botConfig.upsert({
+      where: { tenantId },
+      update: {
+        wabaId: input.wabaId,
+        phoneNumberId: input.phoneNumberId,
+        waAccessToken: input.waAccessToken,
+        waRegistrationPin: input.waRegistrationPin,
+        waApiVersion: nextApiVersion,
+        metaConnectionSource: META_CONNECTION_SOURCES.EMBEDDED_SIGNUP,
+        metaConnectedAt: connectedAt,
+        isActive: true,
+        activatedAt: connectedAt,
+      },
+      create: {
+        ...getDefaultBotConfigCreateData(tenantId),
+        wabaId: input.wabaId,
+        phoneNumberId: input.phoneNumberId,
+        waAccessToken: input.waAccessToken,
+        waRegistrationPin: input.waRegistrationPin,
+        waApiVersion: nextApiVersion,
+        metaConnectionSource: META_CONNECTION_SOURCES.EMBEDDED_SIGNUP,
+        metaConnectedAt: connectedAt,
+        isActive: true,
+        activatedAt: connectedAt,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "Esse número WhatsApp já está vinculado a outro tenant.",
+      };
+    }
+
+    const message =
+      error instanceof Error ? error.message : "Não foi possível concluir a conexão do WhatsApp.";
+    return { success: false, error: message };
+  }
+
+  return {
+    success: true,
+    data: {
+      tenantId,
+      phoneNumberId: input.phoneNumberId,
+    },
   };
 }
 
@@ -493,6 +598,8 @@ export async function linkBotConfigToTenant(
         phoneNumberId: input.phoneNumberId,
         waAccessToken: input.waAccessToken,
         waVerifyToken: input.waVerifyToken,
+        metaConnectionSource: META_CONNECTION_SOURCES.MANUAL,
+        metaConnectedAt: new Date(),
         isActive: true,
         activatedAt: new Date(),
       },
@@ -502,6 +609,8 @@ export async function linkBotConfigToTenant(
         phoneNumberId: input.phoneNumberId,
         waAccessToken: input.waAccessToken,
         waVerifyToken: input.waVerifyToken,
+        metaConnectionSource: META_CONNECTION_SOURCES.MANUAL,
+        metaConnectedAt: new Date(),
         isActive: true,
         activatedAt: new Date(),
       },

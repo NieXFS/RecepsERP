@@ -59,10 +59,16 @@ export function AnaStudio({
   settings,
   automations,
   tenantName,
+  embeddedSignupEnabled,
+  metaAppId,
+  metaConfigId,
 }: {
   settings: BotSettingsRecord;
   automations: BotAutomationVM[];
   tenantName: string;
+  embeddedSignupEnabled: boolean;
+  metaAppId: string;
+  metaConfigId: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -206,6 +212,11 @@ export function AnaStudio({
           <AnaStatusPanel
             whatsappConnected={whatsappConnected}
             phoneNumberId={settings.phoneNumberId}
+            metaConnectionSource={settings.metaConnectionSource}
+            metaConnectedAt={settings.metaConnectedAt}
+            embeddedSignupEnabled={embeddedSignupEnabled}
+            metaAppId={metaAppId}
+            metaConfigId={metaConfigId}
           />
         </aside>
       </div>

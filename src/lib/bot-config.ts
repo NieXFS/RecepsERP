@@ -1,5 +1,13 @@
 export const DEFAULT_BOT_NAME = "Ana";
 
+export const META_CONNECTION_SOURCES = {
+  MANUAL: "MANUAL",
+  EMBEDDED_SIGNUP: "EMBEDDED_SIGNUP",
+} as const;
+
+export type MetaConnectionSource =
+  (typeof META_CONNECTION_SOURCES)[keyof typeof META_CONNECTION_SOURCES];
+
 export const DEFAULT_BOT_SYSTEM_PROMPT = `Você se chama Ana. Você é a atendente virtual do estabelecimento e ajuda os clientes a consultar serviços, ver horários e agendar pelo WhatsApp.
 
 Seu tom é simpático, profissional e eficiente. Você usa no máximo um emoji por mensagem.

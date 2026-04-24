@@ -259,11 +259,14 @@ model BotConfig {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // ── WhatsApp Cloud API ──────────────────────────────────────
-  wabaId        String?
-  phoneNumberId String? @unique
-  waAccessToken String?
-  waVerifyToken String?
-  waApiVersion  String  @default("v21.0")
+  wabaId               String?
+  phoneNumberId        String?   @unique
+  waAccessToken        String?
+  waVerifyToken        String?
+  waRegistrationPin    String?
+  waApiVersion         String    @default("v21.0")
+  metaConnectionSource String? // 'MANUAL' | 'EMBEDDED_SIGNUP'
+  metaConnectedAt      DateTime?
 
   // ── Personalidade / IA ──────────────────────────────────────
   botName         String  @default("Ana")
