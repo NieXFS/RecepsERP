@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { TenantModule } from "@/generated/prisma/enums";
 import type { TenantCustomPermissions } from "@/lib/tenant-permissions";
 import { getPreferredModuleHref } from "@/lib/tenant-permissions";
+import type { ModuleAccessReason } from "@/lib/module-access";
 import {
   LayoutDashboard,
   Calendar,
@@ -91,6 +92,7 @@ export type SidebarProps = {
   userName: string;
   allowedModules: TenantModule[];
   permissions: TenantCustomPermissions;
+  moduleAccess: Partial<Record<TenantModule, ModuleAccessReason>>;
   collapsed?: boolean;
   className?: string;
   onNavigate?: () => void;
@@ -102,6 +104,7 @@ export function Sidebar({
   userName,
   allowedModules,
   permissions,
+  moduleAccess,
   collapsed = false,
   className,
   onNavigate,
@@ -112,15 +115,17 @@ export function Sidebar({
 
   const visibleItems = navItems.map((item) => {
     if (!item.module) {
-      return { ...item, isLocked: false };
+      return { ...item, isLocked: false, lockReason: null };
     }
     const moduleId = item.module;
+    const accessCandidates = item.visibleForModules ?? [moduleId];
+    const isUnlocked = accessCandidates.some((module) => moduleAccess[module]?.granted);
+
     return {
       ...item,
       href: getPreferredModuleHref(moduleId, permissions),
-      isLocked: !(item.visibleForModules ?? [moduleId]).some((module) =>
-        visibleModuleSet.has(module)
-      ),
+      isLocked: !isUnlocked && !accessCandidates.some((module) => visibleModuleSet.has(module)),
+      lockReason: getLockedReason(accessCandidates, moduleAccess),
     };
   });
 
@@ -241,6 +246,10 @@ export function Sidebar({
         <ModuleUpsellDialog
           module={activeUpsellItem.module}
           icon={activeUpsellItem.icon}
+          reason={getLockedReason(
+            activeUpsellItem.visibleForModules ?? [activeUpsellItem.module],
+            moduleAccess
+          )}
           open={Boolean(upsellModule)}
           onOpenChange={(open) => {
             if (!open) {
@@ -271,7 +280,7 @@ function NavGroup({
   onNavigate,
   onLockedItemClick,
 }: {
-  items: (NavItem & { isLocked: boolean })[];
+  items: (NavItem & { isLocked: boolean; lockReason: ModuleLockReason | null })[];
   pathname: string;
   collapsed: boolean;
   onNavigate?: () => void;
@@ -287,7 +296,7 @@ function NavGroup({
         const Icon = item.icon;
         const tooltipLabel =
           item.isLocked && item.module
-            ? getModuleUpsellTooltip(item.module)
+            ? getModuleUpsellTooltip(item.module, item.lockReason ?? "module-disabled")
             : null;
 
         const baseClasses = collapsed
@@ -359,6 +368,30 @@ function NavGroup({
       })}
     </div>
   );
+}
+
+type ModuleLockReason = Exclude<ModuleAccessReason, { granted: true }>["reason"];
+
+function getLockedReason(
+  modules: readonly TenantModule[],
+  accessByModule: Partial<Record<TenantModule, ModuleAccessReason>>
+): ModuleLockReason {
+  const reasons = modules
+    .map((module) => accessByModule[module])
+    .filter((access): access is Exclude<ModuleAccessReason, { granted: true }> =>
+      Boolean(access && !access.granted)
+    )
+    .map((access) => access.reason);
+
+  if (reasons.includes("permission-denied")) {
+    return "permission-denied";
+  }
+
+  if (reasons.includes("plan-locked")) {
+    return "plan-locked";
+  }
+
+  return "module-disabled";
 }
 
 /** Traduz a role para um label legível */

@@ -1,6 +1,11 @@
 "use server";
 
 import type { TenantCustomPermissions } from "@/lib/tenant-permissions";
+import {
+  isMasterRequiredError,
+  MASTER_REQUIRED_MESSAGE,
+  requireMasterSession,
+} from "@/lib/active-user";
 import { requirePermission } from "@/lib/session";
 import {
   createTeamMemberSchema,
@@ -12,6 +17,21 @@ import {
   updateTeamMember,
 } from "@/services/team.service";
 import type { ActionResult } from "@/types";
+
+type MasterErrorResult = { success: false; error: string };
+
+async function ensureMasterForSensitiveAction(): Promise<MasterErrorResult | null> {
+  try {
+    await requireMasterSession();
+    return null;
+  } catch (error) {
+    if (isMasterRequiredError(error)) {
+      return { success: false, error: MASTER_REQUIRED_MESSAGE };
+    }
+
+    throw error;
+  }
+}
 
 /**
  * Server Action: cria novo membro da equipe com senha hasheada.
@@ -33,6 +53,9 @@ export async function createTeamMemberAction(data: {
   customPermissions?: TenantCustomPermissions;
 }): Promise<ActionResult<{ userId: string }>> {
   const user = await requirePermission("profissionais", "edit");
+  const masterError = await ensureMasterForSensitiveAction();
+  if (masterError) return masterError;
+
   const parsed = createTeamMemberSchema.safeParse({
     ...data,
     isActive: data.isActive ?? true,
@@ -66,6 +89,9 @@ export async function updateTeamMemberAction(
   }
 ): Promise<ActionResult<{ userId: string }>> {
   const user = await requirePermission("profissionais", "edit");
+  const masterError = await ensureMasterForSensitiveAction();
+  if (masterError) return masterError;
+
   const parsed = updateTeamMemberSchema.safeParse({
     ...data,
     isActive: data.isActive ?? true,
@@ -86,5 +112,8 @@ export async function deactivateTeamMemberAction(
   userId: string
 ): Promise<ActionResult> {
   const user = await requirePermission("profissionais", "edit");
+  const masterError = await ensureMasterForSensitiveAction();
+  if (masterError) return masterError;
+
   return deactivateTeamMember(user.tenantId, userId, user.id);
 }

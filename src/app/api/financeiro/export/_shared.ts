@@ -1,13 +1,12 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getOptionalSession } from "@/lib/session";
+import { getEffectiveUserForPermissions } from "@/lib/active-user";
 import {
   hasPermission,
   type PermissionAction,
   type PermissionPath,
 } from "@/lib/tenant-permissions";
-import { getEffectivePermissionSnapshot } from "@/services/user-permission.service";
 import {
   buildCsv,
   buildExportFilename,
@@ -36,50 +35,31 @@ export async function authorizeExport(
   path: PermissionPath,
   action: PermissionAction = "view"
 ): Promise<ExportAuthResult> {
-  const session = await getOptionalSession();
-  if (!session) {
+  let user;
+  try {
+    user = await getEffectiveUserForPermissions();
+  } catch (error) {
+    if (
+      !(
+        error instanceof Error &&
+        (error.message === "Não autorizado." || error.message === "Sessão incompleta.")
+      )
+    ) {
+      throw error;
+    }
+
     return {
       ok: false,
       response: NextResponse.json({ error: "Não autenticado" }, { status: 401 }),
     };
   }
 
-  const [dbUser, tenant] = await Promise.all([
-    db.user.findFirst({
-      where: {
-        id: session.id,
-        tenantId: session.tenantId,
-        isActive: true,
-        deletedAt: null,
-      },
-      select: {
-        role: true,
-        customPermissions: true,
-        modulePermissions: {
-          select: { module: true, isAllowed: true },
-        },
-      },
-    }),
-    db.tenant.findUnique({
-      where: { id: session.tenantId },
-      select: { name: true },
-    }),
-  ]);
+  const tenant = await db.tenant.findUnique({
+    where: { id: user.tenantId },
+    select: { name: true },
+  });
 
-  if (!dbUser) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "Não autenticado" }, { status: 401 }),
-    };
-  }
-
-  const snapshot = getEffectivePermissionSnapshot(
-    dbUser.role,
-    dbUser.customPermissions,
-    dbUser.modulePermissions
-  );
-
-  if (!hasPermission(snapshot.customPermissions, path, action)) {
+  if (!hasPermission(user.customPermissions, path, action)) {
     return {
       ok: false,
       response: NextResponse.json(
@@ -92,8 +72,8 @@ export async function authorizeExport(
   return {
     ok: true,
     user: {
-      id: session.id,
-      tenantId: session.tenantId,
+      id: user.id,
+      tenantId: user.tenantId,
       tenantName: tenant?.name ?? "Receps ERP",
     },
   };

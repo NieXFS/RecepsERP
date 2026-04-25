@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
-import { getModuleDefinition } from "@/lib/tenant-modules";
+import { headers } from "next/headers";
+import { ModuleUpsell } from "@/components/billing/module-upsell";
+import { getModuleAccess } from "@/lib/module-access";
 import { getAuthUserWithAccess } from "@/lib/session";
 import { SettingsNav } from "@/components/settings/settings-nav";
 
@@ -12,11 +13,15 @@ export default async function SettingsLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get("x-receps-pathname") ?? "";
   const user = await getAuthUserWithAccess();
+  const isPersonalAccountPage =
+    pathname === "/configuracoes/conta" || pathname.startsWith("/configuracoes/conta/");
 
-  if (!user.moduleAccess.CONFIGURACOES) {
-    const fallbackModule = user.allowedModules[0];
-    redirect(fallbackModule ? getModuleDefinition(fallbackModule).href : "/login");
+  if (!user.moduleAccess.CONFIGURACOES && !isPersonalAccountPage) {
+    const access = await getModuleAccess(user, user.tenantId, "CONFIGURACOES");
+    return <ModuleUpsell product="erp" reason={access.granted ? "module-disabled" : access.reason} />;
   }
 
   return (
@@ -24,7 +29,7 @@ export default async function SettingsLayout({
       <div className="animate-fade-in-down">
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
-          Gerencie negócio, aparência, recursos e contas financeiras do estabelecimento.
+          Gerencie sua conta, negócio, aparência, recursos e contas financeiras.
         </p>
       </div>
       <SettingsNav allowedModules={user.allowedModules} role={user.role} />

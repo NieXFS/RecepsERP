@@ -5,52 +5,69 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Role, TenantModule } from "@/generated/prisma/enums";
 import {
-  Palette,
   Building2,
-  Landmark,
-  Store,
   CreditCard,
   Gift,
+  Landmark,
+  type LucideIcon,
+  Palette,
+  Store,
+  UserRound,
 } from "lucide-react";
 
-const tabs = [
+type SettingsTab = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  module?: TenantModule;
+  adminOnly?: boolean;
+  personal?: boolean;
+};
+
+const tabs: SettingsTab[] = [
+  {
+    href: "/configuracoes/conta",
+    label: "Conta",
+    icon: UserRound,
+    personal: true,
+  },
   {
     href: "/configuracoes/negocio",
     label: "Negócio",
     icon: Store,
-    module: "CONFIGURACOES" as TenantModule,
+    module: "CONFIGURACOES",
     adminOnly: true,
   },
   {
     href: "/configuracoes/aparencia",
     label: "Aparência",
     icon: Palette,
-    module: "CONFIGURACOES" as TenantModule,
+    module: "CONFIGURACOES",
   },
   {
     href: "/configuracoes/recursos",
     label: "Salas & Equipamentos",
     icon: Building2,
-    module: "CONFIGURACOES" as TenantModule,
+    module: "CONFIGURACOES",
   },
   {
     href: "/configuracoes/contas",
     label: "Contas Bancárias",
     icon: Landmark,
-    module: "CONFIGURACOES" as TenantModule,
+    module: "CONFIGURACOES",
     adminOnly: true,
   },
   {
     href: "/configuracoes/assinatura",
     label: "Assinatura",
     icon: CreditCard,
-    module: "CONFIGURACOES" as TenantModule,
+    module: "CONFIGURACOES",
   },
   {
     href: "/configuracoes/indicacoes",
     label: "Indicações",
     icon: Gift,
-    module: "CONFIGURACOES" as TenantModule,
+    module: "CONFIGURACOES",
   },
 ];
 
@@ -71,9 +88,13 @@ export function SettingsNav({
   return (
     <nav className="flex gap-1 border-b">
       {tabs
-        .filter((tab) => visibleModules.has(tab.module) && (!tab.adminOnly || role === "ADMIN"))
+        .filter(
+          (tab) =>
+            tab.personal ||
+            (tab.module && visibleModules.has(tab.module) && (!tab.adminOnly || role === "ADMIN"))
+        )
         .map((tab) => {
-          const isActive = pathname?.startsWith(tab.href);
+          const isActive = pathname === tab.href || pathname?.startsWith(`${tab.href}/`);
           const Icon = tab.icon;
 
           return (

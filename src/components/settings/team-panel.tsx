@@ -14,7 +14,12 @@ import {
   type PermissionScope,
   type TenantCustomPermissions,
 } from "@/lib/tenant-permissions";
-import { createTeamMemberAction, deactivateTeamMemberAction, updateTeamMemberAction } from "@/actions/team.actions";
+import { resetUserPinAction } from "@/actions/account.actions";
+import {
+  createTeamMemberAction,
+  deactivateTeamMemberAction,
+  updateTeamMemberAction,
+} from "@/actions/team.actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +27,7 @@ import { AnimatedList } from "@/components/ui/animated-list";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -40,6 +46,7 @@ import {
   ChevronDown,
   ChevronUp,
   Headset,
+  KeyRound,
   Pencil,
   Plus,
   Shield,
@@ -162,12 +169,15 @@ function countAccessibleAreas(permissions: TenantCustomPermissions) {
 export function TeamPanel({
   members,
   currentUserId,
+  currentUserRole,
 }: {
   members: TeamMember[];
   currentUserId: string;
+  currentUserRole: TeamRole;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [resetPinMember, setResetPinMember] = useState<TeamMember | null>(null);
   const [isPending, startTransition] = useTransition();
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
     financeiro: true,
@@ -361,8 +371,28 @@ export function TeamPanel({
     });
   }
 
+  function handleResetPin() {
+    if (!resetPinMember) {
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await resetUserPinAction({ userId: resetPinMember.id });
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`PIN de ${resetPinMember.name} resetado.`);
+      setResetPinMember(null);
+      router.refresh();
+    });
+  }
+
   const shouldShowProfessionalFields =
     role === "PROFESSIONAL" || (role === "ADMIN" && actsAsProfessional);
+  const canResetUserPins = currentUserRole === "ADMIN";
 
   const permissionGroups = Object.entries(permissionGroupLabels).map(
     ([groupKey, groupLabel]) => ({
@@ -446,6 +476,17 @@ export function TeamPanel({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
+                  {canResetUserPins && member.id !== currentUserId ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setResetPinMember(member)}
+                      disabled={isPending}
+                    >
+                      <KeyRound className="h-4 w-4" aria-hidden="true" />
+                      Resetar PIN
+                    </Button>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="sm"
@@ -471,6 +512,43 @@ export function TeamPanel({
           );
         })}
       </AnimatedList>
+
+      <Dialog
+        open={Boolean(resetPinMember)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetPinMember(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resetar PIN</DialogTitle>
+            <DialogDescription>
+              Resetar o PIN de {resetPinMember?.name}? Ele(a) precisará configurar um
+              novo PIN no próximo login.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setResetPinMember(null)}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleResetPin}
+              disabled={isPending}
+            >
+              {isPending ? "Resetando..." : "Resetar PIN"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-h-[90vh] sm:max-w-5xl overflow-y-auto">

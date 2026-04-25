@@ -10,6 +10,7 @@ export type SessionUser = {
   email: string;
   role: Role;
   globalRole: GlobalRole | null;
+  avatarUrl: string | null;
 };
 
 export type SessionUserWithAccess = SessionUser & {

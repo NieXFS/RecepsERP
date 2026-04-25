@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getMyLandingRouteAction } from "@/actions/auth.actions";
 import { cn } from "@/lib/utils";
 
 type LoginFormProps = {
@@ -29,7 +30,7 @@ type LoginFormProps = {
  */
 export function LoginForm({
   initialEmail = "",
-  callbackUrl = "/dashboard",
+  callbackUrl,
 }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState(initialEmail);
@@ -46,7 +47,7 @@ export function LoginForm({
     const result = await signIn("credentials", {
       email,
       password,
-      callbackUrl,
+      callbackUrl: callbackUrl ?? "/dashboard",
       redirect: false,
     });
 
@@ -56,7 +57,9 @@ export function LoginForm({
       return;
     }
 
-    router.push(result?.url ?? callbackUrl);
+    const landingRoute = await getMyLandingRouteAction();
+    router.push(landingRoute);
+    router.refresh();
   }
 
   return (

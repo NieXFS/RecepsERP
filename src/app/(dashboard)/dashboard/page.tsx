@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { Calendar, DollarSign, TrendingUp, UserPlus } from "lucide-react";
-import { getAuthUserForModule } from "@/lib/session";
+import { getAuthUserWithAccess } from "@/lib/session";
 import { getCivilMonthRange, parseCivilMonthFromQuery } from "@/lib/civil-date";
+import { canAccessDashboard } from "@/lib/tenant-permissions";
 import {
   getAppointmentsHeatmap,
   getDailyKPIs,
@@ -38,7 +40,11 @@ export default async function DashboardPage({
 }: {
   searchParams?: Promise<{ month?: string | string[]; year?: string | string[] }>;
 }) {
-  const user = await getAuthUserForModule("DASHBOARD");
+  const user = await getAuthUserWithAccess();
+  if (!canAccessDashboard(user)) {
+    redirect("/agenda");
+  }
+
   const query = searchParams ? await searchParams : undefined;
   const selectedMonth = parseCivilMonthFromQuery(query?.month, query?.year);
   const { start, endExclusive } = getCivilMonthRange(selectedMonth);

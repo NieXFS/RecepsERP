@@ -2,10 +2,19 @@
 
 import { useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { switchBackToMasterAction } from "@/actions/account.actions";
 
 export default function LogoutPage() {
   useEffect(() => {
-    void signOut({ callbackUrl: "/login" });
+    async function logout() {
+      try {
+        await switchBackToMasterAction();
+      } finally {
+        await signOut({ callbackUrl: "/login" });
+      }
+    }
+
+    void logout();
   }, []);
 
   return (

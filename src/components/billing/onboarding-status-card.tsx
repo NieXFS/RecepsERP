@@ -50,8 +50,10 @@ export function OnboardingStatusCard({
           {message ?? "Tente novamente em instantes ou escolha outro plano para continuar."}
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Button render={<Link href="/assinar" />}>Voltar para os planos</Button>
-          <Button render={<Link href="/logout" />} variant="outline">
+          <Button nativeButton={false} render={<Link href="/assinar" />}>
+            Voltar para os planos
+          </Button>
+          <Button nativeButton={false} render={<Link href="/logout" />} variant="outline">
             Sair
           </Button>
         </div>

@@ -1,40 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { ChevronsUpDown, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 
+import { switchBackToMasterAction } from "@/actions/account.actions";
 import { Sidebar, type SidebarProps } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { UserAccountChip } from "@/components/layout/user-account-chip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+
+type UserChipData = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatarUrl: string | null;
+};
 
 type HeaderProps = {
   tenantName?: string;
-  userName: string;
-  userEmail: string;
-  userRole: string;
+  activeUser: UserChipData & { hasPin: boolean };
+  masterUser: UserChipData;
   sidebarProps?: Omit<SidebarProps, "className" | "collapsed" | "onNavigate">;
 };
 
 /** Barra superior do dashboard — tenant como contexto discreto e ações do usuário. */
 export function Header({
   tenantName,
-  userName,
-  userEmail,
-  userRole,
+  activeUser,
+  masterUser,
   sidebarProps,
 }: HeaderProps) {
-  const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  useEffect(() => {
-    setSheetOpen(false);
-  }, [pathname]);
-
   const displayTenantName = tenantName ?? "Receps Admin";
-  const tenantInitial = displayTenantName.trim().charAt(0).toUpperCase() || "R";
+
+  async function handleLogout() {
+    try {
+      await switchBackToMasterAction();
+    } finally {
+      await signOut({ callbackUrl: "/login" });
+    }
+  }
 
   return (
     <header
@@ -72,40 +81,18 @@ export function Header({
           </Sheet>
         )}
 
-        <div
-          className="inline-flex min-w-0 items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5 transition-colors duration-[180ms] hover:bg-[rgba(139,92,246,0.06)] dark:hover:bg-[rgba(139,92,246,0.08)]"
-          title={displayTenantName}
-        >
-          <span
-            aria-hidden="true"
-            className="relative grid h-[30px] w-[30px] shrink-0 place-items-center rounded-[9px] bg-[linear-gradient(135deg,#8B5CF6_0%,#6223CF_100%)] text-[13px] font-extrabold tracking-[-0.02em] text-white shadow-[0_4px_10px_rgba(139,92,246,0.32)]"
-          >
-            {tenantInitial}
-            <span
-              aria-hidden="true"
-              className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_2px_var(--background)]"
-            />
-          </span>
-          <div className="flex min-w-0 flex-col leading-[1.15]">
-            <span className="text-[9.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-              Estabelecimento
-            </span>
-            <span className="mt-px truncate text-[13.5px] font-bold tracking-[-0.015em] text-foreground">
-              {displayTenantName}
-            </span>
-          </div>
-          <ChevronsUpDown
-            aria-hidden="true"
-            className="ml-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-70"
-          />
-        </div>
+        <UserAccountChip
+          tenantName={displayTenantName}
+          currentUser={activeUser}
+          masterUser={masterUser}
+        />
       </div>
 
       <div
         className="flex items-center gap-3.5 pl-4 text-[13px] text-muted-foreground sm:gap-[14px]"
-        title={`${userName} • ${roleLabel(userRole)}`}
+        title={`${activeUser.name} • ${roleLabel(activeUser.role)}`}
       >
-        <span className="hidden sm:inline">{userEmail}</span>
+        <span className="hidden sm:inline">{activeUser.email}</span>
         <span
           aria-hidden="true"
           className="hidden h-[18px] w-px bg-[rgba(15,23,42,0.1)] sm:inline-block dark:bg-[rgba(255,255,255,0.08)]"
@@ -117,7 +104,7 @@ export function Header({
         />
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => void handleLogout()}
           className="inline-flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[13px] font-medium text-muted-foreground transition-all duration-150 hover:bg-accent hover:text-foreground"
         >
           <LogOut className="h-[15px] w-[15px]" aria-hidden="true" />

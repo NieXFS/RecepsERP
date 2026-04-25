@@ -90,10 +90,19 @@ export function SignupAutostart({
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           {error ? (
             <>
-              <Button render={<Link href={`/cadastro?plan=${planSlug}`} />} size="lg">
+              <Button
+                nativeButton={false}
+                render={<Link href={`/cadastro?plan=${planSlug}`} />}
+                size="lg"
+              >
                 Tentar novamente
               </Button>
-              <Button render={<Link href="/configuracoes/assinatura" />} size="lg" variant="outline">
+              <Button
+                nativeButton={false}
+                render={<Link href="/configuracoes/assinatura" />}
+                size="lg"
+                variant="outline"
+              >
                 Ir para assinatura
               </Button>
             </>

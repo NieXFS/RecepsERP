@@ -1,7 +1,26 @@
-import { redirect } from "next/navigation";
-import { getModuleDefinition } from "@/lib/tenant-modules";
+import { ModuleUpsell } from "@/components/billing/module-upsell";
+import type { ModuleAccessReason } from "@/lib/module-access";
+import { getModuleAccess } from "@/lib/module-access";
 import { getAuthUserWithAccess } from "@/lib/session";
 import { ProductsNav } from "@/components/inventory/products-nav";
+
+type ModuleBlockReason = Exclude<ModuleAccessReason, { granted: true }>["reason"];
+
+function getCombinedBlockReason(accesses: ModuleAccessReason[]): ModuleBlockReason {
+  const denied = accesses.filter(
+    (access): access is Exclude<ModuleAccessReason, { granted: true }> => !access.granted
+  );
+
+  if (denied.some((access) => access.reason === "permission-denied")) {
+    return "permission-denied";
+  }
+
+  if (denied.some((access) => access.reason === "plan-locked")) {
+    return "plan-locked";
+  }
+
+  return "module-disabled";
+}
 
 /**
  * Layout do módulo Produtos.
@@ -13,12 +32,20 @@ export default async function ProductsLayout({
   children: React.ReactNode;
 }) {
   const user = await getAuthUserWithAccess();
-  const hasProductsAccess = user.moduleAccess.PRODUTOS;
-  const hasInventoryAccess = user.moduleAccess.ESTOQUE;
+  const [productsAccess, inventoryAccess] = await Promise.all([
+    getModuleAccess(user, user.tenantId, "PRODUTOS"),
+    getModuleAccess(user, user.tenantId, "ESTOQUE"),
+  ]);
+  const hasProductsAccess = productsAccess.granted;
+  const hasInventoryAccess = inventoryAccess.granted;
 
   if (!hasProductsAccess && !hasInventoryAccess) {
-    const fallbackModule = user.allowedModules[0];
-    redirect(fallbackModule ? getModuleDefinition(fallbackModule).href : "/login");
+    return (
+      <ModuleUpsell
+        product="erp"
+        reason={getCombinedBlockReason([productsAccess, inventoryAccess])}
+      />
+    );
   }
 
   return (

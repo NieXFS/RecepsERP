@@ -1,9 +1,7 @@
-import { redirect } from "next/navigation";
+import { ModuleUpsell } from "@/components/billing/module-upsell";
+import { getModuleAccess } from "@/lib/module-access";
 import { getAuthUserWithAccess } from "@/lib/session";
-import {
-  getDefaultAccessibleHref,
-  hasPermission,
-} from "@/lib/tenant-permissions";
+import { hasPermission } from "@/lib/tenant-permissions";
 import { FinancialNav } from "@/components/financial/financial-nav";
 
 /**
@@ -18,7 +16,8 @@ export default async function FinancialLayout({
   const user = await getAuthUserWithAccess();
 
   if (!hasPermission(user.customPermissions, "financeiro", "view")) {
-    redirect(getDefaultAccessibleHref(user.customPermissions, user.allowedModules));
+    const access = await getModuleAccess(user, user.tenantId, "COMISSOES");
+    return <ModuleUpsell product="erp" reason={access.granted ? "module-disabled" : access.reason} />;
   }
 
   return (

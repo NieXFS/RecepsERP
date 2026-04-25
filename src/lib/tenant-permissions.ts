@@ -314,7 +314,6 @@ function synchronizeFinancialRoot(permissions: TenantCustomPermissions) {
 function buildProfessionalDefaults() {
   const permissions = createEmptyPermissions();
 
-  grantScope(permissions, "dashboard", { view: true, edit: true });
   grantScope(permissions, "agenda", { view: true, edit: true });
   grantScope(permissions, "clientes", { view: true, edit: true });
   grantScope(permissions, "prontuarios", { view: true, edit: true });
@@ -326,7 +325,6 @@ function buildProfessionalDefaults() {
 function buildReceptionistDefaults() {
   const permissions = createEmptyPermissions();
 
-  grantScope(permissions, "dashboard", { view: true, edit: true });
   grantScope(permissions, "agenda", { view: true, edit: true });
   grantScope(permissions, "clientes", { view: true, edit: true });
   grantScope(permissions, "servicos", { view: true, edit: true });
@@ -448,6 +446,11 @@ export function resolveEffectivePermissionSnapshot(
     : applyLegacyModuleOverrides(getDefaultCustomPermissions(role), modulePermissions);
 
   const moduleAccess = getModuleAccessMap(permissions);
+  if (role !== "ADMIN") {
+    permissions.dashboard.view = false;
+    permissions.dashboard.edit = false;
+    moduleAccess.DASHBOARD = false;
+  }
 
   return {
     customPermissions: permissions,
@@ -512,6 +515,40 @@ export function hasPermission(
   }
 
   return getPermissionScope(permissions, path)[action];
+}
+
+export function canAccessDashboard(user: {
+  role: Role;
+  moduleAccess?: ModuleAccessMap;
+  allowedModules?: readonly TenantModule[];
+  customPermissions?: TenantCustomPermissions;
+}): boolean {
+  if (user.role !== "ADMIN") {
+    return false;
+  }
+
+  if (user.moduleAccess) {
+    return user.moduleAccess.DASHBOARD;
+  }
+
+  if (user.allowedModules) {
+    return user.allowedModules.includes("DASHBOARD");
+  }
+
+  if (user.customPermissions) {
+    return getModuleAccessMap(user.customPermissions).DASHBOARD;
+  }
+
+  return false;
+}
+
+export function getDefaultLandingRoute(user: {
+  role: Role;
+  moduleAccess?: ModuleAccessMap;
+  allowedModules?: readonly TenantModule[];
+  customPermissions?: TenantCustomPermissions;
+}): string {
+  return canAccessDashboard(user) ? "/dashboard" : "/agenda";
 }
 
 export function getPreferredModuleHref(

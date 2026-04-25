@@ -1,6 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  isMasterRequiredError,
+  MASTER_REQUIRED_MESSAGE,
+  requireMasterSession,
+} from "@/lib/active-user";
 import { getAuthUserWithAccess } from "@/lib/session";
 import {
   saveAutomationSchema,
@@ -26,6 +31,19 @@ async function assertAdmin() {
       error: "Apenas administradores podem gerenciar automações.",
     };
   }
+  try {
+    await requireMasterSession();
+  } catch (error) {
+    if (isMasterRequiredError(error)) {
+      return {
+        ok: false as const,
+        error: MASTER_REQUIRED_MESSAGE,
+      };
+    }
+
+    throw error;
+  }
+
   return { ok: true as const, user };
 }
 

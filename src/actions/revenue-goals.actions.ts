@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requirePermission } from "@/lib/session";
+import { getEffectiveUserForPermissions } from "@/lib/active-user";
+import { requireAuth, requirePermission } from "@/lib/session";
 import { buildUserSnapshot } from "@/lib/audit";
 import { upsertRevenueGoal } from "@/services/revenue-goal.service";
 import type { ActionResult } from "@/types";
@@ -22,6 +23,8 @@ export async function setRevenueGoalAction(
   data: unknown
 ): Promise<ActionResult<{ month: string }>> {
   const session = await requirePermission("financeiro.geral", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = setRevenueGoalSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -36,8 +39,8 @@ export async function setRevenueGoalAction(
       tenantId: session.tenantId,
       month: parsed.data.month,
       targetAmount: parsed.data.targetAmount,
-      userId: session.id,
-      actor: buildUserSnapshot(session),
+      userId: effectiveUser.id,
+      actor: buildUserSnapshot(effectiveUser),
     });
     revalidatePath("/financeiro");
     return { success: true, data: { month: saved.month } };

@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModuleAccess, requirePermission } from "@/lib/session";
+import { getEffectiveUserForPermissions } from "@/lib/active-user";
+import { requireAuth, requireModuleAccess, requirePermission } from "@/lib/session";
 import type { PaymentMethodValue } from "@/lib/payment-methods";
 import {
   checkoutAppointment,
@@ -39,6 +40,8 @@ export async function checkoutAppointmentAction(
   }
 ): Promise<ActionResult<{ transactionIds: string[]; commissionIds: string[] }>> {
   const session = await requireModuleAccess("AGENDA", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   return checkoutAppointment(
     session.tenantId,
     appointmentId,
@@ -46,7 +49,7 @@ export async function checkoutAppointmentAction(
       ...options,
       finalStatus: "PAID",
     },
-    buildUserSnapshot(session)
+    buildUserSnapshot(effectiveUser)
   );
 }
 
@@ -58,8 +61,10 @@ export async function payCommissionsAction(
   commissionIds: string[]
 ): Promise<ActionResult<{ paidCount: number }>> {
   const session = await requirePermission("financeiro.comissoes", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
 
-  return payCommissions(session.tenantId, commissionIds, buildUserSnapshot(session));
+  return payCommissions(session.tenantId, commissionIds, buildUserSnapshot(effectiveUser));
 }
 
 /**
@@ -96,8 +101,10 @@ export async function settleCommissionsAction(
   accountId?: string
 ): Promise<ActionResult<{ paidCount: number; expenseTransactionId: string }>> {
   const session = await requirePermission("financeiro.comissoes", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
 
-  return settleCommissions(session.tenantId, professionalId, accountId, buildUserSnapshot(session));
+  return settleCommissions(session.tenantId, professionalId, accountId, buildUserSnapshot(effectiveUser));
 }
 
 /**
@@ -148,6 +155,8 @@ export async function openCashRegisterAction(data: {
   openingNotes?: string;
 }): Promise<ActionResult<{ sessionId: string }>> {
   const session = await requirePermission("financeiro.caixa", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = openCashRegisterSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -156,9 +165,9 @@ export async function openCashRegisterAction(data: {
 
   return openCashRegister(
     session.tenantId,
-    session.id,
+    effectiveUser.id,
     parsed.data,
-    buildUserSnapshot(session)
+    buildUserSnapshot(effectiveUser)
   );
 }
 
@@ -171,6 +180,8 @@ export async function closeCashRegisterAction(data: {
   closingNotes?: string;
 }): Promise<ActionResult<{ sessionId: string }>> {
   const session = await requirePermission("financeiro.caixa", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = closeCashRegisterSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -179,9 +190,9 @@ export async function closeCashRegisterAction(data: {
 
   return closeCashRegister(
     session.tenantId,
-    session.id,
+    effectiveUser.id,
     parsed.data,
-    buildUserSnapshot(session)
+    buildUserSnapshot(effectiveUser)
   );
 }
 
@@ -218,6 +229,8 @@ export async function recordCashMovementAction(data: {
   notes?: string;
 }): Promise<ActionResult<{ transactionId: string }>> {
   const session = await requirePermission("financeiro.caixa", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = cashMovementSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -226,9 +239,9 @@ export async function recordCashMovementAction(data: {
 
   const result = await recordCashMovement(
     session.tenantId,
-    session.id,
+    effectiveUser.id,
     parsed.data,
-    buildUserSnapshot(session)
+    buildUserSnapshot(effectiveUser)
   );
 
   if (result.success) {

@@ -1,6 +1,7 @@
 "use server";
 
-import { requirePermission } from "@/lib/session";
+import { getEffectiveUserForPermissions } from "@/lib/active-user";
+import { requireAuth, requirePermission } from "@/lib/session";
 import { buildUserSnapshot } from "@/lib/audit";
 import {
   createExpenseCategorySchema,
@@ -62,6 +63,8 @@ export async function createExpenseAction(
   data: unknown
 ): Promise<ActionResult<{ expenseId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = expenseSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -71,7 +74,7 @@ export async function createExpenseAction(
     };
   }
 
-  return createExpense(session.tenantId, parsed.data, buildUserSnapshot(session));
+  return createExpense(session.tenantId, parsed.data, buildUserSnapshot(effectiveUser));
 }
 
 /**
@@ -82,6 +85,8 @@ export async function updateExpenseAction(
   data: unknown
 ): Promise<ActionResult<{ expenseId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = updateExpenseSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -91,7 +96,7 @@ export async function updateExpenseAction(
     };
   }
 
-  return updateExpense(session.tenantId, expenseId, parsed.data, buildUserSnapshot(session));
+  return updateExpense(session.tenantId, expenseId, parsed.data, buildUserSnapshot(effectiveUser));
 }
 
 /**
@@ -102,11 +107,13 @@ export async function markExpenseAsPaidAction(data: {
   accountId?: string | null;
 }): Promise<ActionResult<{ expenseId: string; transactionId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   return markExpenseAsPaid(
     session.tenantId,
     data.expenseId,
     data.accountId,
-    buildUserSnapshot(session)
+    buildUserSnapshot(effectiveUser)
   );
 }
 
@@ -117,7 +124,9 @@ export async function cancelExpensePaymentAction(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return cancelExpensePayment(session.tenantId, expenseId, buildUserSnapshot(session));
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
+  return cancelExpensePayment(session.tenantId, expenseId, buildUserSnapshot(effectiveUser));
 }
 
 /**
@@ -127,7 +136,9 @@ export async function cancelExpenseAction(
   expenseId: string
 ): Promise<ActionResult<{ expenseId: string }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return cancelExpense(session.tenantId, expenseId, buildUserSnapshot(session));
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
+  return cancelExpense(session.tenantId, expenseId, buildUserSnapshot(effectiveUser));
 }
 
 /**
@@ -140,5 +151,7 @@ export async function deleteExpenseAction(
   }
 ): Promise<ActionResult<{ expenseId: string; deletedCount: number }>> {
   const session = await requirePermission("financeiro.despesas", "edit");
-  return deleteExpense(session.tenantId, expenseId, options, buildUserSnapshot(session));
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
+  return deleteExpense(session.tenantId, expenseId, options, buildUserSnapshot(effectiveUser));
 }

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { getEffectiveUserForPermissions } from "@/lib/active-user";
 import { db } from "@/lib/db";
 import {
   getDefaultAccessibleHref,
@@ -63,6 +64,7 @@ async function extractSession(): Promise<SessionUser | null> {
     email: u.email as string,
     role: u.role as Role,
     globalRole: (u.globalRole as GlobalRole | null) ?? null,
+    avatarUrl: (u.avatarUrl as string | null) ?? null,
   };
 }
 
@@ -81,6 +83,7 @@ async function hydrateSessionUser(user: SessionUser): Promise<SessionUser | null
       email: true,
       role: true,
       globalRole: true,
+      avatarUrl: true,
     },
   });
 
@@ -95,6 +98,7 @@ async function hydrateSessionUser(user: SessionUser): Promise<SessionUser | null
     email: dbUser.email,
     role: dbUser.role,
     globalRole: dbUser.globalRole ?? null,
+    avatarUrl: dbUser.avatarUrl ?? null,
   };
 }
 
@@ -124,6 +128,7 @@ async function loadSessionUserWithAccess(
       email: true,
       role: true,
       globalRole: true,
+      avatarUrl: true,
       customPermissions: true,
       modulePermissions: {
         select: {
@@ -151,6 +156,7 @@ async function loadSessionUserWithAccess(
     email: dbUser.email,
     role: dbUser.role,
     globalRole: dbUser.globalRole ?? null,
+    avatarUrl: dbUser.avatarUrl ?? null,
     customPermissions: permissionSnapshot.customPermissions,
     moduleAccess: permissionSnapshot.moduleAccess,
     allowedModules: permissionSnapshot.allowedModules,
@@ -225,10 +231,29 @@ export async function getOptionalSession(): Promise<SessionUser | null> {
 }
 
 /**
- * Retorna o usuário autenticado com o mapa efetivo de permissões por módulo.
+ * Retorna o usuário efetivo para permissões com o mapa de acesso por módulo.
  * Útil para sidebar, guards de rota e telas que precisam decidir acesso por módulo.
  */
 export async function getAuthUserWithAccess(): Promise<SessionUserWithAccess> {
+  try {
+    return await getEffectiveUserForPermissions();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message === "Não autorizado." || error.message === "Sessão incompleta.")
+    ) {
+      redirect("/login");
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Retorna o master autenticado com permissões próprias.
+ * Use somente quando a identidade de credencial precisa permanecer quem fez login.
+ */
+export async function getMasterAuthUserWithAccess(): Promise<SessionUserWithAccess> {
   const sessionUser = await getAuthUser();
   const user = await loadSessionUserWithAccess(sessionUser);
 
@@ -247,8 +272,7 @@ export async function requireModuleAccess(
   module: TenantModule,
   action: PermissionAction = "view"
 ): Promise<SessionUserWithAccess> {
-  const sessionUser = await requireAuth();
-  const user = await loadSessionUserWithAccess(sessionUser);
+  const user = await getEffectiveUserForPermissions();
 
   if (!user) {
     throw new Error("Não autorizado.");
@@ -286,8 +310,7 @@ export async function requirePermission(
   path: PermissionPath,
   action: PermissionAction = "view"
 ): Promise<SessionUserWithAccess> {
-  const sessionUser = await requireAuth();
-  const user = await loadSessionUserWithAccess(sessionUser);
+  const user = await getEffectiveUserForPermissions();
 
   if (!user || !hasPermission(user.customPermissions, path, action)) {
     throw new Error(`Acesso restrito à permissão ${path}:${action}.`);

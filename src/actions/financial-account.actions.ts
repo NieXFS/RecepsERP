@@ -1,6 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  isMasterRequiredError,
+  MASTER_REQUIRED_MESSAGE,
+  requireMasterSession,
+} from "@/lib/active-user";
 import { requireAdmin } from "@/lib/session";
 import {
   createFinancialAccountSchema,
@@ -11,6 +16,21 @@ import {
   deactivateFinancialAccount,
 } from "@/services/financial-account.service";
 import type { ActionResult } from "@/types";
+
+type MasterErrorResult = { success: false; error: string };
+
+async function ensureMasterForSensitiveAction(): Promise<MasterErrorResult | null> {
+  try {
+    await requireMasterSession();
+    return null;
+  } catch (error) {
+    if (isMasterRequiredError(error)) {
+      return { success: false, error: MASTER_REQUIRED_MESSAGE };
+    }
+
+    throw error;
+  }
+}
 
 function revalidateFinancialAccountConsumers() {
   revalidatePath("/configuracoes/contas");
@@ -26,6 +46,9 @@ export async function createFinancialAccountAction(data: {
   initialBalance?: number;
 }): Promise<ActionResult<{ accountId: string }>> {
   const user = await requireAdmin();
+  const masterError = await ensureMasterForSensitiveAction();
+  if (masterError) return masterError;
+
   const parsed = createFinancialAccountSchema.safeParse({
     ...data,
     initialBalance: data.initialBalance ?? 0,
@@ -48,6 +71,9 @@ export async function deactivateFinancialAccountAction(
   accountId: string
 ): Promise<ActionResult<{ accountId: string }>> {
   const user = await requireAdmin();
+  const masterError = await ensureMasterForSensitiveAction();
+  if (masterError) return masterError;
+
   const parsed = deactivateFinancialAccountSchema.safeParse({ accountId });
 
   if (!parsed.success) {

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requirePermission } from "@/lib/session";
+import { getEffectiveUserForPermissions } from "@/lib/active-user";
+import { requireAuth, requirePermission } from "@/lib/session";
 import { buildUserSnapshot } from "@/lib/audit";
 import { createCommissionPayout } from "@/services/commission-payout.service";
 import type { ActionResult } from "@/types";
@@ -27,6 +28,8 @@ export async function createCommissionPayoutAction(
   data: unknown
 ): Promise<ActionResult<{ payoutId: string }>> {
   const session = await requirePermission("financeiro.comissoes", "edit");
+  await requireAuth();
+  const effectiveUser = await getEffectiveUserForPermissions();
   const parsed = createPayoutSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -45,12 +48,12 @@ export async function createCommissionPayoutAction(
 
     const { payoutId } = await createCommissionPayout({
       tenantId: session.tenantId,
-      userId: session.id,
+      userId: effectiveUser.id,
       commissionIds: parsed.data.commissionIds,
       financialAccountId: parsed.data.financialAccountId,
       paidAt,
       notes: parsed.data.notes,
-      actor: buildUserSnapshot(session),
+      actor: buildUserSnapshot(effectiveUser),
     });
 
     revalidatePath("/financeiro/comissoes");

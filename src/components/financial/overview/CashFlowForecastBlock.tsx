@@ -279,6 +279,7 @@ export function CashFlowForecastBlock({ forecast }: Props) {
             variant="outline"
             size="sm"
             className="border-red-500/30 bg-background/40 text-red-700 hover:bg-background hover:text-red-700"
+            nativeButton={false}
             render={<Link href="/financeiro/despesas" />}
           >
             Ver contas a pagar

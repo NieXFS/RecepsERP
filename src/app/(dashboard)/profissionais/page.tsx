@@ -19,7 +19,7 @@ export default async function ProfessionalsPage() {
           Gerencie administradores, recepção e profissionais vinculados ao tenant.
         </p>
       </div>
-      <TeamPanel members={members} currentUserId={user.id} />
+      <TeamPanel members={members} currentUserId={user.id} currentUserRole={user.role} />
     </div>
   );
 }

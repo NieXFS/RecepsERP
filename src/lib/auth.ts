@@ -1,6 +1,11 @@
 import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import type { GlobalRole, Role } from "@/generated/prisma/enums";
+import {
+  clearActiveUserCookie,
+  getActiveUserIdFromCookie,
+} from "@/lib/active-user";
 import { db } from "@/lib/db";
 
 /**
@@ -70,6 +75,7 @@ export const authOptions: NextAuthOptions = {
           tenantId: user.tenantId,
           role: user.role,
           globalRole: user.globalRole,
+          avatarUrl: user.avatarUrl,
         };
       },
     }),
@@ -81,8 +87,9 @@ export const authOptions: NextAuthOptions = {
         const u = user as unknown as Record<string, unknown>;
         token.id = u.id as string;
         token.tenantId = u.tenantId as string;
-        token.role = u.role as string;
-        token.globalRole = (u.globalRole as string | null) ?? null;
+        token.role = u.role as Role;
+        token.globalRole = (u.globalRole as GlobalRole | null) ?? null;
+        token.avatarUrl = (u.avatarUrl as string | null) ?? null;
       }
 
       // Retrocompatibilidade para sessões JWT criadas antes do PASSO 12.
@@ -90,7 +97,11 @@ export const authOptions: NextAuthOptions = {
       // busca o usuário atual no banco e reidrata os claims necessários.
       if (
         token.email &&
-        (!token.id || !token.tenantId || !token.role || typeof token.globalRole === "undefined")
+        (!token.id ||
+          !token.tenantId ||
+          !token.role ||
+          typeof token.globalRole === "undefined" ||
+          typeof token.avatarUrl === "undefined")
       ) {
         const dbUser = await db.user.findUnique({
           where: { email: token.email },
@@ -99,6 +110,7 @@ export const authOptions: NextAuthOptions = {
             tenantId: true,
             role: true,
             globalRole: true,
+            avatarUrl: true,
             isActive: true,
             deletedAt: true,
           },
@@ -109,6 +121,7 @@ export const authOptions: NextAuthOptions = {
           token.tenantId = dbUser.tenantId;
           token.role = dbUser.role;
           token.globalRole = dbUser.globalRole ?? null;
+          token.avatarUrl = dbUser.avatarUrl ?? null;
         }
       }
 
@@ -122,8 +135,58 @@ export const authOptions: NextAuthOptions = {
         u.tenantId = token.tenantId;
         u.role = token.role;
         u.globalRole = (token.globalRole as string | null) ?? null;
+        u.avatarUrl = (token.avatarUrl as string | null) ?? null;
+
+        const masterUser = {
+          id: u.id as string,
+          name: (u.name as string | null) ?? "",
+          email: (u.email as string | null) ?? "",
+          role: u.role as Role,
+          avatarUrl: (u.avatarUrl as string | null) ?? null,
+        };
+        const activeUserId = await getActiveUserIdFromCookie();
+        let activeUser: typeof masterUser | null = null;
+
+        if (activeUserId && activeUserId !== masterUser.id) {
+          const candidate = await db.user.findUnique({
+            where: { id: activeUserId },
+            select: {
+              id: true,
+              tenantId: true,
+              name: true,
+              email: true,
+              role: true,
+              avatarUrl: true,
+              isActive: true,
+              deletedAt: true,
+            },
+          });
+
+          if (
+            candidate &&
+            candidate.tenantId === u.tenantId &&
+            candidate.isActive &&
+            !candidate.deletedAt
+          ) {
+            activeUser = {
+              id: candidate.id,
+              name: candidate.name,
+              email: candidate.email,
+              role: candidate.role,
+              avatarUrl: candidate.avatarUrl,
+            };
+          }
+        }
+
+        session.activeUser = activeUser ?? masterUser;
+        session.masterUserId = masterUser.id;
       }
       return session;
+    },
+  },
+  events: {
+    async signOut() {
+      await clearActiveUserCookie();
     },
   },
 };

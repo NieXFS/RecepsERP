@@ -125,14 +125,13 @@ export const CRITICAL_ADMIN_MODULES: readonly TenantModule[] = [
 const DEFAULT_ROLE_MODULES: Record<Role, readonly TenantModule[]> = {
   ADMIN: TENANT_MODULE_VALUES,
   RECEPTIONIST: [
-    "DASHBOARD",
     "AGENDA",
     "CLIENTES",
     "SERVICOS",
     "PACOTES",
     "ESTOQUE",
   ],
-  PROFESSIONAL: ["DASHBOARD", "AGENDA", "CLIENTES", "PRONTUARIOS"],
+  PROFESSIONAL: ["AGENDA", "CLIENTES", "PRONTUARIOS"],
 };
 
 export function getDefaultModuleAccess(role: Role): ModuleAccessMap {

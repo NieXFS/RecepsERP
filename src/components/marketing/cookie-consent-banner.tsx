@@ -35,8 +35,12 @@ export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const consent = getCookieValue(COOKIE_CONSENT_NAME);
-    setVisible(consent !== "accepted");
+    const timer = window.setTimeout(() => {
+      const consent = getCookieValue(COOKIE_CONSENT_NAME);
+      setVisible(consent !== "accepted");
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   if (!visible) {
@@ -63,7 +67,12 @@ export function CookieConsentBanner() {
           >
             Aceitar
           </Button>
-          <Button render={<Link href="/privacidade#cookies" />} variant="outline" size="lg">
+          <Button
+            nativeButton={false}
+            render={<Link href="/privacidade#cookies" />}
+            variant="outline"
+            size="lg"
+          >
             Saiba mais
           </Button>
         </div>

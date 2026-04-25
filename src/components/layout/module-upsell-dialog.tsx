@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Check, Lock } from "lucide-react";
+import { Check, Lock, ShieldAlert } from "lucide-react";
 import type { TenantModule } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import type { ModuleAccessReason } from "@/lib/module-access";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,8 @@ type ModuleUpsellContent = {
   benefits: string[];
   requiredPlan: "ERP" | "Atendente IA";
 };
+
+type ModuleBlockReason = Exclude<ModuleAccessReason, { granted: true }>["reason"];
 
 const MODULE_UPSELL_CONTENT: Partial<Record<TenantModule, ModuleUpsellContent>> = {
   AGENDA: {
@@ -116,7 +120,18 @@ const MODULE_UPSELL_CONTENT: Partial<Record<TenantModule, ModuleUpsellContent>> 
   },
 };
 
-export function getModuleUpsellTooltip(module: TenantModule): string | null {
+export function getModuleUpsellTooltip(
+  module: TenantModule,
+  reason: ModuleBlockReason = "plan-locked"
+): string | null {
+  if (reason === "permission-denied") {
+    return "Sem permissão para este módulo";
+  }
+
+  if (reason === "module-disabled") {
+    return "Módulo indisponível";
+  }
+
   const content = MODULE_UPSELL_CONTENT[module];
   return content ? `Disponível no plano ${content.requiredPlan}` : null;
 }
@@ -124,17 +139,68 @@ export function getModuleUpsellTooltip(module: TenantModule): string | null {
 export function ModuleUpsellDialog({
   module,
   icon: Icon,
+  reason = "plan-locked",
   open,
   onOpenChange,
 }: {
   module: TenantModule;
   icon: LucideIcon;
+  reason?: ModuleBlockReason;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const content = MODULE_UPSELL_CONTENT[module];
 
-  if (!content) {
+  if (reason === "plan-locked" && !content) {
+    return null;
+  }
+
+  if (reason !== "plan-locked") {
+    const moduleDisabled = reason === "module-disabled";
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+          <div className="flex flex-col gap-5 p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+              <ShieldAlert className="h-6 w-6" aria-hidden="true" />
+            </div>
+
+            <DialogHeader className="gap-2">
+              <DialogTitle className="text-xl font-semibold tracking-tight">
+                {moduleDisabled
+                  ? "Essa área está indisponível"
+                  : "Você não tem acesso a essa área"}
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed">
+                {moduleDisabled
+                  ? "Não foi possível liberar esse módulo agora. Volte para a agenda ou fale com o administrador da sua conta."
+                  : "Esse módulo está disponível no seu plano, mas seu usuário não tem permissão pra acessá-lo. Fale com o administrador da sua conta se precisar."}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <DialogFooter className="sm:flex-col sm:items-stretch sm:justify-stretch">
+            <Button
+              variant="outline"
+              className="w-full"
+              size="lg"
+              onClick={() => {
+                onOpenChange(false);
+                router.push("/agenda");
+              }}
+            >
+              Voltar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const planContent = content;
+  if (!planContent) {
     return null;
   }
 
@@ -148,21 +214,21 @@ export function ModuleUpsellDialog({
             </div>
             <div className="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
               <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-              {content.requiredPlan}
+              {planContent.requiredPlan}
             </div>
           </div>
 
           <DialogHeader className="gap-2">
             <DialogTitle className="text-xl font-semibold tracking-tight">
-              {content.title}
+              {planContent.title}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
-              {content.description}
+              {planContent.description}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
-            {content.benefits.map((benefit) => (
+            {planContent.benefits.map((benefit) => (
               <div key={benefit} className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -175,6 +241,7 @@ export function ModuleUpsellDialog({
 
         <DialogFooter className="sm:flex-col sm:items-stretch sm:justify-stretch">
           <Button
+            nativeButton={false}
             render={<Link href="/configuracoes/assinatura" />}
             className="w-full"
             size="lg"
